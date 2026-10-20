@@ -3,6 +3,7 @@
 
 mod audio_protocol;
 mod commands;
+mod watch;
 
 use dc_core::rusqlite::Connection;
 use dc_core::{backup, db, jobs, library, paths};
@@ -19,6 +20,7 @@ pub struct AppState {
     pub pool: Mutex<Option<jobs::WorkerPool>>,
     pub import_cancel: Mutex<Option<Arc<AtomicBool>>>,
     pub audio: audio_protocol::AudioCache,
+    pub watcher: Mutex<Option<notify::RecommendedWatcher>>,
 }
 
 impl AppState {
@@ -86,6 +88,7 @@ pub fn run() {
         pool: Mutex::new(None),
         import_cancel: Mutex::new(None),
         audio: audio_protocol::AudioCache::new(&db_path),
+        watcher: Mutex::new(None),
     };
 
     tauri::Builder::default()
@@ -101,6 +104,7 @@ pub fn run() {
         .setup(move |app| {
             let state = app.state::<AppState>();
             state.start_pool(app.handle(), &profile);
+            watch::start(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -142,6 +146,31 @@ pub fn run() {
             commands::get_settings,
             commands::set_setting,
             commands::validate_query,
+            commands::undo,
+            commands::redo,
+            commands::recent_changes,
+            commands::list_tags,
+            commands::create_tag,
+            commands::update_tag,
+            commands::delete_tag,
+            commands::add_tag_synonym,
+            commands::remove_tag_synonym,
+            commands::set_quick_tag,
+            commands::tag_tracks,
+            commands::quick_tag,
+            commands::review_tag_suggestion,
+            commands::fix_rules,
+            commands::preview_fixes,
+            commands::apply_fixes,
+            commands::add_cue,
+            commands::accept_cue,
+            commands::delete_cue,
+            commands::rename_cue,
+            commands::plan_tag_write,
+            commands::write_tags,
+            commands::list_watch_folders,
+            commands::add_watch_folder,
+            commands::remove_watch_folder,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

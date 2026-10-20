@@ -22,8 +22,9 @@ by charter (see `docs/SCOPE.md`).
 Legend: **Priority** P0 = first build, P1 = next phases, P2 = later, P3 = optional.
 **Status** follows the allowed set: NOT STARTED, IN DESIGN, IMPLEMENTED — UNTESTED, PARTIALLY VERIFIED,
 VERIFIED, VERIFIED SUPERIOR, BLOCKED, OUT OF SCOPE — JUSTIFIED.
-"PARTIALLY VERIFIED" here means automated tests pass on real audio files on Linux. Windows/macOS
-runs (CI matrix) and/or real-world corpora are still pending.
+"PARTIALLY VERIFIED" here means automated tests pass on real audio files, on Linux, Windows and
+macOS in CI (format tests needing ffmpeg are skipped on the Windows runner). Manual checks on
+real hardware and real-world corpora are still pending.
 
 Module codes: CORE = Library Core (`dc-core::library`), IO = Import/Export (`export`, `rekordbox`),
 META = Metadata Engine (`metadata`, field provenance), AN = Audio Analysis (`analysis`), DNA = Music DNA,
@@ -47,28 +48,28 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Lexicon | Free | DIRECT2CDJ | Play to CDJs over network | — | Pro DJ Link | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Live performance tooling (excluded by charter). |
 | Lexicon | Free | Last.fm scrobbling | Report plays online | — | — | Last.fm API | needs an account | — | OUT OF SCOPE — JUSTIFIED | — | Not library management; contradicts offline/no-account principle. |
 | Lexicon | Essential | Track & playlist editing, editor | Edit metadata singly and in bulk | META/UI | Provenance-aware field store | none | — | P0 | PARTIALLY VERIFIED | `import_decide_search_export_restart_analyze` (edit wins over analysis, survives re-analysis, revert works) | Writing tags back into audio files is not built (read-only by design for now). |
-| Lexicon | Essential | Custom tags | Free-form tags per track | META | `tags`/`track_tags` tables | none | — | P1 | IN DESIGN | Schema present; UI pending | Search supports `tag:` already. No tag editor UI yet. |
+| Lexicon | Essential | Custom tags | Free-form tags per track | META | Hierarchical tags, synonyms, categories, Quick Tag slots | none | — | P1 | PARTIALLY VERIFIED | `phase2::hierarchical_tags_synonyms_and_quick_slots` | `tag:x` matches children + synonyms. |
 | Lexicon | Essential | Recipes (automation) | Saved multi-step operations | META | Recipe engine + preview | none | — | P2 | NOT STARTED | | |
 | Lexicon | Essential | Smartlists + smartlist generator | Rule-based dynamic playlists | CRATE | Query language → SQL | none | — | P0 | PARTIALLY VERIFIED | `query::tests`, smart playlist assertions in `library_flow` | Generator from natural language arrives with Music DNA. |
 | Lexicon | Essential | Archive | Hide tracks without deleting | CORE | Archive flag | none | — | P1 | NOT STARTED | | Decisions (`pass`) cover part of the need. |
 | Lexicon | Essential | Incoming tracks | Inbox of newly added tracks | CORE | `added:` filter | none | — | P0 | PARTIALLY VERIFIED | `added:7d` query | No dedicated inbox view. |
 | Lexicon | Essential | Energy / danceability / popularity / happiness fields | Extra descriptive fields | AN/DNA | Measured energy curve today; models later | — | — | P1 | IN DESIGN | | Popularity needs online data → out of the offline core. |
-| Lexicon | Essential | Write tags to file | Persist edits into ID3/Vorbis/MP4 tags | META | lofty writer + backup + preview | lofty (MIT/Apache) | Must preserve unknown frames | P1 | NOT STARTED | Byte-level round-trip tests per format | Deliberately not in the first build (data safety). |
+| Lexicon | Essential | Write tags to file | Persist edits into ID3/Vorbis/MP4 tags | META | Dry-run plan, changed-on-disk guard, original copy, read-back verification, auto-restore | lofty (MIT/Apache) | Unknown frames are kept by lofty (not byte-verified yet) | P1 | PARTIALLY VERIFIED | `phase2::write_tags_back_to_files` (MP3, FLAC, M4A, AIFF; audio still decodes) | ID3/MP4 store integer BPM only. Rating/POPM not written yet. |
 | Lexicon | Essential | Album art add/remove | Manage artwork | META | Picture read/write | lofty | — | P2 | NOT STARTED | | `has_artwork` detected on import. |
-| Lexicon | Essential | Undo history | Undo edits | CORE | Audit log + inverse ops | none | — | P1 | IN DESIGN | Audit log written for every edit/decision/import | Edits are reversible per field ("revert to file value"). There is no global undo stack yet. |
-| Lexicon | Essential | Set cue points/loops/beatgrid | Edit cues and grid | AN/UI | Cue table, grid table | none | — | P1 | IN DESIGN | Cues imported/exported (Rekordbox) | No cue editor UI yet. |
+| Lexicon | Essential | Undo history | Undo edits | CORE | Change batches with before/after state, undo/redo stack | none | — | P1 | PARTIALLY VERIFIED | `phase2::undo_redo_edits_decisions_notes_favorites` | Covers edits, decisions, notes, favourites, tags, smart fixes. Not yet: playlist and cue edits (imports have backups). |
+| Lexicon | Essential | Set cue points/loops/beatgrid | Edit cues and grid | AN/UI | Cue table (locked user cues), grid table | none | — | P1 | PARTIALLY VERIFIED (cues) | `phase2::analysis_creates_phrase_cue_suggestions…` | Memory/hot cues at playhead (C key), rename, delete. Loop and beatgrid editing UI pending. |
 | Lexicon | Essential | Analyze BPM/beatgrid/key/energy | Local analysis | AN | DSP pipeline | rustfft, symphonia | MPL-2.0/MIT/Apache | P0 | PARTIALLY VERIFIED | `analysis_synthetic` (8 tempi 90–174 BPM, 8 keys, exact), multi-format test | Accuracy on real music not yet measured (see `AI_VALIDATION.md`). |
 | Lexicon | Essential | Find lost, broken and unused files | Detect missing/unused | HEALTH | Existence scan, relink by hash | none | — | P0 | PARTIALLY VERIFIED | Move test: file renamed → missing → re-import → relinked with decisions kept | "Unused files" (files on disk not in library) not built. |
-| Lexicon | Essential | Smart Fixes & cleanup (genre, artist, casing, remixer…) | Batch corrections with preview | HEALTH/META | Rule engine + preview + undo | none | — | P1 | NOT STARTED | | Version/remixer extraction from titles exists (import time). |
+| Lexicon | Essential | Smart Fixes & cleanup (genre, artist, casing, remixer…) | Batch corrections with preview | HEALTH/META | 10 rules, per-proposal accept, one undoable batch | none | — | P1 | PARTIALLY VERIFIED | `fixes::tests`, `phase2::smart_fixes_preview_apply_undo` | Genre rule only fixes spelling of the same genre, never merges genres. |
 | Lexicon | Essential | Merge/prefix/cross-reference/shuffle playlists, playlist occurrence | Playlist utilities | CORE | Playlist ops | none | — | P1 | NOT STARTED | | "In playlists" is shown per track in details. |
 | Lexicon | Essential | Export CSV / M3U8 / HTML/PDF | Export lists | IO | Writers | csv | — | P0 | PARTIALLY VERIFIED | M3U8 content asserted, CSV written | HTML/PDF not built. |
 | Lexicon | Essential | Mobile app, Local API, plugins, Stream Deck | Remote/extension access | — | — | — | — | P3 | NOT STARTED | | Phase 8 optional (mobile companion architecture). |
-| Lexicon | Ultimate | Watch folder | Auto-import new files | CORE | FS watcher | notify (CC0/Artistic) | — | P1 | NOT STARTED | | Incremental re-import is already cheap. |
+| Lexicon | Ultimate | Watch folder | Auto-import new files | CORE | OS watcher (notify) + 3 s debounce + startup rescan; removed paths marked missing → relink | notify (CC0-1.0) | — | P1 | PARTIALLY VERIFIED | Registry test + manual run on Linux: new file imported and queued for analysis, rename relinked to the same track, deletion marked missing | No automated test of the OS event loop; Windows/macOS not checked by hand. |
 | Lexicon | Ultimate | Move & rename files, target folder | Organise files on disk | CORE | Safe move with undo + DB relink | none | High risk: preview + backup | P1 | NOT STARTED | | |
-| Lexicon | Ultimate | History | Change history per track | CORE | `audit_log` | none | — | P1 | IN DESIGN | Audit rows written | No UI. |
+| Lexicon | Ultimate | History | Change history per track | CORE | `changes` + `audit_log` | none | — | P1 | PARTIALLY VERIFIED | `history::track_history` in undo test; UI in details panel | |
 | Lexicon | Ultimate | Import tags from CSV | Bulk metadata from CSV | IO | CSV mapper | csv | — | P1 | NOT STARTED | | |
 | Lexicon | Ultimate | Local path mappings | Same library on different drives/OS | CORE | Path prefix map | none | — | P1 | NOT STARTED | | File identity is independent of path already. |
-| Lexicon | Ultimate | Cue point templates, custom anchors, generate cue points | Automatic cues | AN | Structure analysis | — | — | P1 | NOT STARTED | | Analysis already yields first beat + energy curve, the inputs for cue suggestions. |
+| Lexicon | Ultimate | Cue point templates, custom anchors, generate cue points | Automatic cues | AN | Phrase-aligned (8-bar) suggestions from beat grid + energy curve: Intro, Main, Breakdown, Drop, Outro | — | — | P1 | PARTIALLY VERIFIED (generation) | `cues::tests`, synthetic breakdown found within one beat | Suggestions only, never exported until accepted. Templates/anchors not built. Real-music accuracy not measured. |
 | Lexicon | Ultimate | Automatic emergency loop | Performance safety loop | — | — | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Live performance feature. |
 | Lexicon | Ultimate | Find duplicates | Duplicate detection | HEALTH | Hash + metadata groups; acoustic fingerprint later | — | — | P0 | PARTIALLY VERIFIED | `duplicate_candidates` (copy at another path found; nothing deleted) | Cross-format/bitrate duplicates need fingerprints (P1). |
 | Lexicon | Ultimate | Find missing tags & album art | Gap report | HEALTH | Stats queries | none | — | P0 | PARTIALLY VERIFIED | Dashboard "Gaps to fill" (genre:none, bpm:none, key:none, artwork:no) | |
@@ -85,7 +86,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | DJOID | Pro | Scatter Map | 2-D map of the whole library; proximity = compatibility | SIM/UI | Embeddings + UMAP/t-SNE + WebGL/canvas | — | — | P1 | NOT STARTED | Renders 100k points fluidly | |
 | DJOID | Pro | Magic Sorting | Automatic set ordering | SET | Sequencing optimiser | none | — | P1 | NOT STARTED | | |
 | DJOID | Pro | Auto Group | Not described by vendor (assumed clustering) | SIM | Clustering | — | — | P2 | IN DESIGN | | Behaviour to be confirmed. |
-| DJOID | Pro | Cue Points | Not described (assumed automatic cues) | AN | Structure analysis | — | — | P1 | NOT STARTED | | |
+| DJOID | Pro | Cue Points | Not described (assumed automatic cues) | AN | Phrase-aligned suggestions | — | — | P1 | PARTIALLY VERIFIED | see Lexicon "generate cue points" | |
 | DJOID | Pro | Genre Detection | Automatic genre/sub-genre | DNA | Classifier + validation | model weights | Licence of weights | P1 | NOT STARTED | Macro-F1 on annotated corpus | Not faked: UI says "planned". |
 | DJOID | Pro | Matching Tracks | Compatible-track finder | SIM | Harmonic/tempo now, embedding later | — | — | P0/P1 | PARTIALLY VERIFIED (harmonic) | `key:8A+ bpm:…` query | Timbral similarity not built. |
 | DJOID | Pro | Migration from DJ software (incl. Rekordbox tags) | Import playlists, crates, tags | IO | Adapters | — | — | P0 | PARTIALLY VERIFIED (Rekordbox XML) | `rekordbox_xml_round_trip` | Rekordbox "My Tag" data lives in master.db, not in XML: needs a separate, safe read path. |
@@ -116,8 +117,8 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Mixed In Key | MIK | Key & BPM detection | Analyse files | AN | DSP / later model | — | — | P0 | PARTIALLY VERIFIED | `analysis_synthetic` | Key on real music: Krumhansl profiles are a baseline; expect weaker accuracy on modal/atonal tracks until evaluated. |
 | Mixed In Key | MIK | Camelot wheel / compatible keys | Harmonic suggestions | META/CRATE | Camelot logic | — | — | P0 | PARTIALLY VERIFIED | `keys::tests::compatibility`, `key:8A+` | Energy-boost moves (+2, +7) not built. |
 | Mixed In Key | MIK | Energy Level (1–10) | Danceability/energy rating | DNA | Model or calibrated DSP | — | — | P1 | NOT STARTED | Correlation with human ratings | A measured energy curve exists; no 1–10 score is shown (would be invented). |
-| Mixed In Key | MIK | Cue point generation | Auto cues | AN | Structure detection | — | — | P1 | NOT STARTED | Boundary F-measure | |
-| Mixed In Key | MIK | Write results to tags | Tag writing | META | lofty writer | — | — | P1 | NOT STARTED | | |
+| Mixed In Key | MIK | Cue point generation | Auto cues | AN | Phrase-aligned suggestions from energy changes | — | — | P1 | PARTIALLY VERIFIED (synthetic) | Boundary F-measure on real music pending | |
+| Mixed In Key | MIK | Write results to tags | Tag writing | META | lofty writer (BPM, key incl. measured values) | — | — | P1 | PARTIALLY VERIFIED | `phase2::write_tags_back_to_files` | |
 | Mixed In Key | Pro | Mashup / transition ideas | Mashup suggestions | — | — | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Mashups excluded. Transition *compatibility* suggestions live in SET (P1). |
 | Mixed In Key | Live / Studio | Real-time/DAW key detection | — | — | — | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Production/DAW tooling. |
 
@@ -126,16 +127,16 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | One Tagger | Free | Auto tagger from Beatport/Traxsource/Juno/Discogs/MusicBrainz | Fetch metadata for matched tracks | META | Matchers per catalog | Online APIs | Each catalog's ToS/rate limits must be checked. MusicBrainz is CC0 data. | P2 | NOT STARTED | Match precision on sample set | Optional and online. The core works without it. |
-| One Tagger | Free | Quick Tag with shortcuts (energy, mood, genre) | Keyboard tagging while listening | UI/META | Tag shortcuts | — | — | P1 | IN DESIGN | | Keyboard K/P/M + 1–5 rating already PARTIALLY VERIFIED in UI. |
+| One Tagger | Free | Quick Tag with shortcuts (energy, mood, genre) | Keyboard tagging while listening | UI/META | Shift+1…9 quick-tag slots (toggle on selection) | — | — | P1 | PARTIALLY VERIFIED | Core test + GUI check | |
 | One Tagger | Free | Audio features (Spotify) → tags | Online features | — | Spotify API | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Remote AI/feature service conflicts with local-only analysis. Local equivalents come from DNA. |
 | One Tagger | Free | Auto rename from template | Rename files | CORE | Safe rename + relink | — | High risk: preview/undo | P1 | NOT STARTED | | |
-| One Tagger | Free | Formats MP3/AIFF/FLAC/M4A | Read/write tags | META | lofty | — | — | P0 | PARTIALLY VERIFIED (read) | `encoded_formats_with_tags` (MP3, FLAC, AIFF, AAC-M4A, ALAC-M4A) | Write not built. |
+| One Tagger | Free | Formats MP3/AIFF/FLAC/M4A | Read/write tags | META | lofty | — | — | P0 | PARTIALLY VERIFIED | Read: `encoded_formats_with_tags`; write: `write_tags_back_to_files` | |
 
 ## Vibes (developer posts + listings)
 
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Vibes | Licence | Tag by vibe/energy/mood/era and combine filters | Tag-centric organisation | META/CRATE | Tags + filters | — | — | P1 | IN DESIGN | | `tag:` search exists. |
+| Vibes | Licence | Tag by vibe/energy/mood/era and combine filters | Tag-centric organisation | META/CRATE | Tag categories + query language | — | — | P1 | PARTIALLY VERIFIED | Tag tests + `tag:a -tag:b` queries | |
 | Vibes | Licence | On-device AI that learns your tagging and suggests tags | Personal tag suggestions | TASTE/DNA | Local classifier on embeddings | model | — | P1 | NOT STARTED | Suggestion precision vs user's later choices | |
 | Vibes | Licence | BPM/key/cue analysis on import | Auto analysis | AN | — | — | — | P0 | PARTIALLY VERIFIED (BPM/key; cues not yet) | | |
 | Vibes | Licence | Set Designer canvas with key/BPM suggestions | Visual set prep | SET | Canvas + compatibility | — | — | P1 | NOT STARTED | | |

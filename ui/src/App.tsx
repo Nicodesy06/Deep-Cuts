@@ -13,6 +13,7 @@ import { Planned } from "./views/Planned";
 import { Settings } from "./views/Settings";
 import { SmartCrates } from "./views/SmartCrates";
 import { SyncExport } from "./views/SyncExport";
+import { TagEditor } from "./views/TagEditor";
 
 const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "dashboard", label: "nav.dashboard", icon: "◧" },
@@ -22,14 +23,14 @@ const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "crates", label: "nav.crates", icon: "⚡" },
   { id: "sets", label: "nav.sets", icon: "☰", planned: true },
   { id: "health", label: "nav.health", icon: "✚" },
-  { id: "tags", label: "nav.tags", icon: "#", planned: true },
+  { id: "tags", label: "nav.tags", icon: "#" },
   { id: "sync", label: "nav.sync", icon: "⇄" },
   { id: "queue", label: "nav.queue", icon: "◔" },
   { id: "settings", label: "nav.settings", icon: "⚙" },
 ];
 
 function Sidebar() {
-  const { t, view, go } = useApp();
+  const { t, view, go, undo, redo } = useApp();
   return (
     <nav className="sidebar" aria-label="Main">
       <div className="brand">
@@ -51,7 +52,17 @@ function Sidebar() {
           </li>
         ))}
       </ul>
-      <div className="sidebar-foot muted small">{t("nav.offline")}</div>
+      <div className="sidebar-foot">
+        <div className="row history-btns">
+          <button className="btn ghost small" onClick={undo} title={`${t("history.undo")} (Ctrl/⌘+Z)`}>
+            ↶ {t("history.undo")}
+          </button>
+          <button className="btn ghost small" onClick={redo} title={`${t("history.redo")} (Ctrl/⌘+Shift+Z)`}>
+            ↷ {t("history.redo")}
+          </button>
+        </div>
+        <div className="muted small">{t("nav.offline")}</div>
+      </div>
     </nav>
   );
 }
@@ -135,8 +146,28 @@ function Toasts() {
 }
 
 function Main() {
-  const { view, t, toast, bump } = useApp();
+  const { view, t, toast, bump, undo, redo } = useApp();
   const [dropping, setDropping] = useState(false);
+
+  // Global undo/redo (text fields keep their native undo).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
+      const mod = navigator.platform.toLowerCase().includes("mac") ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   // Drop folders/files from the OS anywhere in the window to import them.
   useEffect(() => {
@@ -187,6 +218,9 @@ function Main() {
       break;
     case "settings":
       content = <Settings />;
+      break;
+    case "tags":
+      content = <TagEditor />;
       break;
     default:
       content = <Planned view={view} />;

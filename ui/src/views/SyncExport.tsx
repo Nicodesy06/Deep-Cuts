@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Playlist } from "../api";
 import { exportTracks, importFolders, importRekordboxXml, type ExportFormat } from "../actions";
+import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { useApp } from "../store";
 
 const PLATFORMS: { name: string; status: "available" | "planned"; notes: string }[] = [
@@ -17,6 +18,8 @@ export function SyncExport() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [source, setSource] = useState<string>("__all");
   const [query, setQuery] = useState("decision:keep");
+  const [writeQuery, setWriteQuery] = useState("");
+  const [writeIds, setWriteIds] = useState<string[] | null>(null);
 
   useEffect(() => {
     api.listPlaylists().then(setPlaylists, () => {});
@@ -88,6 +91,23 @@ export function SyncExport() {
           </div>
         </section>
       </div>
+      <section className="panel">
+        <h2>{t("write.title")}</h2>
+        <p className="hint">{t("write.sectionHint")}</p>
+        <div className="row wrap mt">
+          <input className="mono grow" value={writeQuery} onChange={(e) => setWriteQuery(e.target.value)} placeholder={t("fixes.scope")} spellCheck={false} />
+          <button
+            className="btn ghost"
+            onClick={async () => {
+              const ids = await api.queryTracks({ query: writeQuery, limit: 100000 }).then((p) => p.tracks.map((x) => x.id), (e) => (toast(String(e), "error"), null));
+              if (ids) setWriteIds(ids);
+            }}
+          >
+            {t("write.previewBtn")}
+          </button>
+        </div>
+      </section>
+      {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
       <section className="panel">
         <h2>{t("sync.platforms")}</h2>
         <table className="grid-table">

@@ -1423,3 +1423,181 @@ textarea {
     transition: none !important;
   }
 }
+
+/* ---------- phase 2: history, tags, cues, fixes, tag writing ---------- */
+.mt {
+  margin-top: 12px;
+}
+.grow {
+  flex: 1 1 260px;
+}
+.history-btns {
+  margin-bottom: 8px;
+  gap: 4px;
+}
+.history-btns .btn {
+  flex: 1;
+  padding: 3px 6px;
+}
+.kbd {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 0 4px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--text-2);
+  background: var(--bg-2);
+}
+.menu-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 4px 10px 2px;
+}
+.menu-kbd {
+  margin-left: auto;
+}
+.chip-x {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0 0 0 2px;
+  font-size: 13px;
+  line-height: 1;
+}
+.chip-x:hover {
+  color: var(--pass);
+}
+.chip-x.ok:hover {
+  color: var(--keep);
+}
+.tag-chip {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+.tagcat-mood {
+  border-color: color-mix(in srgb, var(--hot) 45%, transparent);
+}
+.tagcat-energy {
+  border-color: color-mix(in srgb, var(--maybe) 45%, transparent);
+}
+.tagcat-situation {
+  border-color: color-mix(in srgb, var(--info) 45%, transparent);
+}
+.chip-suggested {
+  border-style: dashed;
+  color: var(--text-2);
+}
+.chips.suggestions {
+  margin-top: 6px;
+}
+.tag-add {
+  margin-top: 6px;
+}
+.tag-add input {
+  flex: 1;
+  padding: 4px 6px;
+}
+.tag-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.tag-col .section-title {
+  margin-top: 4px;
+}
+.tag-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  text-align: left;
+  color: var(--text-2);
+}
+.tag-row:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.tag-row.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.quick-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+.quick-slot {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.quick-slot select {
+  flex: 1;
+  padding: 3px 4px;
+}
+.cue-kind {
+  font-size: 11px;
+  color: var(--text-2);
+  min-width: 38px;
+}
+.cue-name {
+  color: var(--text);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cue-suggestion {
+  opacity: 0.85;
+}
+.cue-list li .spacer {
+  flex: 1;
+}
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-2);
+  word-break: break-word;
+}
+.history-list li.undone {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.modal.wide {
+  width: min(860px, 94vw);
+  max-height: 86vh;
+}
+.write-plan,
+.fix-table {
+  max-height: 46vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+}
+.fix-rules .chip {
+  cursor: pointer;
+}
+td.del {
+  color: var(--pass);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--pass) 50%, transparent);
+}
+td.ins {
+  color: var(--keep);
+}
+tr.rejected td {
+  opacity: 0.4;
+}

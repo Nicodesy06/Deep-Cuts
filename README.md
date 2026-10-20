@@ -6,7 +6,7 @@ Deep Cuts imports your music, analyses it on your own machine, and helps you tri
 clean and export your library, with Rekordbox interoperability. No account, no subscription, no cloud,
 no remote AI.
 
-> Status: **first functional build (v0.1.0, Phase 1).** See `docs/STATUS.md` for exactly what works,
+> Status: **v0.1.x: Phase 1 complete, Phase 2 essentials in place.** See `docs/STATUS.md` for exactly what works,
 > what is verified and what is not built yet. The app never shows simulated AI results.
 
 ## What works today
@@ -29,10 +29,18 @@ no remote AI.
   Nothing is ever deleted.
 * **Rekordbox XML import/export** (tracks, playlists, BPM, key, rating, comments, cues, loops,
   beatgrid), **M3U8** and **CSV** export.
+* **Undo / redo** (Ctrl/⌘+Z) for edits, decisions, tags and smart fixes, plus per-track change history.
+* **Tags**: hierarchical tags, synonyms, categories, Quick Tag (Shift+1…9), Tag Editor.
+* **Smart Fixes** with preview: URLs/promo text, track-number prefixes, SHOUTED CAPS, feat./separators,
+  genre spelling, invisible characters, version/remixer extraction.
+* **Cue points**: phrase-aligned suggestions (Intro/Main/Breakdown/Drop/Outro) from the analysis,
+  memory/hot cues at the playhead (`C`), Rekordbox cue import/export.
+* **Write tags to files** on request (dry run, copies of originals, read-back verification).
+* **Watch folders** for automatic import.
 * **Backups**: daily automatic snapshot, manual backups, automatic snapshot before risky operations,
   restore with safety copy, integrity check.
 * **Dashboard** computed from your real library. **English and Italian** UI.
-* `deepcuts` **CLI** on the same database (import, search, decide, analyze, export, stats, bench).
+* `deepcuts` **CLI** on the same database (import, search, decide, analyze, tag, fix, write-tags, undo, export, stats, bench).
 
 ## Build and run
 

@@ -7,7 +7,6 @@ const INFO: Partial<Record<View, { title: MsgKey; body: MsgKey; phase: string; a
   discover: { title: "nav.discover", body: "planned.discover", phase: "5", available: "planned.discoverNow" },
   dna: { title: "nav.dna", body: "planned.dna", phase: "4", available: "planned.dnaNow" },
   sets: { title: "nav.sets", body: "planned.sets", phase: "6", available: "planned.setsNow" },
-  tags: { title: "nav.tags", body: "planned.tags", phase: "2", available: "planned.tagsNow" },
 };
 
 export function Planned({ view }: { view: View }) {

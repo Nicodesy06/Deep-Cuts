@@ -1,6 +1,7 @@
 //! Library core: tracks, files, metadata provenance, decisions, playlists.
 
 use crate::error::{Error, Result};
+use crate::history;
 use crate::metadata::{self, FileMetadata};
 use crate::util::{new_id, now_ms};
 use rayon::prelude::*;
@@ -531,7 +532,11 @@ fn update_file_row(
 }
 
 /// Write the file's own tags as source='file'. Other sources are untouched.
-fn apply_file_metadata(conn: &Connection, track_id: &str, m: &FileMetadata) -> Result<()> {
+pub(crate) fn apply_file_metadata(
+    conn: &Connection,
+    track_id: &str,
+    m: &FileMetadata,
+) -> Result<()> {
     let num = |v: Option<i64>| v.map(|v| v.to_string());
     let values: [(&str, Option<String>); 15] = [
         ("title", m.title.clone()),
@@ -689,40 +694,97 @@ pub fn track_notes(conn: &Connection, id: &str) -> Result<Option<String>> {
 }
 
 pub fn set_notes(conn: &Connection, id: &str, notes: Option<&str>) -> Result<()> {
-    conn.execute(
-        "UPDATE tracks SET notes = ?1, updated_at = ?2 WHERE id = ?3",
-        params![notes, now_ms(), id],
-    )?;
-    refresh_fts(conn, id)
+    let notes = notes.map(str::trim).filter(|n| !n.is_empty());
+    history::batch(conn, "notes", "notes", |tx, b| {
+        history::change(
+            tx,
+            b,
+            history::Kind::Notes,
+            id,
+            "notes",
+            history::State::set(notes),
+        )?;
+        Ok(())
+    })
 }
 
-pub fn set_favorite(conn: &Connection, id: &str, favorite: bool) -> Result<()> {
-    conn.execute(
-        "UPDATE tracks SET favorite = ?1, updated_at = ?2 WHERE id = ?3",
-        params![favorite, now_ms(), id],
-    )?;
-    Ok(())
+pub fn set_favorite(conn: &Connection, ids: &[String], favorite: bool) -> Result<()> {
+    let v = if favorite { "1" } else { "0" };
+    history::batch(
+        conn,
+        "favorite",
+        &format!("favorite={favorite}"),
+        |tx, b| {
+            for id in ids {
+                history::change(
+                    tx,
+                    b,
+                    history::Kind::Favorite,
+                    id,
+                    "favorite",
+                    history::State::set(Some(v)),
+                )?;
+            }
+            Ok(())
+        },
+    )
 }
 
 /// User edit of a metadata field (stored as source='user'; never
-/// overwritten by import or analysis).
+/// overwritten by import or analysis). Undoable as one batch.
 pub fn edit_field(
     conn: &Connection,
     ids: &[String],
     field: &str,
     value: Option<&str>,
 ) -> Result<()> {
-    crate::util::atomic(conn, |tx| {
+    field_def(field)?;
+    history::batch(
+        conn,
+        "edit",
+        &format!("{field} = {}", value.unwrap_or("∅")),
+        |tx, b| {
+            for id in ids {
+                history::change(
+                    tx,
+                    b,
+                    history::Kind::Field,
+                    id,
+                    field,
+                    history::State::set(value),
+                )?;
+            }
+            audit(
+                tx,
+                "edit",
+                "track",
+                None,
+                serde_json::json!({"ids": ids, "field": field, "value": value}),
+            )
+        },
+    )
+}
+
+/// Remove the user's value so the import/file/analysis value applies again.
+pub fn revert_field(conn: &Connection, ids: &[String], field: &str) -> Result<()> {
+    field_def(field)?;
+    history::batch(conn, "revert", &format!("revert {field}"), |tx, b| {
         for id in ids {
-            set_field(tx, id, field, SOURCE_USER, value)?;
-            refresh_fts(tx, id)?;
+            history::change(
+                tx,
+                b,
+                history::Kind::Field,
+                id,
+                field,
+                history::State::absent(),
+            )?;
         }
         audit(
             tx,
-            "edit",
+            "revert",
             "track",
             None,
-            serde_json::json!({"ids": ids, "field": field, "value": value}),
+            serde_json::json!({"ids": ids, "field": field}),
         )
     })
 }
@@ -745,25 +807,30 @@ pub fn set_decision(
     {
         return Err(Error::Invalid(format!("unknown decision '{d}'")));
     }
-    crate::util::atomic(conn, |tx| {
-        for id in ids {
-            match decision {
-            Some(d) => tx.execute(
-                "INSERT INTO decisions (track_id, context, decision, updated_at) VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT(track_id, context) DO UPDATE SET decision = excluded.decision, updated_at = excluded.updated_at",
-                params![id, context, d, now_ms()],
-            )?,
-            None => tx.execute("DELETE FROM decisions WHERE track_id = ?1 AND context = ?2", params![id, context])?,
-        };
-        }
-        audit(
-            tx,
-            "decision",
-            "track",
-            None,
-            serde_json::json!({"ids": ids, "context": context, "decision": decision}),
-        )
-    })
+    if context.trim().is_empty() {
+        return Err(Error::Invalid("decision context is empty".into()));
+    }
+    let state = match decision {
+        Some(d) => history::State::set(Some(d)),
+        None => history::State::absent(),
+    };
+    history::batch(
+        conn,
+        "decision",
+        &format!("{} ({context})", decision.unwrap_or("clear")),
+        |tx, b| {
+            for id in ids {
+                history::change(tx, b, history::Kind::Decision, id, context, state.clone())?;
+            }
+            audit(
+                tx,
+                "decision",
+                "track",
+                None,
+                serde_json::json!({"ids": ids, "context": context, "decision": decision}),
+            )
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -957,4 +1024,57 @@ pub fn duplicate_groups(conn: &Connection, limit: usize) -> Result<Vec<Duplicate
          GROUP BY lower(trim(artist)), lower(trim(title)) HAVING count(*) > 1 LIMIT ?1",
     )?;
     Ok(groups)
+}
+
+// ---------------------------------------------------------------------------
+// Watch folders
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchFolder {
+    pub path: String,
+    pub added_at: i64,
+    pub last_scan: Option<i64>,
+    pub exists: bool,
+}
+
+pub fn watch_folders(conn: &Connection) -> Result<Vec<WatchFolder>> {
+    let mut stmt =
+        conn.prepare("SELECT path, added_at, last_scan FROM watch_folders ORDER BY path")?;
+    let rows = stmt.query_map([], |r| {
+        let path: String = r.get(0)?;
+        Ok(WatchFolder {
+            exists: Path::new(&path).is_dir(),
+            path,
+            added_at: r.get(1)?,
+            last_scan: r.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+pub fn add_watch_folder(conn: &Connection, path: &Path) -> Result<String> {
+    if !path.is_dir() {
+        return Err(Error::Invalid(format!("not a folder: {}", path.display())));
+    }
+    let key = path_key(path);
+    conn.execute(
+        "INSERT INTO watch_folders (path, added_at) VALUES (?1, ?2) ON CONFLICT(path) DO NOTHING",
+        params![key, now_ms()],
+    )?;
+    Ok(key)
+}
+
+pub fn remove_watch_folder(conn: &Connection, path: &str) -> Result<()> {
+    conn.execute("DELETE FROM watch_folders WHERE path = ?1", [path])?;
+    Ok(())
+}
+
+pub fn mark_watch_scanned(conn: &Connection, path: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE watch_folders SET last_scan = ?1 WHERE path = ?2",
+        params![now_ms(), path],
+    )?;
+    Ok(())
 }

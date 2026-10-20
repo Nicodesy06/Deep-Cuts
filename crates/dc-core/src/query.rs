@@ -11,7 +11,7 @@
 //! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible
 //! * `none` matches empty values: `genre:none`, `bpm:none`, `key:none`
 //! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`,
-//!   `artwork:yes|no`, `tag:name`, `added:7d` (added within the last 7 days)
+//!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
 //! * implicit AND, explicit `AND`, `OR`, `NOT` / leading `-`, parentheses
 
 use crate::error::{Error, Result};
@@ -336,10 +336,18 @@ impl Parser {
                 value,
             )?),
             "tag" => {
+                if value.eq_ignore_ascii_case("none") && !quoted {
+                    return Ok("NOT EXISTS (SELECT 1 FROM track_tags tt WHERE tt.track_id = t.id AND tt.status = 'confirmed')".into());
+                }
+                // The tag, its synonyms and every descendant tag.
                 let p = self.param(Value::Text(value.to_string()));
                 Ok(format!(
-                    "EXISTS (SELECT 1 FROM track_tags tt JOIN tags g ON g.id = tt.tag_id WHERE tt.track_id = t.id
-                     AND tt.status = 'confirmed' AND g.name = {p} COLLATE NOCASE)"
+                    "EXISTS (SELECT 1 FROM track_tags tt WHERE tt.track_id = t.id AND tt.status = 'confirmed' AND tt.tag_id IN (
+                        WITH RECURSIVE sub(id) AS (
+                            SELECT id FROM tags WHERE name = {p} COLLATE NOCASE
+                            UNION SELECT tag_id FROM tag_synonyms WHERE synonym = {p}
+                            UNION SELECT g.id FROM tags g JOIN sub ON g.parent_id = sub.id)
+                        SELECT id FROM sub))"
                 ))
             }
             "added" => {

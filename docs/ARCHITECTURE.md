@@ -48,7 +48,7 @@
 evaluation, ONNX export). Inference will run in Rust via ONNX Runtime (`ort` crate, CUDA / CoreML / CPU
 execution providers), so users never install Python.
 
-## Data model (schema v1, `crates/dc-core/src/migrations/0001_init.sql`)
+## Data model (schema v2: `crates/dc-core/src/migrations/0001_init.sql` + `0002_phase2.sql`)
 
 | Table | Purpose |
 |---|---|
@@ -66,6 +66,9 @@ execution providers), so users never install Python.
 | `jobs` | Persistent job queue (status, attempts, owner process, error) |
 | `audit_log` | Every import, edit, decision, relink, playlist deletion |
 | `settings` | App settings |
+| `change_batches`, `changes` | Undo/redo: one batch per user action with before/after state of each (kind, track, key) |
+| `tag_synonyms`, `quick_tags` | Tag synonyms; keyboard Quick Tag slots 1–9 |
+| `watch_folders` | Folders imported automatically by the desktop app |
 | `tracks_fts` | FTS5 index (title, artist, version, remixer, album, label, genre, comment, notes, path) |
 
 Migrations are ordered SQL files; `PRAGMA user_version` stores the applied version. A database from a
@@ -127,6 +130,32 @@ page. This was measured to be ~10× faster at 100k tracks than a single query.
 
 Each result row stores analyser name + version + file hash. A track is skipped when that triple is
 already present (no redundant work). A version bump re-analyses.
+
+## Undo / redo
+
+Every user action goes through `history::change(kind, track, key, new_state)`. It reads the old
+state, writes the new one, and records both in the current batch. Kinds are a user field value,
+a decision (per context), notes, favourite, and a user tag. Undo replays a batch's old states in
+reverse order. Redo replays the new states. A new action clears the redo stack. No-op changes are
+not recorded. Imports are not part of the undo history: they are non-destructive and risky ones
+take a database snapshot.
+
+## Writing tags into files
+
+The only code path that modifies audio files (`tagwrite`), and only on explicit user action. It
+plans first (diff between the file's own values and the effective library values), refuses files
+whose size/mtime changed since the last scan, copies the original, writes through lofty, and
+re-reads to verify. On a mismatch it restores the copy. After a successful write the `file`
+source rows are refreshed, so the library and the file agree.
+
+## Cue suggestions
+
+`cues::suggest` places candidates on the 8-bar phrase grid derived from the measured tempo and
+first beat. It compares each phrase's mean energy (from the per-second RMS curve) with the track's
+"main" level (upper third of phrase levels): Intro (first beat), Main (first phrase at main level),
+Breakdown (≥ 4 dB below main, with energy returning later), Drop (back to main after a breakdown),
+Outro (start of a final low section, else 16/32 bars before the end). Suggestions are rewritten on
+re-analysis; user cues are `locked` and never touched.
 
 ## Background work
 

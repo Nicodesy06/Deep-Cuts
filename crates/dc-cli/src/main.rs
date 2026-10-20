@@ -3,7 +3,10 @@
 
 use clap::{Parser, Subcommand};
 use dc_core::query::{TrackQuery, query_track_ids, query_tracks};
-use dc_core::{analysis, backup, db, export, jobs, library, paths, rekordbox, stats};
+use dc_core::{
+    analysis, backup, cues, db, export, fixes, history, jobs, library, paths, rekordbox, stats,
+    tags, tagwrite,
+};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -82,6 +85,49 @@ enum Cmd {
     },
     /// Describe the query language.
     HelpQuery,
+    /// Add (or with --remove, remove) a tag on tracks matching a query.
+    Tag {
+        name: String,
+        query: String,
+        #[arg(long, default_value = "custom")]
+        category: String,
+        #[arg(long)]
+        remove: bool,
+    },
+    /// List tags with track counts.
+    Tags,
+    /// Preview smart fixes for tracks matching a query; --apply to apply all.
+    Fix {
+        #[arg(default_value = "")]
+        query: String,
+        /// Comma-separated rule ids (default: all)
+        #[arg(long)]
+        rules: Option<String>,
+        #[arg(long)]
+        apply: bool,
+    },
+    /// Show what would be written into the audio files; --yes to write.
+    WriteTags {
+        query: String,
+        #[arg(long)]
+        yes: bool,
+        /// Do not keep copies of the original files.
+        #[arg(long)]
+        no_backup: bool,
+    },
+    /// Undo the last change batch.
+    Undo,
+    /// Redo the last undone batch.
+    Redo,
+    /// Recent change batches.
+    History,
+    /// Watch folders: list, add <path>, remove <path>.
+    Watch {
+        action: String,
+        path: Option<PathBuf>,
+    },
+    /// Show cue points (incl. suggestions) for a track id.
+    Cues { id: String },
 }
 
 fn main() {
@@ -294,6 +340,172 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             }
         }
         Cmd::Check => println!("{}", db::integrity_check(&conn)?.join("\n")),
+        Cmd::Tag {
+            name,
+            query,
+            category,
+            remove,
+        } => {
+            let ids = query_track_ids(
+                &conn,
+                &TrackQuery {
+                    query,
+                    ..Default::default()
+                },
+            )?;
+            let tag = tags::ensure(&conn, &name, &category)?;
+            let n = tags::assign(&conn, &ids, &tag, !remove)?;
+            println!("{n} tracks changed ({} matched)", ids.len());
+        }
+        Cmd::Tags => {
+            for t in tags::list(&conn)? {
+                println!("{:<12} {:<32} {:>6}", t.category, t.name, t.track_count);
+            }
+        }
+        Cmd::Fix {
+            query,
+            rules,
+            apply,
+        } => {
+            let ids = query_track_ids(
+                &conn,
+                &TrackQuery {
+                    query,
+                    ..Default::default()
+                },
+            )?;
+            let rules: Vec<String> = match rules {
+                Some(r) => r.split(',').map(|x| x.trim().to_string()).collect(),
+                None => fixes::RULES.iter().map(|r| r.id.to_string()).collect(),
+            };
+            let props = fixes::preview(&conn, &ids, &rules, 100_000)?;
+            for p in &props {
+                println!(
+                    "{:<8} {:<10} {:?} -> {:?}  [{}]",
+                    &p.track_id[..8],
+                    p.field,
+                    p.old_value.as_deref().unwrap_or(""),
+                    p.new_value.as_deref().unwrap_or(""),
+                    p.rules.join(",")
+                );
+            }
+            if apply {
+                let accepted: Vec<fixes::AcceptedFix> = props
+                    .iter()
+                    .map(|p| fixes::AcceptedFix {
+                        track_id: p.track_id.clone(),
+                        field: p.field.clone(),
+                        new_value: p.new_value.clone(),
+                    })
+                    .collect();
+                println!(
+                    "applied {} fixes (undo with `deepcuts undo`)",
+                    fixes::apply(&conn, &accepted)?
+                );
+            } else {
+                println!("{} proposals (preview only; --apply to apply)", props.len());
+            }
+        }
+        Cmd::WriteTags {
+            query,
+            yes,
+            no_backup,
+        } => {
+            let ids = query_track_ids(
+                &conn,
+                &TrackQuery {
+                    query,
+                    ..Default::default()
+                },
+            )?;
+            let plan = tagwrite::plan(&conn, &ids)?;
+            for p in &plan {
+                println!("{}", p.path);
+                for c in &p.changes {
+                    println!(
+                        "    {:<12} {:?} -> {:?}",
+                        c.field,
+                        c.file_value.as_deref().unwrap_or(""),
+                        c.new_value.as_deref().unwrap_or("")
+                    );
+                }
+            }
+            if !yes {
+                println!(
+                    "{} files would change (dry run; --yes to write)",
+                    plan.len()
+                );
+            } else {
+                let dir = backups.join("audio-originals");
+                let rep = tagwrite::write(&mut conn, &ids, (!no_backup).then_some(dir.as_path()))?;
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            }
+        }
+        Cmd::Undo => match history::undo(&conn)? {
+            Some(b) => println!(
+                "undone: {} ({} changes)",
+                b.summary.unwrap_or(b.action),
+                b.changes
+            ),
+            None => println!("nothing to undo"),
+        },
+        Cmd::Redo => match history::redo(&conn)? {
+            Some(b) => println!(
+                "redone: {} ({} changes)",
+                b.summary.unwrap_or(b.action),
+                b.changes
+            ),
+            None => println!("nothing to redo"),
+        },
+        Cmd::History => {
+            for b in history::recent(&conn, 30)? {
+                println!(
+                    "#{:<5} {:<10} {:<40} {:>4} changes{}",
+                    b.id,
+                    b.action,
+                    b.summary.unwrap_or_default(),
+                    b.changes,
+                    if b.undone { "  (undone)" } else { "" }
+                );
+            }
+        }
+        Cmd::Watch { action, path } => match (action.as_str(), path) {
+            ("list", _) => {
+                for w in library::watch_folders(&conn)? {
+                    println!(
+                        "{}{}",
+                        w.path,
+                        if w.exists { "" } else { "  (unavailable)" }
+                    );
+                }
+            }
+            ("add", Some(p)) => println!(
+                "watching {} (the desktop app picks it up)",
+                library::add_watch_folder(&conn, &p)?
+            ),
+            ("remove", Some(p)) => library::remove_watch_folder(&conn, &p.to_string_lossy())?,
+            _ => {
+                return Err(dc_core::Error::Invalid(
+                    "usage: watch list | add <path> | remove <path>".into(),
+                ));
+            }
+        },
+        Cmd::Cues { id } => {
+            let id = resolve_id(&conn, &id)?;
+            for c in cues::list(&conn, &id)? {
+                println!(
+                    "{:>9.3}s  {:<10} {:<3} {:<12} {}{}",
+                    c.start_ms / 1000.0,
+                    c.kind,
+                    c.slot
+                        .map(|s| ((b'A' + s as u8) as char).to_string())
+                        .unwrap_or_default(),
+                    c.name.unwrap_or_default(),
+                    c.source,
+                    if c.locked { " (locked)" } else { "" }
+                );
+            }
+        }
         Cmd::Bench { .. } | Cmd::HelpQuery => unreachable!(),
     }
     Ok(())

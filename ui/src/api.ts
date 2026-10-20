@@ -94,7 +94,84 @@ export interface Cue {
   locked: boolean;
 }
 
+export interface TrackTag {
+  tagId: string;
+  name: string;
+  category: string;
+  origin: string;
+  sourceModel: string | null;
+  modelVersion: string | null;
+  confidence: number | null;
+  status: "suggested" | "confirmed" | "rejected";
+}
+
+export interface ChangeRow {
+  batchId: number;
+  ts: number;
+  action: string;
+  kind: string;
+  key: string;
+  oldValue: string | null;
+  oldPresent: boolean;
+  newValue: string | null;
+  newPresent: boolean;
+  undone: boolean;
+}
+
+export interface BatchInfo {
+  id: number;
+  ts: number;
+  action: string;
+  summary: string | null;
+  changes: number;
+  undone: boolean;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  category: string;
+  parentId: string | null;
+  trackCount: number;
+  quickSlot: number | null;
+  synonyms: string[];
+}
+
+export const TAG_CATEGORIES = ["custom", "genre", "mood", "energy", "vibe", "situation", "era", "instrument", "vocal"] as const;
+
+export interface FixProposal {
+  trackId: string;
+  artist: string | null;
+  title: string | null;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  rules: string[];
+}
+
+export interface WritePlan {
+  trackId: string;
+  path: string;
+  changes: { field: string; fileValue: string | null; newValue: string | null }[];
+}
+
+export interface WriteReport {
+  written: number;
+  unchanged: number;
+  failed: { trackId: string; path: string; error: string }[];
+  backupDir: string | null;
+}
+
+export interface WatchFolder {
+  path: string;
+  addedAt: number;
+  lastScan: number | null;
+  exists: boolean;
+}
+
 export interface TrackDetail {
+  tags: TrackTag[];
+  history: ChangeRow[];
   track: TrackRow;
   fields: FieldValue[];
   notes: string | null;
@@ -275,6 +352,50 @@ export const api = {
   integrityCheck: () => invoke<string[]>("integrity_check"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
+  undo: () => invoke<BatchInfo | null>("undo"),
+  redo: () => invoke<BatchInfo | null>("redo"),
+  recentChanges: (limit?: number) => invoke<BatchInfo[]>("recent_changes", { limit: limit ?? null }),
+  listTags: () => invoke<Tag[]>("list_tags"),
+  createTag: (name: string, category: string, parentId?: string | null) =>
+    invoke<string>("create_tag", { name, category, parentId: parentId ?? null }),
+  updateTag: (id: string, change: { name?: string; category?: string; parentId?: string | null }) =>
+    invoke<void>("update_tag", {
+      id,
+      name: change.name ?? null,
+      category: change.category ?? null,
+      setParent: "parentId" in change,
+      parentId: change.parentId ?? null,
+    }),
+  deleteTag: (id: string) => invoke<void>("delete_tag", { id }),
+  addTagSynonym: (id: string, synonym: string) => invoke<void>("add_tag_synonym", { id, synonym }),
+  removeTagSynonym: (synonym: string) => invoke<void>("remove_tag_synonym", { synonym }),
+  setQuickTag: (slot: number, tagId: string | null) => invoke<void>("set_quick_tag", { slot, tagId }),
+  tagTracks: (ids: string[], tagId: string, on?: boolean) => invoke<boolean>("tag_tracks", { ids, tagId, on: on ?? null }),
+  quickTag: (ids: string[], slot: number) => invoke<[string, boolean] | null>("quick_tag", { ids, slot }),
+  reviewTagSuggestion: (trackId: string, tagId: string, accept: boolean) =>
+    invoke<void>("review_tag_suggestion", { trackId, tagId, accept }),
+  fixRules: () => invoke<{ id: string; fields: string[] }[]>("fix_rules"),
+  previewFixes: (query: TrackQuery, rules: string[], limit?: number) =>
+    invoke<FixProposal[]>("preview_fixes", { query, rules, limit: limit ?? null }),
+  applyFixes: (fixes: { trackId: string; field: string; newValue: string | null }[]) => invoke<number>("apply_fixes", { fixes }),
+  addCue: (trackId: string, kind: string, startMs: number, opts: { slot?: number | null; endMs?: number | null; name?: string | null; color?: string | null } = {}) =>
+    invoke<string>("add_cue", {
+      trackId,
+      kind,
+      startMs,
+      slot: opts.slot ?? null,
+      endMs: opts.endMs ?? null,
+      name: opts.name ?? null,
+      color: opts.color ?? null,
+    }),
+  acceptCue: (id: string, hotSlot?: number | null) => invoke<string>("accept_cue", { id, hotSlot: hotSlot ?? null }),
+  deleteCue: (id: string) => invoke<void>("delete_cue", { id }),
+  renameCue: (id: string, name: string | null, color: string | null) => invoke<void>("rename_cue", { id, name, color }),
+  planTagWrite: (ids: string[]) => invoke<WritePlan[]>("plan_tag_write", { ids }),
+  writeTags: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("write_tags", { ids, keepBackup }),
+  listWatchFolders: () => invoke<WatchFolder[]>("list_watch_folders"),
+  addWatchFolder: (path: string) => invoke<string>("add_watch_folder", { path }),
+  removeWatchFolder: (path: string) => invoke<void>("remove_watch_folder", { path }),
 };
 
 /** URL the <audio> element can stream a library track from. */

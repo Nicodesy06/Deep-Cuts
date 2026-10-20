@@ -192,7 +192,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let tempo = tempo::estimate(&env, Some(&low_env), fps, 60.0, 200.0).map(|t| TempoResult {
         bpm: (t.bpm * 100.0).round() / 100.0,
         periodicity: (t.periodicity * 1000.0).round() / 1000.0,
-        first_beat_ms: ((t.first_beat_ms + shift_ms) * 10.0).round() / 10.0,
+        first_beat_ms: ((t.first_beat_ms + shift_ms).max(0.0) * 10.0).round() / 10.0,
     });
 
     let flux_max = flux.iter().copied().fold(0f32, f32::max).max(1e-9);
@@ -447,6 +447,7 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
          ON CONFLICT(track_id) DO UPDATE SET version = excluded.version, bins = excluded.bins, data = excluded.data",
         params![track_id, WAVEFORM_VERSION, WAVEFORM_BINS as i64, a.waveform],
     )?;
+    crate::cues::store_suggestions(tx, track_id, &a.result)?;
     Ok(())
 }
 

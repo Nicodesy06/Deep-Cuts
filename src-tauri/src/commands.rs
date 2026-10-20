@@ -3,7 +3,10 @@
 
 use crate::AppState;
 use dc_core::query::{TrackPage, TrackQuery};
-use dc_core::{analysis, backup, db, export, jobs, library, rekordbox, stats};
+use dc_core::{
+    analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
+    tagwrite,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -108,6 +111,8 @@ pub struct TrackDetail {
     beatgrids: Vec<analysis::Beatgrid>,
     playlists: Vec<PlaylistRef>,
     contexts: HashMap<String, String>,
+    tags: Vec<tags::TrackTag>,
+    history: Vec<history::ChangeRow>,
 }
 
 #[tauri::command]
@@ -139,6 +144,8 @@ pub fn track_detail(state: State<'_, AppState>, id: String) -> Res<TrackDetail> 
             beatgrids: analysis::beatgrids(&c, &id)?,
             playlists,
             contexts,
+            tags: tags::for_track(&c, &id)?,
+            history: history::track_history(&c, &id, 50)?,
         })
     })
 }
@@ -182,19 +189,7 @@ pub fn edit_field(
 /// Drop the user's value so the file/import/analysis value applies again.
 #[tauri::command]
 pub fn revert_field(state: State<'_, AppState>, ids: Vec<String>, field: String) -> Res<()> {
-    with_conn!(state, |c| dc_core::util::atomic(&c, |tx| {
-        for id in &ids {
-            library::clear_field_source(tx, id, &field, library::SOURCE_USER)?;
-            library::refresh_fts(tx, id)?;
-        }
-        library::audit(
-            tx,
-            "revert",
-            "track",
-            None,
-            serde_json::json!({"ids": ids, "field": field}),
-        )
-    }))
+    with_conn!(state, |c| library::revert_field(&c, &ids, &field))
 }
 
 #[tauri::command]
@@ -208,9 +203,7 @@ pub fn set_notes(state: State<'_, AppState>, id: String, notes: Option<String>) 
 
 #[tauri::command]
 pub fn set_favorite(state: State<'_, AppState>, ids: Vec<String>, favorite: bool) -> Res<()> {
-    with_conn!(state, |c| ids
-        .iter()
-        .try_for_each(|id| library::set_favorite(&c, id, favorite)))
+    with_conn!(state, |c| library::set_favorite(&c, &ids, favorite))
 }
 
 #[tauri::command]
@@ -496,4 +489,272 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Re
         return Err(format!("unknown setting '{key}'"));
     }
     with_conn!(state, |c| library::set_setting(&c, &key, &value))
+}
+
+// ---------------------------------------------------------------------------
+// Undo / redo
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn undo(state: State<'_, AppState>) -> Res<Option<history::BatchInfo>> {
+    with_conn!(state, |c| history::undo(&c))
+}
+
+#[tauri::command]
+pub fn redo(state: State<'_, AppState>) -> Res<Option<history::BatchInfo>> {
+    with_conn!(state, |c| history::redo(&c))
+}
+
+#[tauri::command]
+pub fn recent_changes(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> Res<Vec<history::BatchInfo>> {
+    with_conn!(state, |c| history::recent(&c, limit.unwrap_or(50)))
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_tags(state: State<'_, AppState>) -> Res<Vec<tags::Tag>> {
+    with_conn!(state, |c| tags::list(&c))
+}
+
+#[tauri::command]
+pub fn create_tag(
+    state: State<'_, AppState>,
+    name: String,
+    category: String,
+    parent_id: Option<String>,
+) -> Res<String> {
+    with_conn!(state, |c| tags::create(
+        &c,
+        &name,
+        &category,
+        parent_id.as_deref()
+    ))
+}
+
+#[tauri::command]
+pub fn update_tag(
+    state: State<'_, AppState>,
+    id: String,
+    name: Option<String>,
+    category: Option<String>,
+    set_parent: Option<bool>,
+    parent_id: Option<String>,
+) -> Res<()> {
+    with_conn!(state, |c| dc_core::util::atomic(&c, |tx| {
+        if let Some(n) = &name {
+            tags::rename(tx, &id, n)?;
+        }
+        if let Some(cat) = &category {
+            tags::set_category(tx, &id, cat)?;
+        }
+        if set_parent == Some(true) {
+            tags::set_parent(tx, &id, parent_id.as_deref())?;
+        }
+        Ok(())
+    }))
+}
+
+#[tauri::command]
+pub fn delete_tag(state: State<'_, AppState>, id: String) -> Res<()> {
+    with_conn!(state, |c| tags::delete(&c, &id))
+}
+
+#[tauri::command]
+pub fn add_tag_synonym(state: State<'_, AppState>, id: String, synonym: String) -> Res<()> {
+    with_conn!(state, |c| tags::add_synonym(&c, &id, &synonym))
+}
+
+#[tauri::command]
+pub fn remove_tag_synonym(state: State<'_, AppState>, synonym: String) -> Res<()> {
+    with_conn!(state, |c| tags::remove_synonym(&c, &synonym))
+}
+
+#[tauri::command]
+pub fn set_quick_tag(state: State<'_, AppState>, slot: i64, tag_id: Option<String>) -> Res<()> {
+    with_conn!(state, |c| tags::set_quick_slot(&c, slot, tag_id.as_deref()))
+}
+
+/// Assign (on=true), remove (on=false) or toggle (on=None) a tag.
+#[tauri::command]
+pub fn tag_tracks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    tag_id: String,
+    on: Option<bool>,
+) -> Res<bool> {
+    with_conn!(state, |c| match on {
+        Some(on) => tags::assign(&c, &ids, &tag_id, on).map(|_| on),
+        None => tags::toggle(&c, &ids, &tag_id),
+    })
+}
+
+/// Quick Tag: toggle the tag in `slot` on the tracks. Returns the tag name.
+#[tauri::command]
+pub fn quick_tag(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    slot: i64,
+) -> Res<Option<(String, bool)>> {
+    with_conn!(state, |c| {
+        let Some(tag) = tags::quick_slot_tag(&c, slot)? else {
+            return Ok(None);
+        };
+        let on = tags::toggle(&c, &ids, &tag)?;
+        let name: String =
+            c.query_row("SELECT name FROM tags WHERE id = ?1", [&tag], |r| r.get(0))?;
+        Ok(Some((name, on)))
+    })
+}
+
+#[tauri::command]
+pub fn review_tag_suggestion(
+    state: State<'_, AppState>,
+    track_id: String,
+    tag_id: String,
+    accept: bool,
+) -> Res<()> {
+    with_conn!(state, |c| tags::review_suggestion(
+        &c, &track_id, &tag_id, accept
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Smart fixes
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn fix_rules() -> Vec<fixes::RuleInfo> {
+    fixes::RULES.to_vec()
+}
+
+#[tauri::command]
+pub async fn preview_fixes(
+    state: State<'_, AppState>,
+    query: TrackQuery,
+    rules: Vec<String>,
+    limit: Option<usize>,
+) -> Res<Vec<fixes::Proposal>> {
+    blocking(state.db_path.clone(), move |c| {
+        let ids = dc_core::query::query_track_ids(c, &query)?;
+        fixes::preview(c, &ids, &rules, limit.unwrap_or(2000))
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn apply_fixes(state: State<'_, AppState>, fixes: Vec<fixes::AcceptedFix>) -> Res<usize> {
+    with_conn!(state, |c| fixes::apply(&c, &fixes))
+}
+
+// ---------------------------------------------------------------------------
+// Cues
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn add_cue(
+    state: State<'_, AppState>,
+    track_id: String,
+    kind: String,
+    slot: Option<i64>,
+    start_ms: f64,
+    end_ms: Option<f64>,
+    name: Option<String>,
+    color: Option<String>,
+) -> Res<String> {
+    with_conn!(state, |c| cues::add(
+        &c,
+        &track_id,
+        &cues::NewCue {
+            kind: &kind,
+            slot,
+            start_ms,
+            end_ms,
+            name: name.as_deref(),
+            color: color.as_deref()
+        }
+    ))
+}
+
+#[tauri::command]
+pub fn accept_cue(state: State<'_, AppState>, id: String, hot_slot: Option<i64>) -> Res<String> {
+    with_conn!(state, |c| cues::accept(&c, &id, hot_slot))
+}
+
+#[tauri::command]
+pub fn delete_cue(state: State<'_, AppState>, id: String) -> Res<()> {
+    with_conn!(state, |c| cues::delete(&c, &id))
+}
+
+#[tauri::command]
+pub fn rename_cue(
+    state: State<'_, AppState>,
+    id: String,
+    name: Option<String>,
+    color: Option<String>,
+) -> Res<()> {
+    with_conn!(state, |c| cues::rename(
+        &c,
+        &id,
+        name.as_deref(),
+        color.as_deref()
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Writing tags to files
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn plan_tag_write(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Res<Vec<tagwrite::WritePlan>> {
+    blocking(state.db_path.clone(), move |c| tagwrite::plan(c, &ids)).await
+}
+
+#[tauri::command]
+pub async fn write_tags(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    keep_backup: bool,
+) -> Res<tagwrite::WriteReport> {
+    let dir = state.backups_dir.join("audio-originals");
+    blocking(state.db_path.clone(), move |c| {
+        tagwrite::write(c, &ids, keep_backup.then_some(dir.as_path()))
+    })
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// Watch folders
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_watch_folders(state: State<'_, AppState>) -> Res<Vec<library::WatchFolder>> {
+    with_conn!(state, |c| library::watch_folders(&c))
+}
+
+#[tauri::command]
+pub fn add_watch_folder(app: AppHandle, state: State<'_, AppState>, path: String) -> Res<String> {
+    let key = with_conn!(state, |c| library::add_watch_folder(
+        &c,
+        std::path::Path::new(&path)
+    ))?;
+    crate::watch::restart(&app);
+    crate::watch::scan_now(&app, vec![PathBuf::from(&key)]);
+    Ok(key)
+}
+
+#[tauri::command]
+pub fn remove_watch_folder(app: AppHandle, state: State<'_, AppState>, path: String) -> Res<()> {
+    with_conn!(state, |c| library::remove_watch_folder(&c, &path))?;
+    crate::watch::restart(&app);
+    Ok(())
 }

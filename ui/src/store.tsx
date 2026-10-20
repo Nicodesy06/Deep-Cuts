@@ -59,6 +59,10 @@ interface Ctx {
   playRequest: { track: TrackRow; startMs: number; nonce: number } | null;
   /** Neighbour provider for next/previous, registered by the visible list. */
   neighbourRef: React.MutableRefObject<((id: string, delta: number) => TrackRow | undefined) | null>;
+  /** Current preview position (ms) and track, published by the player. */
+  playerPosRef: React.MutableRefObject<{ trackId: string | null; ms: number }>;
+  undo: () => void;
+  redo: () => void;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -73,6 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [nowPlaying, setNowPlaying] = useState<TrackRow | null>(null);
   const [playRequest, setPlayRequest] = useState<Ctx["playRequest"]>(null);
   const neighbourRef = useRef<((id: string, delta: number) => TrackRow | undefined) | null>(null);
+  const playerPosRef = useRef<{ trackId: string | null; ms: number }>({ trackId: null, ms: 0 });
   const toastId = useRef(0);
 
   useEffect(() => {
@@ -102,6 +107,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The watcher imported files in the background.
+  useEffect(() => {
+    if (!inDesktopApp()) return;
+    const un = onEvent<{ added: number; updated: number; relinked: number }>("library-changed", (r) => {
+      setDataVersion((v) => v + 1);
+      const id = ++toastId.current;
+      const text = translate(lang, "watch.imported", { added: r.added, updated: r.updated, relinked: r.relinked });
+      setToasts((ts) => [...ts.slice(-3), { id, text, kind: "info" }]);
+      setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), 5000);
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, [lang]);
+
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     if (inDesktopApp()) api.setSetting("language", l).catch(() => {});
@@ -128,6 +148,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDialog({ kind: "confirm", title, message, danger, resolve: (v) => (setDialog(null), resolve(v === true)) }),
       ),
     [],
+  );
+
+  const runHistory = useCallback(
+    async (dir: "undo" | "redo") => {
+      try {
+        const b = dir === "undo" ? await api.undo() : await api.redo();
+        if (!b) toast(translate(lang, dir === "undo" ? "history.nothingToUndo" : "history.nothingToRedo"));
+        else {
+          toast(translate(lang, dir === "undo" ? "history.undone" : "history.redone", { what: b.summary ?? b.action, n: b.changes }), "ok");
+          setDataVersion((v) => v + 1);
+        }
+      } catch (e) {
+        toast(String(e), "error");
+      }
+    },
+    [lang, toast],
   );
 
   const play = useCallback((track: TrackRow, startMs = 0) => {
@@ -159,8 +195,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       play,
       playRequest,
       neighbourRef,
+      playerPosRef,
+      undo: () => runHistory("undo"),
+      redo: () => runHistory("redo"),
     }),
-    [lang, setLang, t, view, libraryNav, dataVersion, toasts, toast, dialog, prompt, confirm, nowPlaying, play, playRequest],
+    [lang, setLang, t, view, libraryNav, dataVersion, toasts, toast, dialog, prompt, confirm, nowPlaying, play, playRequest, runHistory],
   );
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

@@ -1,7 +1,7 @@
 // Preview player: streams via the dcaudio protocol, hot/intro/outro preview,
 // quick decisions and rating. No mixing, no decks — preview only.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, audioUrl, type Decision, type TrackRow } from "../api";
+import { api, audioUrl, type Cue, type Decision, type TrackRow } from "../api";
 import { formatBpm, formatDuration, trackLabel } from "../format";
 import { useAction, useApp } from "../store";
 import { KeyChip } from "./TrackTable";
@@ -15,7 +15,8 @@ function isTyping(e: KeyboardEvent) {
 }
 
 export function Player() {
-  const { t, playRequest, play, neighbourRef, bump, dataVersion } = useApp();
+  const { t, playRequest, play, neighbourRef, bump, dataVersion, playerPosRef, toast } = useApp();
+  const [cues, setCues] = useState<Cue[]>([]);
   const act = useAction();
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -41,15 +42,27 @@ export function Player() {
     api.waveform(playRequest.track.id).then(setWave, () => setWave(null));
   }, [playRequest]);
 
-  // Keep decision/rating badges fresh after edits elsewhere.
+  // Keep decision/rating/cues fresh after edits elsewhere.
+  const trackId = track?.id;
   useEffect(() => {
-    if (!track) return;
-    api.trackDetail(track.id).then(
-      (d) => setTrack(d.track),
+    if (!trackId) return;
+    api.trackDetail(trackId).then(
+      (d) => {
+        setTrack(d.track);
+        setCues(d.cues);
+      },
       () => {},
     );
-    api.waveform(track.id).then(setWave, () => {});
-  }, [dataVersion]);
+    api.waveform(trackId).then(setWave, () => {});
+  }, [trackId, dataVersion]);
+
+  const addCueHere = useCallback(async () => {
+    if (!track || !audio.current) return;
+    const ms = audio.current.currentTime * 1000;
+    await act(() => api.addCue(track.id, "memory", ms));
+    toast(t("cues.added", { at: formatDuration(ms) }), "ok");
+    bump();
+  }, [track, act, toast, t, bump]);
 
   useEffect(() => {
     if (audio.current) audio.current.volume = volume;
@@ -132,13 +145,23 @@ export function Player() {
         case "b":
           step(-1);
           break;
+        case "c":
+          addCueHere();
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggle, seek, hot, outro, step]);
+  }, [toggle, seek, hot, outro, step, addCueHere]);
 
-  const markers: Marker[] = track?.previewMs ? [{ ms: track.previewMs, color: "#ff5c9a", label: "HOT" }] : [];
+  const markers: Marker[] = [
+    ...(track?.previewMs ? [{ ms: track.previewMs, color: "#ff5c9a", label: "HOT" }] : []),
+    ...cues.map((c) => ({
+      ms: c.startMs,
+      color: c.kind === "suggestion" ? "rgba(88,214,255,0.45)" : c.color ?? (c.kind === "hotcue" ? "#3ddc84" : "#ff5c6c"),
+      label: c.name ?? undefined,
+    })),
+  ];
 
   return (
     <footer className="player" aria-label={t("player.label")}>
@@ -147,7 +170,11 @@ export function Player() {
         preload="auto"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setPos(e.currentTarget.currentTime * 1000)}
+        onTimeUpdate={(e) => {
+          const ms = e.currentTarget.currentTime * 1000;
+          setPos(ms);
+          playerPosRef.current = { trackId: track?.id ?? null, ms };
+        }}
         onLoadedMetadata={(e) => {
           setDur(e.currentTarget.duration * 1000);
           if (pendingSeek.current > 0) e.currentTarget.currentTime = pendingSeek.current / 1000;

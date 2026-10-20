@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type DuplicateGroup } from "../api";
 import { formatBpm, formatDuration } from "../format";
+import { SmartFixes } from "../components/SmartFixes";
 import { useAction, useApp } from "../store";
 
 export function LibraryHealth() {
@@ -84,6 +85,7 @@ export function LibraryHealth() {
           ))
         )}
       </section>
+      <SmartFixes />
       <section className="panel">
         <h2>{t("health.planned")}</h2>
         <p className="muted small">{t("health.plannedBody")}</p>

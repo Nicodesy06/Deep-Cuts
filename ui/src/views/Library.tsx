@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, type Decision, type Playlist, type TrackRow } from "../api";
+import { api, type Decision, type Playlist, type Tag, type TrackRow } from "../api";
 import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
+import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
 import { formatNumber } from "../format";
 import type { MsgKey } from "../i18n";
@@ -36,11 +37,13 @@ export function Library() {
   const [desc, setDesc] = useState(false);
   const [sel, setSel] = useState<Selection>(emptySelection);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [tagList, setTagList] = useState<Tag[]>([]);
   const [colIds, setColIds] = useState<string[]>(loadColumns);
   const [showCols, setShowCols] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
+  const [writeIds, setWriteIds] = useState<string[] | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const playlistId = libraryNav.playlistId;
 
@@ -65,6 +68,7 @@ export function Library() {
 
   useEffect(() => {
     api.listPlaylists().then(setPlaylists, () => {});
+    api.listTags().then(setTagList, () => {});
   }, [dataVersion]);
 
   const tq = useMemo(() => ({ query, sort, desc, playlistId }), [query, sort, desc, playlistId]);
@@ -167,6 +171,18 @@ export function Library() {
         });
         return;
       }
+      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && /^Digit[1-9]$/.test(e.code)) {
+        e.preventDefault();
+        if (!selectedIds.length) return;
+        const slot = Number(e.code.slice(5));
+        act(() => api.quickTag(selectedIds, slot)).then((r) => {
+          if (r === undefined) return;
+          if (r === null) toast(t("tags.slotEmpty", { slot }));
+          else toast(t(r[1] ? "tags.added" : "tags.removed", { name: r[0], n: selectedIds.length }), "ok");
+          bump();
+        });
+        return;
+      }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       switch (e.key) {
         case "ArrowDown":
@@ -206,7 +222,7 @@ export function Library() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sel, pages, idAt, play, setDecision, analyze, selectedIds, act, bump, currentPlaylist]);
+  }, [sel, pages, idAt, play, setDecision, analyze, selectedIds, act, bump, currentPlaylist, toast, t]);
 
   useEffect(() => {
     const close = () => setMenu(null);
@@ -234,6 +250,9 @@ export function Library() {
   };
 
   const orderedSelection = () => selectedRows.map((r) => r.id);
+  const planWrite = (ids: string[]) => {
+    setWriteIds(ids);
+  };
 
   const sidebarItem = (p: Playlist | null) => {
     const active = (p?.id ?? null) === playlistId;
@@ -402,6 +421,7 @@ export function Library() {
       </section>
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
+      {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
 
       {menu && (
         <div className="menu" style={{ left: Math.min(menu.x, window.innerWidth - 240), top: Math.min(menu.y, window.innerHeight - 380) }} role="menu">
@@ -440,6 +460,36 @@ export function Library() {
               {t("library.removeFromPlaylist")}
             </button>
           )}
+          <hr />
+          <div className="menu-label">{t("details.tags")}</div>
+          {[...tagList]
+            .sort((a, b) => (a.quickSlot ?? 99) - (b.quickSlot ?? 99) || b.trackCount - a.trackCount)
+            .slice(0, 10)
+            .map((g) => (
+              <button
+                key={g.id}
+                onClick={() =>
+                  act(() => api.tagTracks(selectedIds, g.id)).then((on) => {
+                    if (on !== undefined) toast(t(on ? "tags.added" : "tags.removed", { name: g.name, n: selectedIds.length }), "ok");
+                    bump();
+                  })
+                }
+              >
+                # {g.name}
+                {g.quickSlot ? <span className="kbd menu-kbd">⇧{g.quickSlot}</span> : null}
+              </button>
+            ))}
+          <button
+            onClick={async () => {
+              const name = await prompt(t("tags.newForSelection"));
+              if (!name) return;
+              const id = await act(() => api.createTag(name, "custom"));
+              if (id) act(() => api.tagTracks(selectedIds, id, true), t("tags.added", { name, n: selectedIds.length })).then(bump);
+            }}
+          >
+            + {t("tags.newForSelection")}
+          </button>
+          <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
           <hr />
           <button onClick={() => doExport("m3u8")}>{t("export.m3u8")}</button>
           <button onClick={() => doExport("rekordbox")}>{t("export.rekordbox")}</button>

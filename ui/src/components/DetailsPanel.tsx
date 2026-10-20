@@ -5,6 +5,7 @@ import { api, type Decision, type TrackDetail, type TrackRow } from "../api";
 import { formatBpm, formatDuration, sourceLabel } from "../format";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
+import { CueEditor, HistorySection, TagsSection } from "./TrackExtras";
 import { KeyChip } from "./TrackTable";
 
 const EDITABLE: { field: string; label: MsgKey }[] = [
@@ -223,6 +224,8 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
         </div>
       )}
 
+      {d && <TagsSection d={d} onChanged={onChanged} />}
+
       <div className="section-title">{t("details.metadata")}</div>
       {d &&
         EDITABLE.map((f) => {
@@ -290,24 +293,7 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
         </>
       )}
 
-      {d && d.cues.length > 0 && (
-        <>
-          <div className="section-title">{t("details.cues")}</div>
-          <ul className="cue-list">
-            {d.cues.map((c) => (
-              <li key={c.id}>
-                <span className="cue-swatch" style={{ background: c.color ?? "var(--muted)" }} />
-                <button className="link-btn num" onClick={() => play(tr, c.startMs)}>
-                  {formatDuration(c.startMs)}
-                </button>
-                <span>{c.kind}{c.slot != null ? ` ${String.fromCharCode(65 + c.slot)}` : ""}</span>
-                <span className="muted">{c.name}</span>
-                <span className="src">{sourceLabel(c.source)}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      {d && <CueEditor track={tr} cues={d.cues} onChanged={onChanged} />}
       {d && d.playlists.length > 0 && (
         <>
           <div className="section-title">{t("details.playlists")}</div>
@@ -328,6 +314,7 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
         {tr.bitrate ? `${tr.bitrate} kbps · ` : ""}
         {t("details.added")} {new Date(tr.createdAt).toLocaleString()}
       </div>
+      {d && <HistorySection d={d} />}
     </aside>
   );
 }

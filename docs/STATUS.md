@@ -1,4 +1,52 @@
-# Status report — v0.1.0 (first functional build)
+# Status report
+
+## Increment 2 — Phase 2 essentials (2026-10-20)
+
+### Implemented in this increment
+
+| Feature | Where | Verification |
+|---|---|---|
+| **Undo / redo** of edits, bulk edits, decisions, notes, favourites, tags, smart fixes (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, sidebar buttons, `deepcuts undo/redo/history`) | `dc-core::history` (schema v2 `change_batches`/`changes`) | `phase2::undo_redo_edits_decisions_notes_favorites` |
+| **Per-track change history** in the details panel | `history::track_history` | same test + GUI |
+| **Hierarchical tags** with categories, synonyms, Quick Tag slots (Shift+1…9), AI-suggestion review path; Tag Editor section; tag chips + add-tag in details; tags in the context menu; `tag:` search covers children and synonyms | `dc-core::tags`, `ui/views/TagEditor.tsx` | `phase2::hierarchical_tags_synonyms_and_quick_slots`, `TagEditor.test.ts`, GUI check |
+| **Smart Fixes** (10 rules: invisible chars, URLs/promo, track-number prefixes, feat., separators, SHOUTED CAPS, genre spelling, whitespace, version/remixer extraction) with preview, per-row accept, one undoable batch | `dc-core::fixes`, Library Health | `fixes::tests` (rules), `phase2::smart_fixes_preview_apply_undo`, GUI check |
+| **Cue editor** (memory/hot cue at playhead with `C`, rename, delete, lock) and **phrase-aligned cue suggestions** (Intro / Main / Breakdown / Drop / Outro on 8-bar phrases) created by every analysis; suggestions shown on the waveform, never exported until accepted | `dc-core::cues` | `cues::tests`, `phase2::analysis_creates_phrase_cue_suggestions…` (synthetic breakdown at 60 s found within one beat; user cue survives re-analysis) |
+| **Write tags to files** (title, artist, album, album artist, label, genre, remixer, year, BPM, key, comment, ISRC): dry-run plan, refusal of files changed on disk, optional copy of originals, read-back verification, automatic restore on failure | `dc-core::tagwrite`, dialog in Library context menu and Sync & Export | `phase2::write_tags_back_to_files` (MP3, FLAC, AAC-M4A, AIFF; audio still decodes; incremental re-import sees no change) |
+| **Watch folders** (OS notifications + 3 s debounce + startup catch-up; removed paths marked missing so moves relink) | `src-tauri/src/watch.rs`, Settings | registry test + manual run on Linux (copy → imported and queued for analysis; rename → same track relinked; delete → marked missing). No automated test of the OS event loop. |
+| Schema **v2** migration (from v1, in place) | `migrations/0002_phase2.sql` | ran on the v1 test library: integrity `ok`, data intact |
+| CLI: `tag`, `tags`, `fix`, `write-tags`, `undo`, `redo`, `history`, `watch`, `cues` | `crates/dc-cli` | manual runs on the test library |
+
+### Fixes found while testing this increment
+
+* Beat phase could land one period late when the first kick starts at 0 s → phase wrap.
+* "Outro" suggestion could coincide with "Drop" → nearest free phrase boundary.
+* SHOUTED titles with a normal-case version suffix were not fixed → per-word rule when caps dominate.
+* Genre normalisation merged distinct genres (Melodic Techno → Melodic House & Techno) → now
+  spelling-only, with a test that distinct genres are never merged.
+* ID3v2/MP4 have only an integer BPM frame → a rounded file BPM counts as in sync (documented).
+
+### Cross-platform
+
+CI run #2 (commit `51fa3be`) passed on **Ubuntu 22.04, Windows (latest) and macOS (latest)**: UI
+typecheck + tests, all Rust tests, and unsigned installer builds (Windows ~10.7 MB, macOS ~6.4 MB
+artifacts). On the Windows runner the ffmpeg-dependent format tests are skipped (no ffmpeg).
+Audible playback on Windows/macOS still needs a manual check on real hardware.
+
+### Test totals (this increment, local)
+
+`cargo test --workspace --release`: **39 passed** · UI (vitest): **18 passed** · clippy: **0 warnings**.
+
+### Next priorities
+
+1. Manual smoke test of the installers on Windows and macOS (audible preview, folder dialog, drag-and-drop).
+2. Real-corpus evaluation of tempo/key/cue suggestions (`AI_VALIDATION.md`).
+3. Playlist/cue edits in the undo history; file move & rename with relink and undo; loops/beatgrid editing UI.
+4. Acoustic-fingerprint duplicates and transcoding detection.
+5. ONNX Runtime + model registry (schema v3) and CLAP embedding evaluation for similar-track search.
+
+---
+
+## Increment 1 — v0.1.0 (first functional build)
 
 Date: 2026-10-20. Everything listed as passing was actually run in the development container
 (Linux x86-64). Windows and macOS have **not** been run yet. The CI matrix that does so is committed

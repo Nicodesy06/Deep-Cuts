@@ -5,9 +5,12 @@
 pub mod analysis;
 pub mod audio;
 pub mod backup;
+pub mod cues;
 pub mod db;
 pub mod error;
 pub mod export;
+pub mod fixes;
+pub mod history;
 pub mod jobs;
 pub mod keys;
 pub mod library;
@@ -16,6 +19,8 @@ pub mod paths;
 pub mod query;
 pub mod rekordbox;
 pub mod stats;
+pub mod tags;
+pub mod tagwrite;
 pub mod util;
 
 pub use error::{Error, Result};

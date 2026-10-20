@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type AppInfo, type BackupInfo } from "../api";
+import { open } from "@tauri-apps/plugin-dialog";
+import { api, type AppInfo, type BackupInfo, type WatchFolder } from "../api";
 import { formatBytes } from "../format";
 import type { Lang } from "../i18n";
 import { useAction, useApp } from "../store";
@@ -11,11 +12,13 @@ export function Settings() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [integrity, setIntegrity] = useState<string | null>(null);
+  const [watch, setWatch] = useState<WatchFolder[]>([]);
 
   const refresh = () => {
     api.appInfo().then(setInfo, () => {});
     api.getSettings().then(setSettings, () => {});
     api.listBackups().then(setBackups, () => {});
+    api.listWatchFolders().then(setWatch, () => {});
   };
   useEffect(refresh, []);
 
@@ -80,6 +83,42 @@ export function Settings() {
           )}
         </section>
       </div>
+      <section className="panel">
+        <div className="row space wrap">
+          <h2>{t("watch.title")}</h2>
+          <button
+            className="btn"
+            onClick={async () => {
+              const r = await open({ directory: true, multiple: false, title: t("watch.choose") });
+              if (typeof r === "string") act(() => api.addWatchFolder(r), t("watch.added")).then(refresh);
+            }}
+          >
+            {t("watch.add")}
+          </button>
+        </div>
+        <p className="hint">{t("watch.hint")}</p>
+        <table className="grid-table">
+          <tbody>
+            {watch.length === 0 && (
+              <tr>
+                <td className="muted">{t("watch.none")}</td>
+              </tr>
+            )}
+            {watch.map((w) => (
+              <tr key={w.path}>
+                <td className="path small">{w.path}</td>
+                <td className="small">{w.exists ? <span className="ok">{t("watch.watching")}</span> : <span className="err">{t("watch.unavailable")}</span>}</td>
+                <td className="small muted">{w.lastScan ? new Date(w.lastScan).toLocaleString() : "—"}</td>
+                <td>
+                  <button className="btn small ghost" onClick={() => act(() => api.removeWatchFolder(w.path)).then(refresh)}>
+                    {t("watch.remove")}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
       <section className="panel">
         <div className="row space wrap">
           <h2>{t("settings.backups")}</h2>
