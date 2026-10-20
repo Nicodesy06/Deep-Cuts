@@ -1,7 +1,7 @@
 //! Undo / redo of user actions.
 //!
 //! Every user-initiated change (metadata edit, decision, notes, favourite,
-//! tag assignment, smart fix) goes through [`change`], which reads the
+//! tag assignment, smart fix, playlist order, file rename) goes through [`change`], which reads the
 //! previous state, applies the new one and records both inside a batch.
 //! Undo restores the old states of the latest batch; redo re-applies it.
 //! Recording a new batch clears the redo stack.
@@ -24,6 +24,9 @@ pub enum Kind {
     Tag,
     /// Order/content of a playlist (track = key = playlist id, value = JSON ids).
     PlaylistOrder,
+    /// Location of an audio file on disk (key = file id, value = path).
+    /// Undo moves the file back.
+    FilePath,
 }
 
 impl Kind {
@@ -35,6 +38,7 @@ impl Kind {
             Kind::Favorite => "favorite",
             Kind::Tag => "tag",
             Kind::PlaylistOrder => "playlist",
+            Kind::FilePath => "file",
         }
     }
 
@@ -46,6 +50,7 @@ impl Kind {
             "favorite" => Kind::Favorite,
             "tag" => Kind::Tag,
             "playlist" => Kind::PlaylistOrder,
+            "file" => Kind::FilePath,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -120,6 +125,7 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
         Kind::PlaylistOrder => State::set(Some(&serde_json::to_string(
             &library::playlist_track_ids(conn, key)?,
         )?)),
+        Kind::FilePath => State::set(Some(&crate::fileops::file_path(conn, key)?)),
     })
 }
 
@@ -173,6 +179,11 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
         Kind::PlaylistOrder => {
             let ids: Vec<String> = serde_json::from_str(s.value.as_deref().unwrap_or("[]"))?;
             library::set_playlist_tracks(conn, key, &ids)?;
+        }
+        Kind::FilePath => {
+            if let Some(p) = &s.value {
+                crate::fileops::set_file_path(conn, key, p)?;
+            }
         }
     }
     Ok(())

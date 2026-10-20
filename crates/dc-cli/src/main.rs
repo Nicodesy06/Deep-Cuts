@@ -7,7 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, paths, rekordbox, stats,
     tags, tagwrite,
 };
-use dc_core::{sets, similarity};
+use dc_core::{fileops, sets, similarity};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -115,6 +115,19 @@ enum Cmd {
         /// Do not keep copies of the original files.
         #[arg(long)]
         no_backup: bool,
+    },
+    /// Rename/move files from metadata (dry run; --yes to apply, undoable).
+    /// Pattern tokens: {artist} {title} {version} {remixer} {album} {label}
+    /// {genre} {year} {bpm} {key} {camelot}
+    Rename {
+        query: String,
+        #[arg(long, default_value = fileops::DEFAULT_PATTERN)]
+        pattern: String,
+        /// Move into this folder instead of renaming in place
+        #[arg(long)]
+        to: Option<PathBuf>,
+        #[arg(long)]
+        yes: bool,
     },
     /// Undo the last change batch.
     Undo,
@@ -489,6 +502,42 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 );
             } else {
                 println!("{} proposals (preview only; --apply to apply)", props.len());
+            }
+        }
+        Cmd::Rename {
+            query,
+            pattern,
+            to,
+            yes,
+        } => {
+            let ids = query_track_ids(
+                &conn,
+                &TrackQuery {
+                    query,
+                    ..Default::default()
+                },
+            )?;
+            let plan = fileops::plan(&conn, &ids, &pattern, to.as_deref())?;
+            for p in &plan {
+                match &p.conflict {
+                    Some(c) => println!("skip {}  ({c})", p.from),
+                    None => println!("{}\n  -> {}", p.from, p.to),
+                }
+            }
+            let n = plan.iter().filter(|p| p.conflict.is_none()).count();
+            if !yes {
+                println!("{n} files would be renamed (dry run; --yes to apply)");
+            } else {
+                let rep = fileops::apply(&conn, &plan)?;
+                for f in &rep.failed {
+                    eprintln!("failed: {} ({})", f.path, f.error);
+                }
+                println!(
+                    "renamed {} | skipped {} | failed {} (undo with `deepcuts undo`)",
+                    rep.moved,
+                    rep.skipped,
+                    rep.failed.len()
+                );
             }
         }
         Cmd::WriteTags {

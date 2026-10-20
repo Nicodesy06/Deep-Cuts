@@ -3,6 +3,7 @@ import { api, type Decision, type Playlist, type Tag, type TrackRow } from "../a
 import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
+import { RenameDialog } from "../components/RenameDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
 import { formatNumber } from "../format";
 import type { MsgKey } from "../i18n";
@@ -44,6 +45,7 @@ export function Library() {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
+  const [renameIds, setRenameIds] = useState<string[] | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const playlistId = libraryNav.playlistId;
 
@@ -422,6 +424,7 @@ export function Library() {
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
+      {renameIds && <RenameDialog ids={renameIds} onClose={() => setRenameIds(null)} />}
 
       {menu && (
         <div className="menu" style={{ left: Math.min(menu.x, window.innerWidth - 240), top: Math.min(menu.y, window.innerHeight - 380) }} role="menu">
@@ -511,6 +514,7 @@ export function Library() {
             + {t("tags.newForSelection")}
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
+          <button onClick={() => setRenameIds(selectedIds)}>{t("rename.menu")}</button>
           <hr />
           <button onClick={() => doExport("m3u8")}>{t("export.m3u8")}</button>
           <button onClick={() => doExport("rekordbox")}>{t("export.rekordbox")}</button>

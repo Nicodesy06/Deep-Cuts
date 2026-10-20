@@ -162,6 +162,20 @@ export interface WriteReport {
   backupDir: string | null;
 }
 
+export interface MovePlan {
+  trackId: string;
+  fileId: string;
+  from: string;
+  to: string;
+  conflict: string | null;
+}
+
+export interface RenameReport {
+  moved: number;
+  skipped: number;
+  failed: { path: string; error: string }[];
+}
+
 export interface WatchFolder {
   path: string;
   addedAt: number;
@@ -483,6 +497,9 @@ export const api = {
   renameCue: (id: string, name: string | null, color: string | null) => invoke<void>("rename_cue", { id, name, color }),
   planTagWrite: (ids: string[]) => invoke<WritePlan[]>("plan_tag_write", { ids }),
   writeTags: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("write_tags", { ids, keepBackup }),
+  planRename: (ids: string[], pattern: string, targetDir: string | null) =>
+    invoke<MovePlan[]>("plan_rename", { ids, pattern, targetDir }),
+  applyRename: (plans: MovePlan[]) => invoke<RenameReport>("apply_rename", { plans }),
   listWatchFolders: () => invoke<WatchFolder[]>("list_watch_folders"),
   addWatchFolder: (path: string) => invoke<string>("add_watch_folder", { path }),
   removeWatchFolder: (path: string) => invoke<void>("remove_watch_folder", { path }),

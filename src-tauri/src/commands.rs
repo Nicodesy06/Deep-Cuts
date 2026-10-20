@@ -7,7 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
-use dc_core::{map, sets, similarity};
+use dc_core::{fileops, map, sets, similarity};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -736,6 +736,36 @@ pub async fn write_tags(
         tagwrite::write(c, &ids, keep_backup.then_some(dir.as_path()))
     })
     .await
+}
+
+// ---------------------------------------------------------------------------
+// Renaming / moving files
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn plan_rename(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    pattern: String,
+    target_dir: Option<String>,
+) -> Res<Vec<fileops::MovePlan>> {
+    blocking(state.db_path.clone(), move |c| {
+        fileops::plan(
+            c,
+            &ids,
+            &pattern,
+            target_dir.as_deref().map(std::path::Path::new),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn apply_rename(
+    state: State<'_, AppState>,
+    plans: Vec<fileops::MovePlan>,
+) -> Res<fileops::ApplyReport> {
+    blocking(state.db_path.clone(), move |c| fileops::apply(c, &plans)).await
 }
 
 // ---------------------------------------------------------------------------

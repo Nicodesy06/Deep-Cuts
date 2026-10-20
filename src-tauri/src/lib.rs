@@ -168,6 +168,8 @@ pub fn run() {
             commands::rename_cue,
             commands::plan_tag_write,
             commands::write_tags,
+            commands::plan_rename,
+            commands::apply_rename,
             commands::list_watch_folders,
             commands::add_watch_folder,
             commands::remove_watch_folder,
