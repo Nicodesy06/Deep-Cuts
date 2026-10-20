@@ -28,6 +28,7 @@ pub mod similarity;
 pub mod stats;
 pub mod tags;
 pub mod tagwrite;
+pub mod tempostudy;
 pub mod util;
 
 pub use error::{Error, Result};

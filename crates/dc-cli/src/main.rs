@@ -192,6 +192,22 @@ enum Cmd {
         #[arg(long, default_value = "")]
         name: String,
     },
+    /// Tempo-estimator design study (same protocol as key-study).
+    TempoStudy {
+        audio: PathBuf,
+        /// Directory of <stem>.bpm files, or a tab-separated metadata file
+        /// with an ID column and a "BP BPM" column (GiantSteps-MTG-Keys)
+        #[arg(long)]
+        tempo: PathBuf,
+        #[arg(long)]
+        choose: Option<PathBuf>,
+        #[arg(long = "use")]
+        use_choice: Option<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -235,6 +251,24 @@ fn run(cli: Cli) -> dc_core::Result<()> {
         return key_study(
             audio,
             keys,
+            choose.as_deref(),
+            use_choice.as_deref(),
+            out.as_deref(),
+            name,
+        );
+    }
+    if let Cmd::TempoStudy {
+        audio,
+        tempo,
+        choose,
+        use_choice,
+        out,
+        name,
+    } = &cli.cmd
+    {
+        return tempo_study(
+            audio,
+            tempo,
             choose.as_deref(),
             use_choice.as_deref(),
             out.as_deref(),
@@ -737,7 +771,11 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 }
             }
         }
-        Cmd::Bench { .. } | Cmd::HelpQuery | Cmd::Eval { .. } | Cmd::KeyStudy { .. } => {
+        Cmd::Bench { .. }
+        | Cmd::HelpQuery
+        | Cmd::Eval { .. }
+        | Cmd::KeyStudy { .. }
+        | Cmd::TempoStudy { .. } => {
             unreachable!()
         }
     }
@@ -1193,6 +1231,130 @@ fn key_study(
                 if let Some(p) = choose {
                     let json = serde_json::to_vec_pretty(&b).unwrap_or_default();
                     export::write_atomic(p, &json)?;
+                }
+            }
+        }
+    }
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
+    }
+    Ok(())
+}
+
+/// Reference tempi by file stem: a directory of `<stem>.bpm` files, or a
+/// tab-separated table with a header containing "ID" and "BP BPM".
+fn load_tempo_refs(tempo: &std::path::Path, files: &[PathBuf]) -> Vec<(PathBuf, f64)> {
+    let mut table = std::collections::HashMap::new();
+    if tempo.is_file() {
+        let text = std::fs::read_to_string(tempo).unwrap_or_default();
+        let mut lines = text.lines();
+        let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
+        let col = header.iter().position(|h| h.trim() == "BP BPM");
+        if let Some(col) = col {
+            for line in lines {
+                let cols: Vec<&str> = line.split('\t').collect();
+                if let Some(b) = cols.get(col).and_then(|b| b.trim().parse::<f64>().ok()) {
+                    table.insert(cols[0].trim().to_string(), b);
+                }
+            }
+        }
+    }
+    files
+        .iter()
+        .filter_map(|f| {
+            let stem = f.file_stem()?.to_str()?.to_string();
+            let bpm = if tempo.is_file() {
+                table.get(stem.split('.').next()?).copied()
+            } else {
+                read_annotation(Some(tempo), &stem, "bpm").and_then(|b| b.parse().ok())
+            }?;
+            (bpm > 0.0).then(|| (f.clone(), bpm))
+        })
+        .collect()
+}
+
+fn tempo_study(
+    audio: &std::path::Path,
+    tempo: &std::path::Path,
+    choose: Option<&std::path::Path>,
+    use_choice: Option<&std::path::Path>,
+    out: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::analysis::tempo as tp;
+    use dc_core::tempostudy::{self, Choice};
+    use rayon::prelude::*;
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let refs = load_tempo_refs(tempo, &files);
+    let choice: Option<Choice> = match use_choice {
+        Some(p) => Some(
+            serde_json::from_slice(&std::fs::read(p)?)
+                .map_err(|e| dc_core::Error::Invalid(format!("bad choice file: {e}")))?,
+        ),
+        None => None,
+    };
+    let started = Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let tracks: Vec<_> = refs
+        .par_iter()
+        .filter_map(|(f, b)| {
+            let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if n.is_multiple_of(50) {
+                eprintln!("{n}/{}", refs.len());
+            }
+            Some((tempostudy::extract(f).ok()??, *b))
+        })
+        .collect();
+    let samples: Vec<_> = tracks.iter().map(|(t, b)| (t, *b)).collect();
+    let pct = |v: f64| format!("{:.1} %", v * 100.0);
+    let mut md = format!(
+        "# Tempo study{}\n\nAnnotated tracks: {} · usable: {} · {:.0} s\n\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        refs.len(),
+        samples.len(),
+        started.elapsed().as_secs_f64()
+    );
+    match choice {
+        Some(c) => {
+            let chosen = tempostudy::score(&samples, &c.config);
+            let base = tempostudy::score(&samples, &tp::BASELINE_1_0);
+            md += &format!(
+                "Fixed choice from the development corpus ({} tracks, dev Acc1 {} / Acc2 {}): `{}`.\n\n| Variant | Accuracy1 | Accuracy2 |\n|---|---|---|\n| Chosen | {} | {} |\n| Baseline dc-dsp 1.1.0 | {} | {} |\n",
+                c.dev_tracks,
+                pct(c.dev_acc1),
+                pct(c.dev_acc2),
+                c.config.label(),
+                pct(chosen.acc1),
+                pct(chosen.acc2),
+                pct(base.acc1),
+                pct(base.acc2)
+            );
+        }
+        None => {
+            let (results, best) = tempostudy::study(&samples);
+            let base = tempostudy::score(&samples, &tp::BASELINE_1_0);
+            md += &format!(
+                "Baseline dc-dsp 1.1.0: Acc1 {} / Acc2 {}\n\n| Variant | Accuracy1 | Accuracy2 |\n|---|---|---|\n",
+                pct(base.acc1),
+                pct(base.acc2)
+            );
+            for (c, s) in results.iter().take(40) {
+                md += &format!("| {} | {} | {} |\n", c.label(), pct(s.acc1), pct(s.acc2));
+            }
+            if let Some(b) = best {
+                md += &format!(
+                    "\n**Choice:** `{}` (dev Acc1 {}, Acc2 {}).\n",
+                    b.config.label(),
+                    pct(b.dev_acc1),
+                    pct(b.dev_acc2)
+                );
+                if let Some(p) = choose {
+                    export::write_atomic(p, &serde_json::to_vec_pretty(&b).unwrap_or_default())?;
                 }
             }
         }

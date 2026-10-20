@@ -1,6 +1,66 @@
 //! Tempo and beat-phase estimation from a spectral-flux onset envelope.
+//!
+//! The settings are a `TempoConfig` so variants can be compared on an
+//! annotated development corpus (`crate::tempostudy`); the
+//! analyser uses `PRODUCTION`.
 
 use super::stft;
+use serde::{Deserialize, Serialize};
+
+/// Which onset envelope drives the tempo search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Envelope {
+    Broadband,
+    /// Kick band (< 150 Hz).
+    Low,
+    /// Broadband + kick band.
+    Sum,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TempoConfig {
+    pub envelope: Envelope,
+    /// Log-normal tempo preference (centre in BPM, width in octaves) used to
+    /// resolve octave ambiguity.
+    pub prior_center: f64,
+    pub prior_width: f64,
+    /// Score = comb × (floor + prior): a higher floor weakens the prior.
+    pub prior_floor: f64,
+    /// Beat multiples summed in the coarse comb.
+    pub multiples: usize,
+    pub min_bpm: f64,
+    pub max_bpm: f64,
+}
+
+/// dc-dsp 1.0.0 / 1.1.0 settings.
+pub const BASELINE_1_0: TempoConfig = TempoConfig {
+    envelope: Envelope::Broadband,
+    prior_center: 125.0,
+    prior_width: 0.9,
+    prior_floor: 0.5,
+    multiples: 4,
+    min_bpm: 60.0,
+    max_bpm: 200.0,
+};
+
+pub const PRODUCTION: TempoConfig = BASELINE_1_0;
+
+impl TempoConfig {
+    pub fn label(&self) -> String {
+        format!(
+            "{:?} prior {:.0}/{:.2}/{:.2} comb{} {:.0}-{:.0}",
+            self.envelope,
+            self.prior_center,
+            self.prior_width,
+            self.prior_floor,
+            self.multiples,
+            self.min_bpm,
+            self.max_bpm
+        )
+    }
+}
 
 pub struct TempoEstimate {
     pub bpm: f64,
@@ -39,40 +99,72 @@ fn comb_score(ac: &[f32], fps: f64, bpm: f64, multiples: usize) -> f64 {
 }
 
 /// Preference for the usual DJ tempo range, used only to break octave
-/// ambiguity (e.g. 87 vs 174). Log-normal around 125 BPM.
-fn prior(bpm: f64) -> f64 {
-    let d = (bpm / 125.0).log2() / 0.9;
+/// ambiguity (e.g. 87 vs 174).
+fn prior(bpm: f64, cfg: &TempoConfig) -> f64 {
+    let d = (bpm / cfg.prior_center).log2() / cfg.prior_width;
     (-0.5 * d * d).exp()
 }
 
-/// `phase_env` (e.g. a kick-band onset envelope) is used for the beat
-/// phase when it carries enough energy; otherwise `onset_env` is used.
+/// The envelope a configuration searches.
+pub fn tempo_envelope(onset_env: &[f32], low_env: &[f32], e: Envelope) -> Vec<f32> {
+    match e {
+        Envelope::Broadband => onset_env.to_vec(),
+        Envelope::Low => low_env.to_vec(),
+        Envelope::Sum => onset_env.iter().zip(low_env).map(|(a, b)| a + b).collect(),
+    }
+}
+
+const STEP: f64 = 0.05;
+
+/// Comb score at every 0.05 BPM step in [min, max]: (bpm, score).
+pub fn comb_curve(ac: &[f32], fps: f64, min: f64, max: f64, multiples: usize) -> Vec<(f64, f64)> {
+    let n = ((max - min) / STEP).round() as usize;
+    (0..=n)
+        .map(|i| {
+            let b = min + i as f64 * STEP;
+            (b, comb_score(ac, fps, b, multiples))
+        })
+        .collect()
+}
+
+/// Best tempo on a comb curve under `cfg`'s range and prior.
+pub fn pick(curve: &[(f64, f64)], cfg: &TempoConfig) -> Option<f64> {
+    let mut best = (0.0, f64::MIN);
+    for &(b, c) in curve {
+        if b < cfg.min_bpm - 1e-9 || b > cfg.max_bpm + 1e-9 {
+            continue;
+        }
+        let s = c * (cfg.prior_floor + prior(b, cfg));
+        if s > best.1 {
+            best = (b, s);
+        }
+    }
+    (best.1 > 0.0).then_some(best.0)
+}
+
+/// Coarse tempo (0.05 BPM steps) from the envelope's autocorrelation.
+pub fn coarse_bpm(ac: &[f32], fps: f64, cfg: &TempoConfig) -> Option<f64> {
+    pick(
+        &comb_curve(ac, fps, cfg.min_bpm, cfg.max_bpm, cfg.multiples),
+        cfg,
+    )
+}
+
+/// Tempo from `onset_env` or the kick-band `low_env` (per `cfg`); the beat
+/// phase follows `low_env` when it carries enough energy.
 pub fn estimate(
     onset_env: &[f32],
-    phase_env: Option<&[f32]>,
+    low_env: &[f32],
     fps: f64,
-    min_bpm: f64,
-    max_bpm: f64,
+    cfg: &TempoConfig,
 ) -> Option<TempoEstimate> {
     if onset_env.len() < (fps * 8.0) as usize {
         return None; // need at least ~8 s of audio
     }
-    let ac = stft::autocorrelation(onset_env);
-    // Coarse search across the range.
-    let mut best = (0.0, f64::MIN);
-    let mut bpm = min_bpm;
-    while bpm <= max_bpm {
-        let s = comb_score(&ac, fps, bpm, 4) * (0.5 + prior(bpm));
-        if s > best.1 {
-            best = (bpm, s);
-        }
-        bpm += 0.05;
-    }
-    if best.1 <= 0.0 {
-        return None;
-    }
+    let search = tempo_envelope(onset_env, low_env, cfg.envelope);
+    let ac = stft::autocorrelation(&search);
+    let coarse = coarse_bpm(&ac, fps, cfg)?;
     // Fine search: many beat multiples sharpen the peak for steady tempi.
-    let coarse = best.0;
     let mut fine = (coarse, f64::MIN);
     let mut b = coarse * 0.985;
     while b <= coarse * 1.015 {
@@ -88,14 +180,12 @@ pub fn estimate(
     // Beat phase: offset that collects the most onset energy on the grid.
     let period = 60.0 * fps / bpm;
     let total: f64 = onset_env.iter().map(|v| *v as f64).sum();
-    let onset_env = match phase_env {
-        Some(p)
-            if p.len() == onset_env.len()
-                && p.iter().map(|v| *v as f64).sum::<f64>() > 0.02 * total =>
-        {
-            p
-        }
-        _ => onset_env,
+    let onset_env = if low_env.len() == onset_env.len()
+        && low_env.iter().map(|v| *v as f64).sum::<f64>() > 0.02 * total
+    {
+        low_env
+    } else {
+        onset_env
     };
     let mut best_phase = (0.0, f64::MIN);
     let mut phase = 0.0;

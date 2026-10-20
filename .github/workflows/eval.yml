@@ -10,6 +10,7 @@ on:
       - "crates/dc-core/src/analysis/**"
       - "crates/dc-core/src/eval.rs"
       - "crates/dc-core/src/keystudy.rs"
+      - "crates/dc-core/src/tempostudy.rs"
       - "scripts/fetch_giantsteps.sh"
       - ".github/workflows/eval.yml"
 
@@ -55,9 +56,9 @@ jobs:
           name: analyser-evaluation
           path: eval-out/
 
-  # Key-estimator design study: variants are compared on GiantSteps-MTG-Keys
-  # (development corpus) and only the single chosen variant is measured on
-  # GiantSteps Key (test corpus). The two corpora share no tracks.
+  # Design studies: variants are compared on GiantSteps-MTG-Keys
+  # (development corpus; keys + Beatport BPMs) and only the single chosen
+  # variant is measured on GiantSteps Key / GiantSteps Tempo (test corpora).
   key-study:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
@@ -77,22 +78,42 @@ jobs:
           path: |
             audio-key
             audio-mtg
-          key: giantsteps-key-mtg-audio-v1
+            audio-tempo
+          key: giantsteps-key-mtg-tempo-audio-v1
 
       - name: Fetch annotations and audio
         run: |
           git clone --depth 1 https://github.com/GiantSteps/giantsteps-key-dataset.git gs-key
           git clone --depth 1 https://github.com/GiantSteps/giantsteps-mtg-key-dataset.git gs-mtg
+          git clone --depth 1 https://github.com/GiantSteps/giantsteps-tempo-dataset.git gs-tempo
           scripts/fetch_giantsteps.sh gs-key audio-key 12
           scripts/fetch_giantsteps.sh gs-mtg audio-mtg 12
+          scripts/fetch_giantsteps.sh gs-tempo audio-tempo 12
+
+      - name: Development set without any test-set track
+        run: |
+          mkdir -p dev
+          for f in audio-mtg/*.mp3; do
+            n="$(basename "$f")"
+            if [ ! -e "audio-key/$n" ] && [ ! -e "audio-tempo/$n" ]; then ln "$f" "dev/$n"; fi
+          done
+          echo "MTG-Keys files: $(ls audio-mtg | wc -l), also in GiantSteps Key: $(for f in audio-mtg/*.mp3; do [ -e "audio-key/$(basename "$f")" ] && echo; done | wc -l), also in GiantSteps Tempo: $(for f in audio-mtg/*.mp3; do [ -e "audio-tempo/$(basename "$f")" ] && echo; done | wc -l), development set: $(ls dev | wc -l)" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Study on development corpus, measure choice on test corpus
         run: |
           mkdir -p eval-out
-          ./target/release/deepcuts key-study audio-mtg --keys gs-mtg/annotations/annotations.txt --choose eval-out/key-choice.json --out eval-out/key-study-dev.md --name "GiantSteps-MTG-Keys (development)"
+          ./target/release/deepcuts key-study dev --keys gs-mtg/annotations/annotations.txt --choose eval-out/key-choice.json --out eval-out/key-study-dev.md --name "GiantSteps-MTG-Keys (development)"
           ./target/release/deepcuts key-study audio-key --keys gs-key/annotations/key --use eval-out/key-choice.json --out eval-out/key-study-test.md --name "GiantSteps Key (test)"
           cat eval-out/key-study-test.md eval-out/key-study-dev.md >> "$GITHUB_STEP_SUMMARY"
           cat eval-out/key-choice.json
+
+      - name: Tempo study (development → test)
+        run: |
+          ./target/release/deepcuts tempo-study dev --tempo gs-mtg/annotations/beatport_metadata.txt --choose eval-out/tempo-choice.json --out eval-out/tempo-study-dev.md --name "GiantSteps-MTG-Keys Beatport BPM (development)"
+          ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations_v2/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v2.md --name "GiantSteps Tempo v2 (test)"
+          ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v1.md --name "GiantSteps Tempo original (test)"
+          cat eval-out/tempo-study-test-v2.md eval-out/tempo-study-test-v1.md eval-out/tempo-study-dev.md >> "$GITHUB_STEP_SUMMARY"
+          cat eval-out/tempo-choice.json
 
       - uses: actions/upload-artifact@v4
         with:

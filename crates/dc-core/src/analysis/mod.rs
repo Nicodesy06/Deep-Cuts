@@ -136,7 +136,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let high_bin = (5000.0 / bin_hz) as usize;
     let wf_low_bin = (200.0 / bin_hz) as usize;
     let wf_high_bin = (3000.0 / bin_hz) as usize;
-    let mut prev_log: Vec<f32> = vec![0.0; ONSET_N / 2 + 1];
+    let mut onset = OnsetFlux::new();
     let mut flux: Vec<f32> = Vec::new();
     let mut low_flux: Vec<f32> = Vec::new();
     let (mut centroid_sum, mut centroid_w) = (0.0f64, 0.0f64);
@@ -144,20 +144,10 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let mut frame_low: Vec<f32> = Vec::new();
     let mut frame_high: Vec<f32> = Vec::new();
     stft::magnitudes(&x, ONSET_N, ONSET_HOP, |t, mag| {
-        let mut f = 0.0f32;
-        let mut f_low = 0.0f32;
+        let (f, f_low) = onset.push(t, mag);
         let (mut c_num, mut c_den) = (0.0f64, 0.0f64);
         let (mut fl, mut fh) = (0.0f32, 0.0f32);
         for (k, &m) in mag.iter().enumerate() {
-            let l = (1.0 + 100.0 * m).ln();
-            if t > 0 {
-                let d = (l - prev_log[k]).max(0.0);
-                f += d;
-                if k < low_bin {
-                    f_low += d;
-                }
-            }
-            prev_log[k] = l;
             let p = (m as f64) * (m as f64);
             c_num += p * k as f64 * bin_hz;
             c_den += p;
@@ -182,14 +172,11 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
         frame_low.push(fl.sqrt());
         frame_high.push(fh.sqrt());
     });
-    let fps = SR as f64 / ONSET_HOP as f64;
-    let env = detrend(&flux, (fps * 0.5) as usize);
-    // Beat phase follows the kick band: DJ grids sit on the kick, while
-    // broadband flux is often dominated by off-beat hats.
-    let low_env = detrend(&low_flux, (fps * 0.5) as usize);
+    let fps = ONSET_FPS;
+    let (env, low_env) = detrend_envelopes(&flux, &low_flux);
     // The flux reacts when an onset reaches the centre of the analysis window.
     let shift_ms = (ONSET_N as f64 / 2.0) / SR as f64 * 1000.0;
-    let tempo = tempo::estimate(&env, Some(&low_env), fps, 60.0, 200.0).map(|t| TempoResult {
+    let tempo = tempo::estimate(&env, &low_env, fps, &tempo::PRODUCTION).map(|t| TempoResult {
         bpm: (t.bpm * 100.0).round() / 100.0,
         periodicity: (t.periodicity * 1000.0).round() / 1000.0,
         first_beat_ms: ((t.first_beat_ms + shift_ms).max(0.0) * 10.0).round() / 10.0,
@@ -297,6 +284,60 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
 }
 
 /// Subtract a moving average and keep positive excursions.
+pub(crate) const ONSET_FPS: f64 = SR as f64 / ONSET_HOP as f64;
+const LOW_BAND_HZ: f64 = 150.0;
+
+/// Log-magnitude spectral flux per frame, broadband and below 150 Hz.
+pub(crate) struct OnsetFlux {
+    prev_log: Vec<f32>,
+    low_bin: usize,
+}
+
+impl OnsetFlux {
+    pub(crate) fn new() -> Self {
+        OnsetFlux {
+            prev_log: vec![0.0; ONSET_N / 2 + 1],
+            low_bin: (LOW_BAND_HZ / (SR as f64 / ONSET_N as f64)) as usize,
+        }
+    }
+
+    pub(crate) fn push(&mut self, t: usize, mag: &[f32]) -> (f32, f32) {
+        let (mut f, mut f_low) = (0.0f32, 0.0f32);
+        for (k, &m) in mag.iter().enumerate() {
+            let l = (1.0 + 100.0 * m).ln();
+            if t > 0 {
+                let d = (l - self.prev_log[k]).max(0.0);
+                f += d;
+                if k < self.low_bin {
+                    f_low += d;
+                }
+            }
+            self.prev_log[k] = l;
+        }
+        (f, f_low)
+    }
+}
+
+/// Onset envelopes (broadband, kick band) with a 0.5 s moving mean removed.
+/// Beat phase follows the kick band: DJ grids sit on the kick, while
+/// broadband flux is often dominated by off-beat hats.
+pub(crate) fn detrend_envelopes(flux: &[f32], low_flux: &[f32]) -> (Vec<f32>, Vec<f32>) {
+    let w = (ONSET_FPS * 0.5) as usize;
+    (detrend(flux, w), detrend(low_flux, w))
+}
+
+/// Onset envelopes of a mono signal at `SR` (for the tempo study).
+pub(crate) fn onset_envelopes(x: &[f32]) -> (Vec<f32>, Vec<f32>) {
+    let mut onset = OnsetFlux::new();
+    let (mut flux, mut low) = (Vec::new(), Vec::new());
+    stft::magnitudes(x, ONSET_N, ONSET_HOP, |t, mag| {
+        let (f, l) = onset.push(t, mag);
+        flux.push(f);
+        low.push(l);
+    });
+    detrend_envelopes(&flux, &low)
+}
+
 fn detrend(x: &[f32], win: usize) -> Vec<f32> {
     let win = win.max(1);
     let mut out = vec![0f32; x.len()];
