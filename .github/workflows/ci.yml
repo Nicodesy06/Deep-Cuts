@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev ffmpeg
+
+      - name: macOS ffmpeg (multi-format tests)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: UI typecheck + unit tests
+        run: |
+          npm --prefix ui run typecheck
+          npm --prefix ui test
+
+      - name: Rust tests (core, CLI, desktop shell)
+        run: cargo test --workspace --release
+
+      - name: Build installers (unsigned)
+        run: npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deep-cuts-${{ matrix.os }}
+          path: |
+            target/release/bundle/**/*.msi
+            target/release/bundle/**/*.exe
+            target/release/bundle/**/*.dmg
+            target/release/bundle/**/*.deb
+            target/release/bundle/**/*.AppImage
+          if-no-files-found: warn
