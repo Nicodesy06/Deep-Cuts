@@ -6,34 +6,6 @@ use common::*;
 use dc_core::query::{TrackQuery, query_tracks};
 use dc_core::{db, jobs, library};
 
-/// Stereo-interleaved music-like signal with content up to 22 kHz:
-/// a synthetic groove plus decaying broadband "hats".
-fn broadband(seconds: f32, sr: u32) -> Vec<f32> {
-    let mut x = synth(
-        &Spec {
-            bpm: 126.0,
-            tonic: 7,
-            minor: true,
-            seconds,
-            first_beat_s: 0.0,
-        },
-        sr,
-    );
-    let mut state = 99u64;
-    let eighth = (60.0 / 126.0 / 2.0 * sr as f64) as usize;
-    for (i, pair) in x.chunks_exact_mut(2).enumerate() {
-        state = state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let n = ((state >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * 0.6;
-        let env = (-((i % eighth) as f32) / (0.04 * sr as f32)).exp();
-        let v = n * (0.08 + env);
-        pair[0] += v;
-        pair[1] += v;
-    }
-    x
-}
-
 #[test]
 fn fake_lossless_and_fake_320_are_flagged() {
     if !has_ffmpeg() {
@@ -46,7 +18,14 @@ fn fake_lossless_and_fake_320_are_flagged() {
     std::fs::create_dir_all(&work).unwrap();
     std::fs::create_dir_all(&music).unwrap();
     let wav = work.join("src.wav");
-    write_wav(&wav, &broadband(30.0, 44100), 44100);
+    let spec = Spec {
+        bpm: 126.0,
+        tonic: 7,
+        minor: true,
+        seconds: 30.0,
+        first_beat_s: 0.0,
+    };
+    write_wav(&wav, &broadband(&spec, 44100, 99), 44100);
     let mp3_128 = work.join("low.mp3");
     assert!(ffmpeg_encode(
         &wav,

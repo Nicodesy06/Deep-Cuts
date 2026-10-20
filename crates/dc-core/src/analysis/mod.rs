@@ -7,6 +7,7 @@
 //! the raw algorithmic scores, labelled as such.
 
 pub mod bandwidth;
+pub mod fingerprint;
 pub mod key;
 pub mod loudness;
 pub mod stft;
@@ -23,6 +24,7 @@ use std::path::Path;
 pub const ANALYZER: &str = "dc-dsp";
 pub const ANALYZER_VERSION: &str = "1.2.0";
 pub const WAVEFORM_VERSION: i64 = 1;
+pub const FINGERPRINT_VERSION: i64 = 1;
 pub const WAVEFORM_BINS: usize = 1200;
 
 pub(crate) const SR: u32 = 22050;
@@ -105,6 +107,8 @@ pub struct Analysis {
     pub result: AnalysisResult,
     /// WAVEFORM_BINS * 4 bytes: peak, rms, low-band, high-band per bin.
     pub waveform: Vec<u8>,
+    /// Acoustic fingerprint (`fingerprint` module), None for short tracks.
+    pub fingerprint: Option<Vec<u16>>,
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -145,6 +149,12 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let wf_low_bin = (200.0 / bin_hz) as usize;
     let wf_high_bin = (3000.0 / bin_hz) as usize;
     let mut onset = OnsetFlux::new();
+    let mut fp = fingerprint::FingerprintBuilder::new(
+        SR as f64,
+        ONSET_N,
+        ONSET_HOP,
+        x.len() as f64 / SR as f64,
+    );
     let mut flux: Vec<f32> = Vec::new();
     let mut low_flux: Vec<f32> = Vec::new();
     let (mut centroid_sum, mut centroid_w) = (0.0f64, 0.0f64);
@@ -153,6 +163,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let mut frame_high: Vec<f32> = Vec::new();
     stft::magnitudes(&x, ONSET_N, ONSET_HOP, |t, mag| {
         let (f, f_low) = onset.push(t, mag);
+        fp.push(t, mag);
         let (mut c_num, mut c_den) = (0.0f64, 0.0f64);
         let (mut fl, mut fh) = (0.0f32, 0.0f32);
         for (k, &m) in mag.iter().enumerate() {
@@ -180,6 +191,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
         frame_low.push(fl.sqrt());
         frame_high.push(fh.sqrt());
     });
+    let fingerprint = fp.finish();
     let fps = ONSET_FPS;
     let (env, low_env) = detrend_envelopes(&flux, &low_flux);
     // The flux reacts when an onset reaches the centre of the analysis window.
@@ -290,6 +302,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
             bandwidth,
         },
         waveform,
+        fingerprint,
     })
 }
 
@@ -525,6 +538,14 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
          ON CONFLICT(track_id) DO UPDATE SET version = excluded.version, bins = excluded.bins, data = excluded.data",
         params![track_id, WAVEFORM_VERSION, WAVEFORM_BINS as i64, a.waveform],
     )?;
+    match &a.fingerprint {
+        Some(bits) => tx.execute(
+            "INSERT INTO fingerprints (track_id, version, data) VALUES (?1, ?2, ?3)
+             ON CONFLICT(track_id) DO UPDATE SET version = excluded.version, data = excluded.data",
+            params![track_id, FINGERPRINT_VERSION, fingerprint::to_blob(bits)],
+        )?,
+        None => tx.execute("DELETE FROM fingerprints WHERE track_id = ?1", [track_id])?,
+    };
     crate::cues::store_suggestions(tx, track_id, &a.result)?;
     crate::features::store(tx, track_id, &a.result)?;
     Ok(())

@@ -37,6 +37,13 @@ under their published licences, with credit:
 The only parameters derived from a corpus are the 24 numbers of `key::LEARNED_EDM` (mean pitch
 class profiles of GiantSteps-MTG-Keys), cited at their definition.
 
+## Algorithms
+
+The acoustic fingerprint follows the published Haitsma & Kalker (2002) band-energy-difference
+scheme; the code is our own. Patents filed around 2001 on such schemes should have expired, but
+this has not been verified by counsel; check before commercial distribution, like the codec
+patents below.
+
 ## Codec patents
 
 Symphonia's MP3 and AAC decoders are enabled. MP3 patents have expired worldwide. AAC-LC decoding

@@ -395,7 +395,7 @@ export interface TranscodeSuspect {
 }
 
 export interface DuplicateGroup {
-  kind: "identical-file" | "same-artist-title";
+  kind: "identical-file" | "same-artist-title" | "same-recording";
   key: string;
   tracks: TrackRow[];
 }

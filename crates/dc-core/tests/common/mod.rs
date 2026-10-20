@@ -87,3 +87,23 @@ pub fn make_track(dir: &Path, name: &str, spec: &Spec) -> PathBuf {
     write_wav(&p, &synth(spec, 44100), 44100);
     p
 }
+
+/// Stereo-interleaved music-like signal with content up to 22 kHz:
+/// a synthetic groove plus decaying broadband "hats".
+#[allow(dead_code)]
+pub fn broadband(spec: &Spec, sr: u32, seed: u64) -> Vec<f32> {
+    let mut x = synth(spec, sr);
+    let mut state = seed;
+    let eighth = (60.0 / spec.bpm as f64 / 2.0 * sr as f64) as usize;
+    for (i, pair) in x.chunks_exact_mut(2).enumerate() {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let n = ((state >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * 0.6;
+        let env = (-((i % eighth) as f32) / (0.04 * sr as f32)).exp();
+        let v = n * (0.08 + env);
+        pair[0] += v;
+        pair[1] += v;
+    }
+    x
+}

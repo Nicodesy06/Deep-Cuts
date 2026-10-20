@@ -6,12 +6,14 @@
 |---|---|---|
 | **Key estimation 1.1.0**: new chroma front-end + EDM key profiles, chosen on a development corpus and measured on a separate test corpus. GiantSteps Key MIREX **47.5 % → 64.8 %**, exact key **34.6 % → 55.5 %** | `analysis::key`, `keystudy`, `deepcuts key-study`, `eval.yml` job `key-study` | `AI_VALIDATION.md`; synthetic key tests still exact |
 | **Transcode detection** (fake lossless / fake high bitrate): measured bandwidth cliff at the source sample rate, stated rule, Library Health list, `transcode:yes` search, bandwidth metric in details; codec recorded per file (schema v4, analyser 1.2.0) | `analysis::bandwidth`, `library::transcode_suspects`, migration `0004` | `tests/transcode.rs` (real LAME encodes), `bandwidth::tests`, GUI check |
+| **Duplicates by sound** across formats/bitrates: acoustic fingerprint computed during analysis (schema v5), same-recording groups in Library Health next to identical-file and same-artist+title groups | `analysis::fingerprint`, `library::acoustic_pairs` | `tests/fingerprint.rs` (FLAC / MP3 320 / MP3 128 / AAC / −6 dB / trimmed grouped; other recordings not; threshold from measured error rates), GUI check |
+| **Tempo study** (576 variants, dev/test): best development variant not adopted (test Accuracy2 −4 points); production tempo unchanged | `tempostudy`, `deepcuts tempo-study` | `AI_VALIDATION.md` |
 | **Rename / move files from metadata**: pattern with tokens, dry-run preview with conflicts (missing, name clash, existing file, no metadata), never overwrites, verified cross-drive moves, one undoable batch (undo moves files back) | `dc-core::fileops`, `history::Kind::FilePath`, Library context menu, `deepcuts rename` | `tests/fileops.rs`, `fileops::tests`, GUI check (rename + undo on real files) |
 
 Existing analyses (1.0.0/1.1.0) are recomputed when the user runs *Analyze*; keys the user set by
 hand are never overwritten (user values win over analysis).
 
-`cargo test --workspace --release`: **62 passed** · UI: **18 passed** · clippy: **0 warnings**.
+`cargo test --workspace --release`: **64 passed** · UI: **18 passed** · clippy: **0 warnings**.
 
 ---
 
@@ -39,7 +41,7 @@ Tempo Accuracy1 **65.8 %**, Accuracy2 **88.2 %** (v2 annotations). Key MIREX sco
 
 ### Next priorities
 
-1. Tempo octave errors (same dev/test method).
+1. Tempo: a development set with perceptual tempo labels, or a learned beat tracker (same dev/test protocol).
 2. Manual smoke test of installers on Windows/macOS.
 3. Acoustic-fingerprint duplicates and transcoding detection; file move/rename with undo.
 4. ONNX Runtime + model registry for Music DNA; loops/beatgrid editing.

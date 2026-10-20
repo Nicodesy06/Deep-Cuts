@@ -27,6 +27,50 @@ development score, as expected for an unbiased estimate. Largest single gain: le
 3–5 points. About one key in five is still unrelated to the reference: check keys by ear before
 harmonic mixing.
 
+## Tempo study (2026-10-20): no change adopted
+
+Same protocol as for keys: 576 variants (onset envelope, tempo prior centre/width/weight, comb
+size, BPM range) on a development set of 1,104 GiantSteps-MTG-Keys tracks labelled with their
+Beatport BPM, after removing every track that also appears in GiantSteps Key or Tempo (CI run
+`39505396110`). Best variant: a stronger prior (floor 0.1 instead of 0.5).
+
+| | Development Acc1 / Acc2 | GiantSteps Tempo v2 Acc1 / Acc2 | Original annotations Acc1 / Acc2 |
+|---|---|---|---|
+| Production (unchanged) | 91.9 % / 97.5 % | 65.8 % / 88.2 % | 57.8 % / 81.0 % |
+| Best development variant | 94.5 % / 97.2 % | 67.5 % / 84.1 % | 58.7 % / 77.0 % |
+
+**Decision: not adopted.** It gains under 2 points of Accuracy1 on the test set but loses 4 points
+of Accuracy2 (more tempi that are not even octave-related). Beatport BPM labels on the development
+set evidently do not represent the tempo conventions of the test annotations (development
+Accuracy1 is about 26 points above test). Next step for tempo: a development set with perceptual
+tempo annotations, or a learned beat tracker evaluated the same way.
+
+## Acoustic duplicates (dc-dsp 1.2.0)
+
+Fingerprint: 17 log-spaced band energies (300 Hz–3 kHz, 372 ms windows every 186 ms), 16 bits per
+frame from the sign of band differences differenced in time (Haitsma & Kalker 2002 scheme, own
+implementation); two minutes stored per track (from 15 s, or from 10 % into short tracks).
+Tracks whose durations differ by ≤ 2 s are compared at the best offset within ±1.1 s; a bit-error
+rate ≤ 0.33 means *same recording*.
+
+Measured (`tests/fingerprint.rs`, 140 s synthetic recording with broadband content, real ffmpeg
+encoders):
+
+| Pair | Bit-error rate |
+|---|---|
+| FLAC vs same at −6 dB | 0.000 |
+| FLAC vs MP3 320 kbps | 0.007 |
+| FLAC vs MP3 128 kbps | 0.070 |
+| FLAC vs copy trimmed by 0.4 s | 0.148 |
+| FLAC vs AAC 192 kbps | 0.160 |
+| worst same-recording pair (AAC vs trimmed) | 0.240 |
+| best different-recording pair (other tempo) | 0.431 |
+| other key / other recordings | 0.45–0.49 |
+
+The threshold 0.33 sits between the two groups (the original Philips work used 0.35). Not yet
+measured: false positives on a large real library (e.g. tracks built on the same loops), and
+radio edits vs extended mixes (different durations, so never compared).
+
 ## Bandwidth and transcode detection (dc-dsp 1.2.0)
 
 Measurement: long-term spectrum at the file's own sample rate (up to 200 frames of 4096 samples,

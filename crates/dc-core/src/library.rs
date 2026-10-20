@@ -1058,6 +1058,47 @@ pub fn transcode_suspects(conn: &Connection, limit: usize) -> Result<Vec<Transco
         .collect())
 }
 
+/// Largest fingerprint bit-error rate at which two tracks count as the same
+/// recording (see docs/AI_VALIDATION.md for the measurements behind it).
+pub const SAME_RECORDING_MAX_BER: f64 = 0.33;
+/// Only tracks whose durations differ by at most this much are compared.
+const SAME_RECORDING_MAX_DURATION_DIFF_MS: i64 = 2000;
+/// Alignment search: ±1.1 s at the fingerprint step.
+const MAX_SHIFT_FRAMES: isize = 6;
+
+/// Pairs of analysed tracks whose fingerprints differ by at most `max_ber`
+/// (track a, track b, bit-error rate).
+pub fn acoustic_pairs(conn: &Connection, max_ber: f64) -> Result<Vec<(String, String, f64)>> {
+    use crate::analysis::fingerprint;
+    use rayon::prelude::*;
+    let rows: Vec<(String, i64, Vec<u16>)> = {
+        let mut stmt = conn.prepare(
+            "SELECT f.track_id, t.duration_ms, f.data FROM fingerprints f JOIN tracks t ON t.id = f.track_id
+             WHERE f.version = ?1 AND t.duration_ms IS NOT NULL ORDER BY t.duration_ms",
+        )?;
+        stmt.query_map([crate::analysis::FINGERPRINT_VERSION], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                fingerprint::from_blob(&r.get::<_, Vec<u8>>(2)?),
+            ))
+        })?
+        .collect::<std::result::Result<_, _>>()?
+    };
+    Ok((0..rows.len())
+        .into_par_iter()
+        .flat_map_iter(|i| {
+            let rows = &rows;
+            (i + 1..rows.len())
+                .take_while(move |&j| rows[j].1 - rows[i].1 <= SAME_RECORDING_MAX_DURATION_DIFF_MS)
+                .filter_map(move |j| {
+                    let d = fingerprint::distance(&rows[i].2, &rows[j].2, MAX_SHIFT_FRAMES)?;
+                    (d <= max_ber).then(|| (rows[i].0.clone(), rows[j].0.clone(), d))
+                })
+        })
+        .collect())
+}
+
 pub fn duplicate_groups(conn: &Connection, limit: usize) -> Result<Vec<DuplicateGroup>> {
     let mut groups = Vec::new();
     let mut collect = |kind: &str, sql: &str| -> Result<()> {
@@ -1086,6 +1127,40 @@ pub fn duplicate_groups(conn: &Connection, limit: usize) -> Result<Vec<Duplicate
          WHERE artist IS NOT NULL AND title IS NOT NULL
          GROUP BY lower(trim(artist)), lower(trim(title)) HAVING count(*) > 1 LIMIT ?1",
     )?;
+    // Same recording by sound (union of matching pairs).
+    let pairs = acoustic_pairs(conn, SAME_RECORDING_MAX_BER)?;
+    let mut parent: HashMap<String, String> = HashMap::new();
+    fn root(p: &mut HashMap<String, String>, x: &str) -> String {
+        let mut r = x.to_string();
+        while let Some(n) = p.get(&r).filter(|n| **n != r) {
+            r = n.clone();
+        }
+        r
+    }
+    for (a, b, _) in &pairs {
+        parent.entry(a.clone()).or_insert_with(|| a.clone());
+        parent.entry(b.clone()).or_insert_with(|| b.clone());
+        let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
+        if ra != rb {
+            parent.insert(ra, rb);
+        }
+    }
+    let mut sets: HashMap<String, Vec<String>> = HashMap::new();
+    let keys: Vec<String> = parent.keys().cloned().collect();
+    for k in keys {
+        let r = root(&mut parent, &k);
+        sets.entry(r).or_default().push(k);
+    }
+    let mut sets: Vec<Vec<String>> = sets.into_values().filter(|v| v.len() > 1).collect();
+    sets.iter_mut().for_each(|v| v.sort());
+    sets.sort();
+    for ids in sets.into_iter().take(limit) {
+        groups.push(DuplicateGroup {
+            kind: "same-recording".into(),
+            key: ids.join(","),
+            tracks: crate::query::rows_for_ids(conn, &ids)?,
+        });
+    }
     Ok(groups)
 }
 

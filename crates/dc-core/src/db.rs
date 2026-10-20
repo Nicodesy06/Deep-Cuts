@@ -10,6 +10,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0002_phase2.sql"),
     include_str!("migrations/0003_sets_features.sql"),
     include_str!("migrations/0004_bandwidth.sql"),
+    include_str!("migrations/0005_fingerprints.sql"),
 ];
 
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
