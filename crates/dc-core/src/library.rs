@@ -52,6 +52,15 @@ pub fn text_field_column(field: &str) -> Option<&'static str> {
         .map(|f| f.1)
 }
 
+/// Column of any editable field.
+pub fn field_column(field: &str) -> Option<&'static str> {
+    FIELDS.iter().find(|f| f.0 == field).map(|f| f.1)
+}
+
+pub fn is_field(field: &str) -> bool {
+    FIELDS.iter().any(|f| f.0 == field)
+}
+
 pub fn field_names() -> impl Iterator<Item = &'static str> {
     FIELDS.iter().map(|f| f.0)
 }

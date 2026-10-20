@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api, type Playlist } from "../api";
 import { exportTracks, importFolders, importRekordboxXml, type ExportFormat } from "../actions";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
+import { CsvImportDialog } from "../components/CsvImportDialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store";
 
 const PLATFORMS: { name: string; status: "available" | "planned"; notes: string }[] = [
@@ -20,6 +22,7 @@ export function SyncExport() {
   const [query, setQuery] = useState("decision:keep");
   const [writeQuery, setWriteQuery] = useState("");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
+  const [csvPath, setCsvPath] = useState<string | null>(null);
 
   useEffect(() => {
     api.listPlaylists().then(setPlaylists, () => {});
@@ -38,6 +41,7 @@ export function SyncExport() {
         <h1>{t("nav.sync")}</h1>
         <span className="muted">{t("sync.subtitle")}</span>
       </header>
+      {csvPath && <CsvImportDialog path={csvPath} onClose={() => setCsvPath(null)} />}
       <div className="cols-2">
         <section className="panel">
           <h2>{t("sync.import")}</h2>
@@ -50,6 +54,16 @@ export function SyncExport() {
               {t("sync.rbImport")}
             </button>
             <p className="hint">{t("sync.rbImportHint")}</p>
+            <button
+              className="btn"
+              onClick={async () => {
+                const r = await open({ multiple: false, title: t("csv.choose"), filters: [{ name: "CSV", extensions: ["csv", "tsv", "txt"] }] });
+                if (typeof r === "string") setCsvPath(r);
+              }}
+            >
+              {t("csv.button")}
+            </button>
+            <p className="hint">{t("csv.hint")}</p>
           </div>
         </section>
         <section className="panel">

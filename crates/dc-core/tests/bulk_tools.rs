@@ -60,7 +60,12 @@ fn find_replace_preview_apply_undo() {
     assert_eq!(p2.len(), 2);
     assert_eq!(p2[0].new.as_deref(), Some("Strobe"));
     // replacement text is literal unless regex is on
-    let lit = bulk::preview(&conn, &[c.clone()], &fr(&["artist"], "Someone", "$1 Else")).unwrap();
+    let lit = bulk::preview(
+        &conn,
+        std::slice::from_ref(&c),
+        &fr(&["artist"], "Someone", "$1 Else"),
+    )
+    .unwrap();
     assert_eq!(lit[0].new.as_deref(), Some("$1 Else"));
     // errors are explicit
     assert!(bulk::preview(&conn, &ids, &fr(&["bpm"], "1", "2")).is_err());

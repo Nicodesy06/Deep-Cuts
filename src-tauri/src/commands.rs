@@ -7,7 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
-use dc_core::{bulk, dedupe, fileops, map, playlist_tools, sets, similarity};
+use dc_core::{bulk, csvimport, dedupe, fileops, map, playlist_tools, relocate, sets, similarity};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -515,6 +515,53 @@ pub fn track_playlists(
     id: String,
 ) -> Res<Vec<playlist_tools::Occurrence>> {
     with_conn!(state, |c| playlist_tools::occurrences(&c, &id))
+}
+
+#[tauri::command]
+pub fn csv_read(path: String) -> Res<csvimport::Sheet> {
+    csvimport::read(std::path::Path::new(&path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn csv_preview(
+    state: State<'_, AppState>,
+    path: String,
+    mapping: csvimport::Mapping,
+) -> Res<csvimport::ImportPreview> {
+    blocking(state.db_path.clone(), move |c| {
+        let sheet = csvimport::read(std::path::Path::new(&path))?;
+        csvimport::preview(c, &sheet, &mapping)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn csv_apply(state: State<'_, AppState>, proposals: Vec<bulk::Proposal>) -> Res<usize> {
+    with_conn!(state, |c| bulk::apply_as(&c, "csv-import", &proposals))
+}
+
+#[tauri::command]
+pub fn relocate_preview(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> Res<relocate::RelocatePreview> {
+    with_conn!(state, |c| relocate::preview(&c, &from, &to))
+}
+
+#[tauri::command]
+pub fn relocate_apply(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+    only_found: bool,
+) -> Res<usize> {
+    with_conn!(state, |c| relocate::apply(&c, &from, &to, only_found))
+}
+
+#[tauri::command]
+pub fn missing_folders(state: State<'_, AppState>) -> Res<Vec<(String, i64)>> {
+    with_conn!(state, |c| relocate::missing_folders(&c, 10))
 }
 
 #[tauri::command]

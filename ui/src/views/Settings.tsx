@@ -1,23 +1,28 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { api, type AppInfo, type BackupInfo, type WatchFolder } from "../api";
+import { api, type AppInfo, type BackupInfo, type RelocatePreview, type WatchFolder } from "../api";
 import { formatBytes } from "../format";
 import type { Lang } from "../i18n";
 import { useAction, useApp } from "../store";
 
 export function Settings() {
-  const { t, lang, setLang, bump, confirm } = useApp();
+  const { t, lang, setLang, bump, confirm, toast } = useApp();
   const act = useAction();
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [integrity, setIntegrity] = useState<string | null>(null);
   const [watch, setWatch] = useState<WatchFolder[]>([]);
+  const [relFrom, setRelFrom] = useState("");
+  const [relTo, setRelTo] = useState("");
+  const [relPreview, setRelPreview] = useState<RelocatePreview | null>(null);
+  const [missingDirs, setMissingDirs] = useState<[string, number][]>([]);
 
   const refresh = () => {
     api.appInfo().then(setInfo, () => {});
     api.getSettings().then(setSettings, () => {});
     api.listBackups().then(setBackups, () => {});
+    api.missingFolders().then(setMissingDirs, () => {});
     api.listWatchFolders().then(setWatch, () => {});
   };
   useEffect(refresh, []);
@@ -118,6 +123,71 @@ export function Settings() {
             ))}
           </tbody>
         </table>
+      </section>
+      <section className="panel">
+        <h2>{t("reloc.title")}</h2>
+        <p className="hint">{t("reloc.hint")}</p>
+        {missingDirs.length > 0 && (
+          <div className="stack small">
+            <span className="muted">{t("reloc.missingDirs")}</span>
+            {missingDirs.map(([d, n]) => (
+              <button key={d} className="link-btn path" onClick={() => (setRelFrom(d), setRelPreview(null))}>
+                {d} ({n})
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="fr-grid">
+          <label className="field">
+            <span>{t("reloc.from")}</span>
+            <input value={relFrom} onChange={(e) => (setRelFrom(e.target.value), setRelPreview(null))} spellCheck={false} />
+          </label>
+          <label className="field">
+            <span>{t("reloc.to")}</span>
+            <input value={relTo} onChange={(e) => (setRelTo(e.target.value), setRelPreview(null))} spellCheck={false} />
+          </label>
+        </div>
+        <div className="row">
+          <button
+            className="btn ghost"
+            onClick={async () => {
+              const r = await open({ directory: true, multiple: false, title: t("reloc.to") });
+              if (typeof r === "string") (setRelTo(r), setRelPreview(null));
+            }}
+          >
+            {t("reloc.chooseTo")}
+          </button>
+          <button className="btn" disabled={!relFrom || !relTo} onClick={() => act(() => api.relocatePreview(relFrom, relTo)).then((p) => p && setRelPreview(p))}>
+            {t("reloc.preview")}
+          </button>
+          {relPreview && <span className="muted">{t("reloc.summary", { matched: relPreview.matched, found: relPreview.found })}</span>}
+          {relPreview && relPreview.found > 0 && (
+            <button
+              className="btn"
+              onClick={() =>
+                act(() => api.relocateApply(relFrom, relTo, true)).then((n) => {
+                  if (n != null) {
+                    setRelPreview(null);
+                    bump();
+                    refresh();
+                    toast(t("reloc.done", { n }), "ok");
+                  }
+                })
+              }
+            >
+              {t("reloc.go", { n: relPreview.found })}
+            </button>
+          )}
+        </div>
+        {relPreview && relPreview.samples.length > 0 && (
+          <ul className="small path unused-list">
+            {relPreview.samples.map(([a, b, ok]) => (
+              <li key={a} className={ok ? "" : "muted"}>
+                {a} → {b} {ok ? "✓" : "✗"}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <section className="panel">
         <div className="row space wrap">

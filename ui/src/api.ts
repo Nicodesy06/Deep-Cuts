@@ -410,6 +410,35 @@ export interface PlaylistOccurrence {
   positions: number[];
 }
 
+export interface CsvMapping {
+  matchBy: "path" | "isrc" | "artistTitle";
+  keyColumn: number;
+  titleColumn: number | null;
+  fields: [number, string][];
+}
+
+export interface CsvSheet {
+  headers: string[];
+  rows: string[][];
+  delimiter: string;
+  suggested: CsvMapping | null;
+}
+
+export interface CsvPreview {
+  proposals: ReplaceProposal[];
+  rows: number;
+  matched: number;
+  unmatched: number;
+  ambiguous: number;
+  invalid: string[];
+}
+
+export interface RelocatePreview {
+  matched: number;
+  found: number;
+  samples: [string, string, boolean][];
+}
+
 export interface MergeReport {
   merged: number;
   playlistsUpdated: number;
@@ -507,6 +536,12 @@ export const api = {
   shufflePlaylist: (id: string) => invoke<void>("shuffle_playlist", { id }),
   prefixPlaylists: (ids: string[], prefix: string) => invoke<number>("prefix_playlists", { ids, prefix }),
   trackPlaylists: (id: string) => invoke<PlaylistOccurrence[]>("track_playlists", { id }),
+  csvRead: (path: string) => invoke<CsvSheet>("csv_read", { path }),
+  csvPreview: (path: string, mapping: CsvMapping) => invoke<CsvPreview>("csv_preview", { path, mapping }),
+  csvApply: (proposals: ReplaceProposal[]) => invoke<number>("csv_apply", { proposals }),
+  relocatePreview: (from: string, to: string) => invoke<RelocatePreview>("relocate_preview", { from, to }),
+  relocateApply: (from: string, to: string, onlyFound: boolean) => invoke<number>("relocate_apply", { from, to, onlyFound }),
+  missingFolders: () => invoke<[string, number][]>("missing_folders"),
   suggestKeep: (ids: string[]) => invoke<string | null>("suggest_keep", { ids }),
   mergeDuplicates: (keep: string, others: string[]) => invoke<MergeReport>("merge_duplicates", { keep, others }),
   brokenPlaylists: () => invoke<BrokenPlaylist[]>("broken_playlists"),

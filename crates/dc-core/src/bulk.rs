@@ -86,23 +86,39 @@ pub fn preview(conn: &Connection, ids: &[String], fr: &FindReplace) -> Result<Ve
 }
 
 pub fn apply(conn: &Connection, proposals: &[Proposal]) -> Result<usize> {
+    apply_as(conn, "find-replace", proposals)
+}
+
+/// Apply previewed proposals as one undoable batch named `action`. Accepts
+/// any editable field and "decision".
+pub fn apply_as(conn: &Connection, action: &str, proposals: &[Proposal]) -> Result<usize> {
     history::batch(
         conn,
-        "find-replace",
+        action,
         &format!("{} values", proposals.len()),
         |tx, b| {
             let mut n = 0;
             for p in proposals {
-                library::text_field_column(&p.field)
-                    .ok_or_else(|| Error::Invalid(format!("'{}' is not a text field", p.field)))?;
-                if history::change(
-                    tx,
-                    b,
-                    Kind::Field,
-                    &p.track_id,
-                    &p.field,
-                    State::set(p.new.as_deref()),
-                )? {
+                let changed = if p.field == "decision" {
+                    let state = match p.new.as_deref() {
+                        Some(d) if library::DECISIONS.contains(&d) => State::set(Some(d)),
+                        Some(d) => return Err(Error::Invalid(format!("unknown decision '{d}'"))),
+                        None => State::absent(),
+                    };
+                    history::change(tx, b, Kind::Decision, &p.track_id, "global", state)?
+                } else if library::is_field(&p.field) {
+                    history::change(
+                        tx,
+                        b,
+                        Kind::Field,
+                        &p.track_id,
+                        &p.field,
+                        State::set(p.new.as_deref()),
+                    )?
+                } else {
+                    return Err(Error::Invalid(format!("unknown field '{}'", p.field)));
+                };
+                if changed {
                     library::refresh_fts(tx, &p.track_id)?;
                     n += 1;
                 }

@@ -29,6 +29,9 @@ pub enum Kind {
     FilePath,
     /// Archived flag of a track (value "1"/"0").
     Archived,
+    /// Stored path of a file row only (key = file id); the file is not
+    /// moved. Used when the library is relocated.
+    FileRecord,
 }
 
 impl Kind {
@@ -42,6 +45,7 @@ impl Kind {
             Kind::PlaylistOrder => "playlist",
             Kind::FilePath => "file",
             Kind::Archived => "archived",
+            Kind::FileRecord => "file-record",
         }
     }
 
@@ -55,6 +59,7 @@ impl Kind {
             "playlist" => Kind::PlaylistOrder,
             "file" => Kind::FilePath,
             "archived" => Kind::Archived,
+            "file-record" => Kind::FileRecord,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -129,7 +134,9 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
         Kind::PlaylistOrder => State::set(Some(&serde_json::to_string(
             &library::playlist_track_ids(conn, key)?,
         )?)),
-        Kind::FilePath => State::set(Some(&crate::fileops::file_path(conn, key)?)),
+        Kind::FilePath | Kind::FileRecord => {
+            State::set(Some(&crate::fileops::file_path(conn, key)?))
+        }
         Kind::Archived => {
             let a: bool =
                 conn.query_row("SELECT archived FROM tracks WHERE id = ?1", [track], |r| {
@@ -194,6 +201,15 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
         Kind::FilePath => {
             if let Some(p) = &s.value {
                 crate::fileops::set_file_path(conn, key, p)?;
+            }
+        }
+        Kind::FileRecord => {
+            if let Some(p) = &s.value {
+                let exists = std::path::Path::new(p).exists();
+                conn.execute(
+                    "UPDATE files SET path = ?1, missing = ?2 WHERE id = ?3",
+                    params![p, !exists, key],
+                )?;
             }
         }
         Kind::Archived => {
