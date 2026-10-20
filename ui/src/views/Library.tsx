@@ -4,6 +4,8 @@ import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
+import { FindReplaceDialog } from "../components/FindReplaceDialog";
+import { PlaylistPickDialog, type CombineOp } from "../components/PlaylistPickDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
 import { formatNumber } from "../format";
 import type { MsgKey } from "../i18n";
@@ -46,6 +48,9 @@ export function Library() {
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
   const [renameIds, setRenameIds] = useState<string[] | null>(null);
+  const [frIds, setFrIds] = useState<string[] | null>(null);
+  const [plMenu, setPlMenu] = useState<{ x: number; y: number; p: Playlist } | null>(null);
+  const [pick, setPick] = useState<{ p: Playlist; op: CombineOp } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const playlistId = libraryNav.playlistId;
 
@@ -227,7 +232,10 @@ export function Library() {
   }, [sel, pages, idAt, play, setDecision, analyze, selectedIds, act, bump, currentPlaylist, toast, t]);
 
   useEffect(() => {
-    const close = () => setMenu(null);
+    const close = () => {
+      setMenu(null);
+      setPlMenu(null);
+    };
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
@@ -263,6 +271,12 @@ export function Library() {
         <button
           className={`pl-item ${active ? "active" : ""}`}
           onClick={() => setLibraryNav({ query: "", playlistId: p?.id ?? null })}
+          onContextMenu={(e) => {
+            if (!p || p.kind === "folder") return;
+            e.preventDefault();
+            setMenu(null);
+            setPlMenu({ x: e.clientX, y: e.clientY, p });
+          }}
           onDragOver={(e) => (p?.kind === "manual" || p?.kind === "set") && e.preventDefault()}
           onDrop={(e) => {
             if (!p || (p.kind !== "manual" && p.kind !== "set")) return;
@@ -425,6 +439,69 @@ export function Library() {
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
       {renameIds && <RenameDialog ids={renameIds} onClose={() => setRenameIds(null)} />}
+      {frIds && <FindReplaceDialog ids={frIds} onClose={() => setFrIds(null)} />}
+      {pick && (
+        <PlaylistPickDialog
+          base={pick.p}
+          playlists={playlists}
+          op={pick.op}
+          onClose={() => setPick(null)}
+          onConfirm={async (name, others) => {
+            const id = await act(() => api.combinePlaylists(name, [pick.p.id, ...others], pick.op), t("pl.created", { name }));
+            setPick(null);
+            if (id) {
+              bump();
+              setLibraryNav({ query: "", playlistId: id });
+            }
+          }}
+        />
+      )}
+      {plMenu && (
+        <div className="menu" style={{ left: Math.min(plMenu.x, window.innerWidth - 240), top: Math.min(plMenu.y, window.innerHeight - 320) }} role="menu">
+          <button
+            onClick={async () => {
+              const name = await prompt(t("pl.renameQ"), plMenu.p.name);
+              if (name && name !== plMenu.p.name) act(() => api.renamePlaylist(plMenu.p.id, name)).then(bump);
+            }}
+          >
+            {t("pl.rename")}
+          </button>
+          {(plMenu.p.kind === "manual" || plMenu.p.kind === "set") && (
+            <>
+              <button onClick={() => act(() => api.combinePlaylists(`${plMenu.p.name} (2)`, [plMenu.p.id], "union"), t("pl.created", { name: `${plMenu.p.name} (2)` })).then(bump)}>
+                {t("pl.duplicate")}
+              </button>
+              <button onClick={() => act(() => api.shufflePlaylist(plMenu.p.id), t("pl.shuffled")).then(bump)}>{t("pl.shuffle")}</button>
+              <hr />
+              <button onClick={() => setPick({ p: plMenu.p, op: "union" })}>{t("pl.union")}</button>
+              <button onClick={() => setPick({ p: plMenu.p, op: "intersect" })}>{t("pl.intersect")}</button>
+              <button onClick={() => setPick({ p: plMenu.p, op: "subtract" })}>{t("pl.subtract")}</button>
+            </>
+          )}
+          <button
+            onClick={async () => {
+              const prefix = await prompt(t("pl.prefixQ"));
+              if (prefix) act(() => api.prefixPlaylists([plMenu.p.id], prefix)).then(bump);
+            }}
+          >
+            {t("pl.prefix")}
+          </button>
+          <hr />
+          <button
+            className="danger"
+            onClick={async () => {
+              const p = plMenu.p;
+              if (await confirm(t("pl.deleteQ", { name: p.name }), undefined, true)) {
+                await act(() => api.deletePlaylist(p.id));
+                if (playlistId === p.id) setLibraryNav({ query: "", playlistId: null });
+                bump();
+              }
+            }}
+          >
+            {t("pl.delete")}
+          </button>
+        </div>
+      )}
 
       {menu && (
         <div className="menu" style={{ left: Math.min(menu.x, window.innerWidth - 240), top: Math.min(menu.y, window.innerHeight - 380) }} role="menu">
@@ -514,6 +591,7 @@ export function Library() {
             + {t("tags.newForSelection")}
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
+          <button onClick={() => setFrIds(selectedIds)}>{t("fr.menu")}</button>
           <button onClick={() => setRenameIds(selectedIds)}>{t("rename.menu")}</button>
           {/archived:/i.test(query) ? (
             <button onClick={() => act(() => api.setArchived(selectedIds, false), t("archive.restored", { n: selectedIds.length })).then(bump)}>{t("archive.restore")}</button>

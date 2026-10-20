@@ -1,8 +1,29 @@
 // Details-panel sections: tags, cue editor, change history.
 import { useEffect, useState } from "react";
-import { api, type Cue, type Tag, type TrackDetail, type TrackRow } from "../api";
+import { api, type Cue, type PlaylistOccurrence, type Tag, type TrackDetail, type TrackRow } from "../api";
 import { formatDuration, sourceLabel } from "../format";
 import { useAction, useApp } from "../store";
+
+export function PlaylistsSection({ trackId }: { trackId: string }) {
+  const { t, dataVersion, setLibraryNav } = useApp();
+  const [list, setList] = useState<PlaylistOccurrence[]>([]);
+  useEffect(() => {
+    api.trackPlaylists(trackId).then(setList, () => setList([]));
+  }, [trackId, dataVersion]);
+  if (list.length === 0) return null;
+  return (
+    <>
+      <div className="section-title">{t("details.inPlaylists")}</div>
+      <div className="chips">
+        {list.map((o) => (
+          <button key={o.id} className="chip" onClick={() => setLibraryNav({ query: "", playlistId: o.id })} title={`#${o.positions.join(", #")}`}>
+            {o.kind === "set" ? "☰" : "♫"} {o.name}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
 
 export function TagsSection({ d, onChanged }: { d: TrackDetail; onChanged: () => void }) {
   const { t, dataVersion } = useApp();

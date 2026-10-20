@@ -5,7 +5,7 @@ import { api, type Decision, type TrackDetail, type TrackRow } from "../api";
 import { formatBpm, formatDuration, sourceLabel } from "../format";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
-import { CueEditor, HistorySection, TagsSection } from "./TrackExtras";
+import { CueEditor, HistorySection, PlaylistsSection, TagsSection } from "./TrackExtras";
 import { KeyChip } from "./TrackTable";
 
 const EDITABLE: { field: string; label: MsgKey }[] = [
@@ -225,6 +225,7 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
       )}
 
       {d && <TagsSection d={d} onChanged={onChanged} />}
+      {d && <PlaylistsSection trackId={d.track.id} />}
 
       <div className="section-title">{t("details.metadata")}</div>
       {d &&

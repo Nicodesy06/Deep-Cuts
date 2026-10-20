@@ -5,6 +5,7 @@
 pub mod analysis;
 pub mod audio;
 pub mod backup;
+pub mod bulk;
 pub mod cues;
 pub mod db;
 pub mod dedupe;
@@ -22,6 +23,7 @@ pub mod library;
 pub mod map;
 pub mod metadata;
 pub mod paths;
+pub mod playlist_tools;
 pub mod query;
 pub mod rekordbox;
 pub mod sets;

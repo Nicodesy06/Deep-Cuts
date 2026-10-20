@@ -14,6 +14,7 @@ lofty = "0.25.4"
 percent-encoding = "2.3.2"
 quick-xml = "0.42.0"
 rayon = "1.12.0"
+regex = "1"
 rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
 rustfft = "6.4.1"
 serde = { version = "1.0.229", features = ["derive"] }

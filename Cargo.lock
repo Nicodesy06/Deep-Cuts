@@ -706,6 +706,7 @@ dependencies = [
  "percent-encoding",
  "quick-xml",
  "rayon",
+ "regex",
  "rusqlite",
  "rustfft",
  "serde",

@@ -7,7 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
-use dc_core::{dedupe, fileops, map, sets, similarity};
+use dc_core::{bulk, dedupe, fileops, map, playlist_tools, sets, similarity};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -462,6 +462,59 @@ pub async fn check_missing(state: State<'_, AppState>) -> Res<(usize, usize)> {
 #[tauri::command]
 pub fn duplicate_groups(state: State<'_, AppState>) -> Res<Vec<library::DuplicateGroup>> {
     with_conn!(state, |c| library::duplicate_groups(&c, 200))
+}
+
+#[tauri::command]
+pub fn find_replace_preview(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    spec: bulk::FindReplace,
+) -> Res<Vec<bulk::Proposal>> {
+    with_conn!(state, |c| bulk::preview(&c, &ids, &spec))
+}
+
+#[tauri::command]
+pub fn find_replace_apply(
+    state: State<'_, AppState>,
+    proposals: Vec<bulk::Proposal>,
+) -> Res<usize> {
+    with_conn!(state, |c| bulk::apply(&c, &proposals))
+}
+
+#[tauri::command]
+pub fn combine_playlists(
+    state: State<'_, AppState>,
+    name: String,
+    ids: Vec<String>,
+    op: playlist_tools::Combine,
+) -> Res<String> {
+    with_conn!(state, |c| playlist_tools::combine(&c, &name, &ids, op))
+}
+
+#[tauri::command]
+pub fn shuffle_playlist(state: State<'_, AppState>, id: String) -> Res<()> {
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(1);
+    with_conn!(state, |c| playlist_tools::shuffle(&c, &id, seed))
+}
+
+#[tauri::command]
+pub fn prefix_playlists(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    prefix: String,
+) -> Res<usize> {
+    with_conn!(state, |c| playlist_tools::add_prefix(&c, &ids, &prefix))
+}
+
+#[tauri::command]
+pub fn track_playlists(
+    state: State<'_, AppState>,
+    id: String,
+) -> Res<Vec<playlist_tools::Occurrence>> {
+    with_conn!(state, |c| playlist_tools::occurrences(&c, &id))
 }
 
 #[tauri::command]

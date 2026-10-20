@@ -44,6 +44,14 @@ const FIELDS: &[(&str, &str, Kind)] = &[
     ("rating", "rating", Kind::Int),
 ];
 
+/// Column of an editable text field (None for numeric or unknown fields).
+pub fn text_field_column(field: &str) -> Option<&'static str> {
+    FIELDS
+        .iter()
+        .find(|f| f.0 == field && f.2 == Kind::Text)
+        .map(|f| f.1)
+}
+
 pub fn field_names() -> impl Iterator<Item = &'static str> {
     FIELDS.iter().map(|f| f.0)
 }

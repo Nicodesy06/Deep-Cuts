@@ -387,6 +387,29 @@ export interface AppInfo {
   platform: string;
 }
 
+export interface FindReplace {
+  fields: string[];
+  find: string;
+  replace: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+}
+
+export interface ReplaceProposal {
+  trackId: string;
+  field: string;
+  old: string;
+  new: string | null;
+}
+
+export interface PlaylistOccurrence {
+  id: string;
+  name: string;
+  kind: string;
+  positions: number[];
+}
+
 export interface MergeReport {
   merged: number;
   playlistsUpdated: number;
@@ -478,6 +501,12 @@ export const api = {
   checkMissing: () => invoke<[number, number]>("check_missing"),
   duplicateGroups: () => invoke<DuplicateGroup[]>("duplicate_groups"),
   transcodeSuspects: () => invoke<TranscodeSuspect[]>("transcode_suspects"),
+  findReplacePreview: (ids: string[], spec: FindReplace) => invoke<ReplaceProposal[]>("find_replace_preview", { ids, spec }),
+  findReplaceApply: (proposals: ReplaceProposal[]) => invoke<number>("find_replace_apply", { proposals }),
+  combinePlaylists: (name: string, ids: string[], op: "union" | "intersect" | "subtract") => invoke<string>("combine_playlists", { name, ids, op }),
+  shufflePlaylist: (id: string) => invoke<void>("shuffle_playlist", { id }),
+  prefixPlaylists: (ids: string[], prefix: string) => invoke<number>("prefix_playlists", { ids, prefix }),
+  trackPlaylists: (id: string) => invoke<PlaylistOccurrence[]>("track_playlists", { id }),
   suggestKeep: (ids: string[]) => invoke<string | null>("suggest_keep", { ids }),
   mergeDuplicates: (keep: string, others: string[]) => invoke<MergeReport>("merge_duplicates", { keep, others }),
   brokenPlaylists: () => invoke<BrokenPlaylist[]>("broken_playlists"),
