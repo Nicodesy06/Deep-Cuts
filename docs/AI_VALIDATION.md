@@ -1,6 +1,6 @@
 # Analysis & AI validation protocol
 
-## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20)
+## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20; unchanged in 1.2.0)
 
 **Method.** `deepcuts key-study` compared 32 chroma front-ends (frequency range, log compression,
 spectral whitening, peak picking, frame normalisation) × 3 key-profile sets (Krumhansl–Kessler,
@@ -9,6 +9,9 @@ GiantSteps-MTG-Keys (1,159 tracks with confidence-2 labels; learned profiles sco
 cross-validation). The best variant was picked automatically and then measured **once, unchanged**
 on the **test corpus** GiantSteps Key (604 tracks). The two corpora share no tracks. CI run
 `39500524471`, job `key-study`.
+
+Confirmed through the full analyser by `deepcuts eval` (CI run `39504399594`): 64.8 % MIREX,
+55.5 % exact, identical to the study.
 
 Chosen: 100–5000 Hz, log(1+100·|X|), local whitening (±2 semitones), spectral peaks only,
 per-frame normalisation, profiles learned on the development corpus.
@@ -23,6 +26,24 @@ development score, as expected for an unbiased estimate. Largest single gain: le
 (parallel major/minor confusions fall from 16 % to 5 %); whitening and peak picking add about
 3–5 points. About one key in five is still unrelated to the reference: check keys by ear before
 harmonic mixing.
+
+## Bandwidth and transcode detection (dc-dsp 1.2.0)
+
+Measurement: long-term spectrum at the file's own sample rate (up to 200 frames of 4096 samples,
+100 Hz bands); a *cliff* is a drop of ≥ 25 dB from the 500 Hz below a frequency to the loudest of
+the 1 kHz above it, searched between 10 kHz and min(Nyquist − 1 kHz, 20.5 kHz). Rule: a lossless
+file with a cliff at ≤ 19.8 kHz, or a ≥ 256 kbps lossy file with a cliff at ≤ 17.5 kHz, is listed as
+a *suspected transcode*. It is a listed suspicion, never an automatic action.
+
+Verified (`tests/transcode.rs`, ffmpeg + LAME): FLAC and 320 kbps MP3 made from a stereo 128 kbps
+MP3 are flagged (cliff 16.86 kHz); the genuine FLAC, a genuine 320 kbps MP3 and the honest 128 kbps
+MP3 are not. Unit tests: brick-wall low-passes at 16/17/19 kHz found within 150 Hz; full-band noise
+gives no cliff.
+
+Known blind spots (measured): LAME keeps ~20 kHz for **mono** 128 kbps and for 256–320 kbps, so
+transcodes from such sources are not flagged (a 20–21 kHz cliff is also where genuine converters'
+anti-alias filters sit). Files at 22.05/32 kHz are not measured. No real-world false-positive rate
+is known yet: band-limited old masters will be listed and must be judged by ear.
 
 ## Real-music results, dc-dsp 1.0.0 (GiantSteps, measured 2026-10-20)
 

@@ -31,7 +31,7 @@ fn rename_preview_apply_undo_redo() {
     // an unrelated file that must never be overwritten
     std::fs::write(music.join("Busy - Name.wav"), b"not ours").unwrap();
     let mut conn = db::open(&tmp.path().join("lib.db")).unwrap();
-    library::import_paths(&mut conn, &[music.clone()], None, &mut |_| {}).unwrap();
+    library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();
     let rows = query_tracks(&conn, &TrackQuery::default()).unwrap().tracks;
     let id = |name: &str| {
         rows.iter()

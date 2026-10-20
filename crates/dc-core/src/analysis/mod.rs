@@ -6,6 +6,7 @@
 //! and no confidence numbers are invented: the strength values reported are
 //! the raw algorithmic scores, labelled as such.
 
+pub mod bandwidth;
 pub mod key;
 pub mod loudness;
 pub mod stft;
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const ANALYZER: &str = "dc-dsp";
-pub const ANALYZER_VERSION: &str = "1.1.0";
+pub const ANALYZER_VERSION: &str = "1.2.0";
 pub const WAVEFORM_VERSION: i64 = 1;
 pub const WAVEFORM_BINS: usize = 1200;
 
@@ -47,6 +48,12 @@ pub struct AnalysisResult {
     pub energy_curve_db: Vec<f32>,
     /// Start of the highest-energy 30 s region (ms), used for hot preview.
     pub preview_ms: i64,
+    /// Decoder short name (since 1.2.0).
+    #[serde(default)]
+    pub codec: Option<String>,
+    /// Measured bandwidth at the source sample rate (since 1.2.0).
+    #[serde(default)]
+    pub bandwidth: Option<bandwidth::BandwidthResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -127,6 +134,7 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     if cancel() {
         return Err(crate::Error::Cancelled);
     }
+    let bandwidth = bandwidth::measure(&mono, info.sample_rate);
     let x = audio::resample(&mono, info.sample_rate, SR);
     drop(mono);
 
@@ -278,6 +286,8 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
             spectral,
             energy_curve_db,
             preview_ms,
+            codec: (!info.codec.is_empty()).then(|| info.codec.clone()),
+            bandwidth,
         },
         waveform,
     })
@@ -479,10 +489,37 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
         SOURCE_ANALYSIS,
         Some(&r.duration_ms.to_string()),
     )?;
+    let bitrate: Option<i64> = tx
+        .query_row(
+            "SELECT bitrate FROM files WHERE track_id = ?1 ORDER BY missing, added_at LIMIT 1",
+            [track_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    let lossless = r.codec.as_deref().is_some_and(audio::is_lossless_codec);
+    let transcode = r
+        .bandwidth
+        .as_ref()
+        .and_then(|bw| bandwidth::transcode_suspicion(lossless, bitrate, bw));
     tx.execute(
-        "UPDATE tracks SET lufs = ?1, preview_ms = ?2, analysis_status = 'done', updated_at = ?3 WHERE id = ?4",
-        params![r.loudness.integrated_lufs, r.preview_ms, now_ms(), track_id],
+        "UPDATE tracks SET lufs = ?1, preview_ms = ?2, analysis_status = 'done', updated_at = ?3,
+         cutoff_hz = ?4, transcode = ?5 WHERE id = ?6",
+        params![
+            r.loudness.integrated_lufs,
+            r.preview_ms,
+            now_ms(),
+            r.bandwidth.as_ref().and_then(|b| b.cutoff_hz),
+            transcode,
+            track_id
+        ],
     )?;
+    if let Some(codec) = &r.codec {
+        tx.execute(
+            "UPDATE files SET codec = ?1 WHERE track_id = ?2 AND codec IS NULL",
+            params![codec, track_id],
+        )?;
+    }
     tx.execute(
         "INSERT INTO waveforms (track_id, version, bins, data) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT(track_id) DO UPDATE SET version = excluded.version, bins = excluded.bins, data = excluded.data",

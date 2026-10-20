@@ -1938,3 +1938,11 @@ tr.rejected td {
     max-height: none;
   }
 }
+
+.trans-table td {
+  white-space: nowrap;
+}
+.trans-table td.path {
+  white-space: normal;
+  width: 100%;
+}

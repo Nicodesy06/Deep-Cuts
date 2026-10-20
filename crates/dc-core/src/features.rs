@@ -285,6 +285,8 @@ mod tests {
             },
             energy_curve_db: curve,
             preview_ms: 0,
+            codec: None,
+            bandwidth: None,
         }
     }
 

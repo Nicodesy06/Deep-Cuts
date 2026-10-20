@@ -13,6 +13,19 @@ use symphonia::core::meta::MetadataOptions;
 pub struct StreamInfo {
     pub sample_rate: u32,
     pub channels: usize,
+    /// Decoder short name, e.g. "mp3", "aac", "flac", "alac", "pcm_s16le".
+    pub codec: String,
+}
+
+impl StreamInfo {
+    /// Lossless codecs (PCM, FLAC, ALAC, WavPack, Monkey's Audio, TTA).
+    pub fn lossless(&self) -> bool {
+        is_lossless_codec(&self.codec)
+    }
+}
+
+pub fn is_lossless_codec(codec: &str) -> bool {
+    codec.starts_with("pcm") || matches!(codec, "flac" | "alac" | "wavpack" | "ape" | "tta")
 }
 
 /// Decode a file, calling `sink` with interleaved f32 frames. Corrupt
@@ -48,9 +61,14 @@ pub fn decode_stream(
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(params, &AudioDecoderOptions::default())
         .map_err(|e| Error::Decode(format!("unsupported codec: {e}")))?;
+    let codec = symphonia::default::get_codecs()
+        .get_audio_decoder(params.codec)
+        .map(|d| d.codec.info.short_name.to_ascii_lowercase())
+        .unwrap_or_default();
     let mut info = StreamInfo {
         sample_rate: params.sample_rate.unwrap_or(0),
         channels: params.channels.as_ref().map(|c| c.count()).unwrap_or(0),
+        codec,
     };
     let mut buf: Vec<f32> = Vec::new();
     let mut bad_packets = 0usize;

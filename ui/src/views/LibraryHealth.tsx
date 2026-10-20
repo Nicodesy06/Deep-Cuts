@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type DuplicateGroup } from "../api";
+import { api, type DuplicateGroup, type TranscodeSuspect } from "../api";
+import type { MsgKey } from "../i18n";
 import { formatBpm, formatDuration } from "../format";
 import { SmartFixes } from "../components/SmartFixes";
 import { useAction, useApp } from "../store";
@@ -8,11 +9,13 @@ export function LibraryHealth() {
   const { t, dataVersion, bump, openLibrary, play } = useApp();
   const act = useAction();
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
+  const [suspects, setSuspects] = useState<TranscodeSuspect[] | null>(null);
   const [missing, setMissing] = useState<[number, number] | null>(null);
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     api.duplicateGroups().then(setGroups, () => setGroups([]));
+    api.transcodeSuspects().then(setSuspects, () => setSuspects([]));
   }, [dataVersion]);
 
   const check = async () => {
@@ -83,6 +86,46 @@ export function LibraryHealth() {
               </table>
             </div>
           ))
+        )}
+      </section>
+      <section className="panel">
+        <h2>{t("health.transTitle")}</h2>
+        <p className="hint">{t("health.transHint")}</p>
+        {suspects == null ? (
+          <p className="muted">{t("common.loading")}</p>
+        ) : suspects.length === 0 ? (
+          <p className="muted">{t("health.noTrans")}</p>
+        ) : (
+          <>
+            <table className="grid-table trans-table">
+              <tbody>
+                {suspects.map((s) => (
+                  <tr key={s.track.id}>
+                    <td>
+                      <button className="icon-btn small" onClick={() => play(s.track, s.track.previewMs ?? 0)} aria-label={t("player.play")}>
+                        ▶
+                      </button>
+                    </td>
+                    <td>{s.track.artist}</td>
+                    <td>{s.track.title}</td>
+                    <td className="muted small">
+                      {s.track.format?.toUpperCase()} {s.track.bitrate ? `${s.track.bitrate}k` : ""}
+                    </td>
+                    <td className="num">{s.cutoffHz != null ? `${(s.cutoffHz / 1000).toFixed(1)} kHz` : ""}</td>
+                    <td>
+                      <span className="badge badge-warn">{t(`health.trans.${s.reason}` as MsgKey)}</span>
+                    </td>
+                    <td className="muted small path">{s.track.path}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="row">
+              <button className="btn ghost" onClick={() => openLibrary({ query: "transcode:yes" })}>
+                {t("health.showTrans")}
+              </button>
+            </div>
+          </>
         )}
       </section>
       <SmartFixes />

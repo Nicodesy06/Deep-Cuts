@@ -283,6 +283,11 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
             <Metric label={t("an.low")} value={`${Math.round(a.spectral.lowEnergyRatio * 100)}%`} hint={t("an.lowHint")} />
             <Metric label={t("an.onsets")} value={`${a.spectral.onsetRate.toFixed(2)}/s`} hint={t("an.onsetsHint")} />
             <Metric label={t("an.firstBeat")} value={a.tempo ? `${(a.tempo.firstBeatMs / 1000).toFixed(3)} s` : "—"} />
+            <Metric
+              label={t("an.bandwidth")}
+              value={!a.bandwidth ? "—" : a.bandwidth.cutoffHz != null ? `${(a.bandwidth.cutoffHz / 1000).toFixed(1)} kHz` : t("an.fullBand")}
+              hint={t("an.bandwidthHint")}
+            />
           </div>
           <div className="section-sub muted">{t("an.energyCurve")}</div>
           <Sparkline values={a.energyCurveDb} />

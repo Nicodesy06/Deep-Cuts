@@ -5,12 +5,13 @@
 | Feature | Where | Verification |
 |---|---|---|
 | **Key estimation 1.1.0**: new chroma front-end + EDM key profiles, chosen on a development corpus and measured on a separate test corpus. GiantSteps Key MIREX **47.5 % → 64.8 %**, exact key **34.6 % → 55.5 %** | `analysis::key`, `keystudy`, `deepcuts key-study`, `eval.yml` job `key-study` | `AI_VALIDATION.md`; synthetic key tests still exact |
+| **Transcode detection** (fake lossless / fake high bitrate): measured bandwidth cliff at the source sample rate, stated rule, Library Health list, `transcode:yes` search, bandwidth metric in details; codec recorded per file (schema v4, analyser 1.2.0) | `analysis::bandwidth`, `library::transcode_suspects`, migration `0004` | `tests/transcode.rs` (real LAME encodes), `bandwidth::tests`, GUI check |
 | **Rename / move files from metadata**: pattern with tokens, dry-run preview with conflicts (missing, name clash, existing file, no metadata), never overwrites, verified cross-drive moves, one undoable batch (undo moves files back) | `dc-core::fileops`, `history::Kind::FilePath`, Library context menu, `deepcuts rename` | `tests/fileops.rs`, `fileops::tests`, GUI check (rename + undo on real files) |
 
-Existing analyses (1.0.0) are recomputed when the user runs *Analyze*; keys the user set by
+Existing analyses (1.0.0/1.1.0) are recomputed when the user runs *Analyze*; keys the user set by
 hand are never overwritten (user values win over analysis).
 
-`cargo test --workspace --release`: **57 passed** · UI: **18 passed** · clippy: **0 warnings**.
+`cargo test --workspace --release`: **62 passed** · UI: **18 passed** · clippy: **0 warnings**.
 
 ---
 

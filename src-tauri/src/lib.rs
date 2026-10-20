@@ -142,6 +142,7 @@ pub fn run() {
             commands::restore_backup,
             commands::check_missing,
             commands::duplicate_groups,
+            commands::transcode_suspects,
             commands::integrity_check,
             commands::get_settings,
             commands::set_setting,

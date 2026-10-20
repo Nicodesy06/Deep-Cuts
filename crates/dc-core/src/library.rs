@@ -1019,6 +1019,45 @@ pub struct DuplicateGroup {
 
 /// Duplicate candidates. Nothing is ever deleted automatically; the user
 /// reviews each group.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscodeSuspect {
+    pub track: TrackRow,
+    /// Rule id from `analysis::bandwidth::transcode_suspicion`.
+    pub reason: String,
+    pub cutoff_hz: Option<f64>,
+    pub codec: Option<String>,
+}
+
+/// Tracks whose measured bandwidth suggests a lower-quality lossy source.
+pub fn transcode_suspects(conn: &Connection, limit: usize) -> Result<Vec<TranscodeSuspect>> {
+    let rows: Vec<(String, String, Option<f64>, Option<String>)> = {
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.transcode, t.cutoff_hz,
+                    (SELECT codec FROM files f WHERE f.track_id = t.id ORDER BY missing, added_at LIMIT 1)
+             FROM tracks t WHERE t.transcode IS NOT NULL ORDER BY t.cutoff_hz LIMIT ?1",
+        )?;
+        stmt.query_map([limit as i64], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+        .collect::<std::result::Result<_, _>>()?
+    };
+    let ids: Vec<String> = rows.iter().map(|r| r.0.clone()).collect();
+    let tracks = crate::query::rows_for_ids(conn, &ids)?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, reason, cutoff_hz, codec)| {
+            let track = tracks.iter().find(|t| t.id == id)?.clone();
+            Some(TranscodeSuspect {
+                track,
+                reason,
+                cutoff_hz,
+                codec,
+            })
+        })
+        .collect())
+}
+
 pub fn duplicate_groups(conn: &Connection, limit: usize) -> Result<Vec<DuplicateGroup>> {
     let mut groups = Vec::new();
     let mut collect = |kind: &str, sql: &str| -> Result<()> {

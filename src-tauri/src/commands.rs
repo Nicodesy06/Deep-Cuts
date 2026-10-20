@@ -465,6 +465,11 @@ pub fn duplicate_groups(state: State<'_, AppState>) -> Res<Vec<library::Duplicat
 }
 
 #[tauri::command]
+pub fn transcode_suspects(state: State<'_, AppState>) -> Res<Vec<library::TranscodeSuspect>> {
+    with_conn!(state, |c| library::transcode_suspects(&c, 500))
+}
+
+#[tauri::command]
 pub fn integrity_check(state: State<'_, AppState>) -> Res<Vec<String>> {
     with_conn!(state, |c| db::integrity_check(&c))
 }

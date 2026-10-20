@@ -10,7 +10,7 @@
 //! * numeric fields accept `120`, `120-126`, `>120`, `>=120`, `<9`, `<=9`
 //! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible
 //! * `none` matches empty values: `genre:none`, `bpm:none`, `key:none`
-//! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`,
+//! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`,
 //!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
 //! * implicit AND, explicit `AND`, `OR`, `NOT` / leading `-`, parentheses
 
@@ -331,6 +331,7 @@ impl Parser {
             "fav" | "favorite" => Ok(bool_expr("t.favorite = 1", value)?),
             "artwork" => Ok(bool_expr("t.has_artwork = 1", value)?),
             "analyzed" => Ok(bool_expr("t.analysis_status = 'done'", value)?),
+            "transcode" => Ok(bool_expr("t.transcode IS NOT NULL", value)?),
             "missing" => Ok(bool_expr(
                 "NOT EXISTS (SELECT 1 FROM files f2 WHERE f2.track_id = t.id AND f2.missing = 0)",
                 value,

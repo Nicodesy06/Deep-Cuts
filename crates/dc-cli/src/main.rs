@@ -1373,6 +1373,6 @@ const QUERY_HELP: &str = r#"Query language (search bar, Smart Crates, CLI):
                               version remixer comment notes path format
   bpm:124  bpm:122-126  bpm:>120  year:<2000  rating:>=4  duration:>360  lufs:-12--6
   key:8A  key:Am  key:8A+     (+ = harmonically compatible on the Camelot wheel)
-  decision:keep|pass|maybe|none  fav:yes  missing:yes  analyzed:no  artwork:no
+  decision:keep|pass|maybe|none  fav:yes  missing:yes  analyzed:no  artwork:no  transcode:yes
   tag:name  added:7d   none = empty value (genre:none bpm:none key:none)
   AND (implicit), OR, NOT / -term, ( ... )"#;
