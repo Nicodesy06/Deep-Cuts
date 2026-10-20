@@ -7,7 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
-use dc_core::{fileops, map, sets, similarity};
+use dc_core::{dedupe, fileops, map, sets, similarity};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -462,6 +462,46 @@ pub async fn check_missing(state: State<'_, AppState>) -> Res<(usize, usize)> {
 #[tauri::command]
 pub fn duplicate_groups(state: State<'_, AppState>) -> Res<Vec<library::DuplicateGroup>> {
     with_conn!(state, |c| library::duplicate_groups(&c, 200))
+}
+
+#[tauri::command]
+pub fn suggest_keep(state: State<'_, AppState>, ids: Vec<String>) -> Res<Option<String>> {
+    with_conn!(state, |c| dedupe::suggest_keep(&c, &ids))
+}
+
+#[tauri::command]
+pub async fn merge_duplicates(
+    state: State<'_, AppState>,
+    keep: String,
+    others: Vec<String>,
+) -> Res<dedupe::MergeReport> {
+    let trash = state
+        .db_path
+        .parent()
+        .map(|p| p.join("trash"))
+        .unwrap_or_else(dc_core::paths::trash_dir);
+    blocking(state.db_path.clone(), move |c| {
+        dedupe::merge(c, &keep, &others, &trash)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn unused_files(state: State<'_, AppState>, root: String) -> Res<Vec<String>> {
+    blocking(state.db_path.clone(), move |c| {
+        dedupe::unused_files(c, std::path::Path::new(&root))
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn broken_playlists(state: State<'_, AppState>) -> Res<Vec<dedupe::BrokenPlaylist>> {
+    with_conn!(state, |c| dedupe::broken_playlists(&c))
+}
+
+#[tauri::command]
+pub fn set_archived(state: State<'_, AppState>, ids: Vec<String>, archived: bool) -> Res<()> {
+    with_conn!(state, |c| library::set_archived(&c, &ids, archived))
 }
 
 #[tauri::command]

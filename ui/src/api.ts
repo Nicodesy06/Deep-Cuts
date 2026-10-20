@@ -387,6 +387,21 @@ export interface AppInfo {
   platform: string;
 }
 
+export interface MergeReport {
+  merged: number;
+  playlistsUpdated: number;
+  filesMoved: number;
+  trashDir: string;
+  failed: string[];
+}
+
+export interface BrokenPlaylist {
+  id: string;
+  name: string;
+  missing: number;
+  total: number;
+}
+
 export interface TranscodeSuspect {
   track: TrackRow;
   reason: "lossless-band-limited" | "high-bitrate-band-limited";
@@ -463,6 +478,11 @@ export const api = {
   checkMissing: () => invoke<[number, number]>("check_missing"),
   duplicateGroups: () => invoke<DuplicateGroup[]>("duplicate_groups"),
   transcodeSuspects: () => invoke<TranscodeSuspect[]>("transcode_suspects"),
+  suggestKeep: (ids: string[]) => invoke<string | null>("suggest_keep", { ids }),
+  mergeDuplicates: (keep: string, others: string[]) => invoke<MergeReport>("merge_duplicates", { keep, others }),
+  brokenPlaylists: () => invoke<BrokenPlaylist[]>("broken_playlists"),
+  unusedFiles: (root: string) => invoke<string[]>("unused_files", { root }),
+  setArchived: (ids: string[], archived: boolean) => invoke<void>("set_archived", { ids, archived }),
   integrityCheck: () => invoke<string[]>("integrity_check"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),

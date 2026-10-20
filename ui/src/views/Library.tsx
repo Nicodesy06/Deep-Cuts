@@ -515,6 +515,11 @@ export function Library() {
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
           <button onClick={() => setRenameIds(selectedIds)}>{t("rename.menu")}</button>
+          {/archived:/i.test(query) ? (
+            <button onClick={() => act(() => api.setArchived(selectedIds, false), t("archive.restored", { n: selectedIds.length })).then(bump)}>{t("archive.restore")}</button>
+          ) : (
+            <button onClick={() => act(() => api.setArchived(selectedIds, true), t("archive.archived", { n: selectedIds.length })).then(bump)}>{t("archive.menu")}</button>
+          )}
           <hr />
           <button onClick={() => doExport("m3u8")}>{t("export.m3u8")}</button>
           <button onClick={() => doExport("rekordbox")}>{t("export.rekordbox")}</button>

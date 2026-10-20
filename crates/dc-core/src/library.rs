@@ -708,6 +708,25 @@ pub fn set_notes(conn: &Connection, id: &str, notes: Option<&str>) -> Result<()>
     })
 }
 
+/// Archive (hide without deleting) or restore tracks; undoable.
+pub fn set_archived(conn: &Connection, ids: &[String], archived: bool) -> Result<()> {
+    let v = if archived { "1" } else { "0" };
+    let action = if archived { "archive" } else { "unarchive" };
+    history::batch(conn, action, &format!("{} tracks", ids.len()), |tx, b| {
+        for id in ids {
+            history::change(
+                tx,
+                b,
+                history::Kind::Archived,
+                id,
+                "archived",
+                history::State::set(Some(v)),
+            )?;
+        }
+        Ok(())
+    })
+}
+
 pub fn set_favorite(conn: &Connection, ids: &[String], favorite: bool) -> Result<()> {
     let v = if favorite { "1" } else { "0" };
     history::batch(
@@ -1035,7 +1054,7 @@ pub fn transcode_suspects(conn: &Connection, limit: usize) -> Result<Vec<Transco
         let mut stmt = conn.prepare(
             "SELECT t.id, t.transcode, t.cutoff_hz,
                     (SELECT codec FROM files f WHERE f.track_id = t.id ORDER BY missing, added_at LIMIT 1)
-             FROM tracks t WHERE t.transcode IS NOT NULL ORDER BY t.cutoff_hz LIMIT ?1",
+             FROM tracks t WHERE t.transcode IS NOT NULL AND t.archived = 0 ORDER BY t.cutoff_hz LIMIT ?1",
         )?;
         stmt.query_map([limit as i64], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
@@ -1074,7 +1093,7 @@ pub fn acoustic_pairs(conn: &Connection, max_ber: f64) -> Result<Vec<(String, St
     let rows: Vec<(String, i64, Vec<u16>)> = {
         let mut stmt = conn.prepare(
             "SELECT f.track_id, t.duration_ms, f.data FROM fingerprints f JOIN tracks t ON t.id = f.track_id
-             WHERE f.version = ?1 AND t.duration_ms IS NOT NULL ORDER BY t.duration_ms",
+             WHERE f.version = ?1 AND t.duration_ms IS NOT NULL AND t.archived = 0 ORDER BY t.duration_ms",
         )?;
         stmt.query_map([crate::analysis::FINGERPRINT_VERSION], |r| {
             Ok((
@@ -1119,11 +1138,12 @@ pub fn duplicate_groups(conn: &Connection, limit: usize) -> Result<Vec<Duplicate
     collect(
         "identical-file",
         "SELECT quick_hash, group_concat(DISTINCT track_id) FROM files WHERE quick_hash IS NOT NULL
+         AND track_id IN (SELECT id FROM live_tracks)
          GROUP BY quick_hash HAVING count(DISTINCT track_id) > 1 LIMIT ?1",
     )?;
     collect(
         "same-artist-title",
-        "SELECT lower(trim(artist)) || ' — ' || lower(trim(title)), group_concat(id) FROM tracks
+        "SELECT lower(trim(artist)) || ' — ' || lower(trim(title)), group_concat(id) FROM live_tracks
          WHERE artist IS NOT NULL AND title IS NOT NULL
          GROUP BY lower(trim(artist)), lower(trim(title)) HAVING count(*) > 1 LIMIT ?1",
     )?;

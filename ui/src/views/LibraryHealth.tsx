@@ -1,21 +1,29 @@
 import { useEffect, useState } from "react";
-import { api, type DuplicateGroup, type TranscodeSuspect } from "../api";
+import { api, type BrokenPlaylist, type DuplicateGroup, type TrackRow, type TranscodeSuspect } from "../api";
+import { MergeDialog } from "../components/MergeDialog";
+import { open } from "@tauri-apps/plugin-dialog";
+import { importFolders } from "../actions";
 import type { MsgKey } from "../i18n";
 import { formatBpm, formatDuration } from "../format";
 import { SmartFixes } from "../components/SmartFixes";
 import { useAction, useApp } from "../store";
 
 export function LibraryHealth() {
-  const { t, dataVersion, bump, openLibrary, play } = useApp();
+  const { t, dataVersion, bump, openLibrary, play, toast } = useApp();
   const act = useAction();
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [suspects, setSuspects] = useState<TranscodeSuspect[] | null>(null);
+  const [broken, setBroken] = useState<BrokenPlaylist[] | null>(null);
+  const [merging, setMerging] = useState<TrackRow[] | null>(null);
+  const [unused, setUnused] = useState<string[] | null>(null);
+  const [unusedRoot, setUnusedRoot] = useState<string | null>(null);
   const [missing, setMissing] = useState<[number, number] | null>(null);
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     api.duplicateGroups().then(setGroups, () => setGroups([]));
     api.transcodeSuspects().then(setSuspects, () => setSuspects([]));
+    api.brokenPlaylists().then(setBroken, () => setBroken([]));
   }, [dataVersion]);
 
   const check = async () => {
@@ -60,6 +68,9 @@ export function LibraryHealth() {
               <div className="dup-head">
                 <span className={`badge ${g.kind === "identical-file" ? "badge-warn" : ""}`}>{t(`health.${g.kind}` as never)}</span>
                 <span className="muted small">{g.tracks.length} ×</span>
+                <button className="btn small" onClick={() => setMerging(g.tracks)}>
+                  {t("merge.button")}
+                </button>
               </div>
               <table className="grid-table">
                 <tbody>
@@ -128,11 +139,65 @@ export function LibraryHealth() {
           </>
         )}
       </section>
+      <section className="panel">
+        <h2>{t("health.brokenTitle")}</h2>
+        <p className="hint">{t("health.brokenHint")}</p>
+        {broken == null ? (
+          <p className="muted">{t("common.loading")}</p>
+        ) : broken.length === 0 ? (
+          <p className="muted">{t("health.noBroken")}</p>
+        ) : (
+          <table className="grid-table">
+            <tbody>
+              {broken.map((b) => (
+                <tr key={b.id}>
+                  <td>
+                    <button className="link-btn" onClick={() => openLibrary({ query: "missing:yes", playlistId: b.id })}>
+                      {b.name}
+                    </button>
+                  </td>
+                  <td className="muted small">{t("health.brokenCount", { missing: b.missing, total: b.total })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
       <SmartFixes />
       <section className="panel">
-        <h2>{t("health.planned")}</h2>
-        <p className="muted small">{t("health.plannedBody")}</p>
+        <h2>{t("health.unusedTitle")}</h2>
+        <p className="hint">{t("health.unusedHint")}</p>
+        <div className="row">
+          <button
+            className="btn"
+            onClick={async () => {
+              const r = await open({ directory: true, multiple: false, title: t("health.unusedChoose") });
+              if (typeof r !== "string") return;
+              setUnused(null);
+              setUnusedRoot(r);
+              const list = await act(() => api.unusedFiles(r));
+              setUnused(list ?? []);
+            }}
+          >
+            {t("health.unusedScan")}
+          </button>
+          {unusedRoot && unused == null && <span className="muted">{t("common.working")}</span>}
+          {unused != null && <span className="muted">{t("health.unusedResult", { n: unused.length })}</span>}
+          {unused != null && unused.length > 0 && (
+            <button className="btn" onClick={() => importFolders(t, toast, bump, unused).then(() => setUnused([]))}>
+              {t("health.unusedImport", { n: unused.length })}
+            </button>
+          )}
+        </div>
+        {unused != null && unused.length > 0 && (
+          <ul className="small path unused-list">
+            {unused.slice(0, 300).map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        )}
       </section>
+      {merging && <MergeDialog tracks={merging} onClose={() => setMerging(null)} />}
     </div>
   );
 }

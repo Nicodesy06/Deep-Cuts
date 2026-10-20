@@ -27,6 +27,8 @@ pub enum Kind {
     /// Location of an audio file on disk (key = file id, value = path).
     /// Undo moves the file back.
     FilePath,
+    /// Archived flag of a track (value "1"/"0").
+    Archived,
 }
 
 impl Kind {
@@ -39,6 +41,7 @@ impl Kind {
             Kind::Tag => "tag",
             Kind::PlaylistOrder => "playlist",
             Kind::FilePath => "file",
+            Kind::Archived => "archived",
         }
     }
 
@@ -51,6 +54,7 @@ impl Kind {
             "tag" => Kind::Tag,
             "playlist" => Kind::PlaylistOrder,
             "file" => Kind::FilePath,
+            "archived" => Kind::Archived,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -126,6 +130,13 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
             &library::playlist_track_ids(conn, key)?,
         )?)),
         Kind::FilePath => State::set(Some(&crate::fileops::file_path(conn, key)?)),
+        Kind::Archived => {
+            let a: bool =
+                conn.query_row("SELECT archived FROM tracks WHERE id = ?1", [track], |r| {
+                    r.get(0)
+                })?;
+            State::set(Some(if a { "1" } else { "0" }))
+        }
     })
 }
 
@@ -184,6 +195,12 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
             if let Some(p) = &s.value {
                 crate::fileops::set_file_path(conn, key, p)?;
             }
+        }
+        Kind::Archived => {
+            conn.execute(
+                "UPDATE tracks SET archived = ?1, updated_at = ?2 WHERE id = ?3",
+                params![s.value.as_deref() == Some("1"), now_ms(), track],
+            )?;
         }
     }
     Ok(())

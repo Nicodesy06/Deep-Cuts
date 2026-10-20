@@ -60,46 +60,46 @@ fn count(conn: &Connection, sql: &str) -> Result<i64> {
 pub fn library_stats(conn: &Connection) -> Result<LibraryStats> {
     let week_ago = crate::util::now_ms() - 7 * 86_400_000;
     Ok(LibraryStats {
-        total_tracks: count(conn, "SELECT count(*) FROM tracks")?,
-        total_duration_ms: count(conn, "SELECT COALESCE(sum(duration_ms), 0) FROM tracks")?,
+        total_tracks: count(conn, "SELECT count(*) FROM live_tracks")?,
+        total_duration_ms: count(conn, "SELECT COALESCE(sum(duration_ms), 0) FROM live_tracks")?,
         total_size_bytes: count(conn, "SELECT COALESCE(sum(size), 0) FROM files")?,
-        analyzed: count(conn, "SELECT count(*) FROM tracks WHERE analysis_status = 'done'")?,
-        analysis_failed: count(conn, "SELECT count(*) FROM tracks WHERE analysis_status = 'failed'")?,
+        analyzed: count(conn, "SELECT count(*) FROM live_tracks WHERE analysis_status = 'done'")?,
+        analysis_failed: count(conn, "SELECT count(*) FROM live_tracks WHERE analysis_status = 'failed'")?,
         missing_files: count(conn, "SELECT count(*) FROM files WHERE missing = 1")?,
         keep: count(conn, "SELECT count(*) FROM decisions WHERE context = 'global' AND decision = 'keep'")?,
         pass: count(conn, "SELECT count(*) FROM decisions WHERE context = 'global' AND decision = 'pass'")?,
         maybe: count(conn, "SELECT count(*) FROM decisions WHERE context = 'global' AND decision = 'maybe'")?,
         undecided: count(
             conn,
-            "SELECT count(*) FROM tracks t WHERE NOT EXISTS (SELECT 1 FROM decisions d WHERE d.track_id = t.id AND d.context = 'global')",
+            "SELECT count(*) FROM live_tracks t WHERE NOT EXISTS (SELECT 1 FROM decisions d WHERE d.track_id = t.id AND d.context = 'global')",
         )?,
-        without_genre: count(conn, "SELECT count(*) FROM tracks WHERE genre IS NULL OR genre = ''")?,
-        without_bpm: count(conn, "SELECT count(*) FROM tracks WHERE bpm IS NULL")?,
-        without_key: count(conn, "SELECT count(*) FROM tracks WHERE key_camelot IS NULL")?,
-        without_artwork: count(conn, "SELECT count(*) FROM tracks WHERE has_artwork = 0")?,
-        unrated: count(conn, "SELECT count(*) FROM tracks WHERE rating IS NULL OR rating = 0")?,
+        without_genre: count(conn, "SELECT count(*) FROM live_tracks WHERE genre IS NULL OR genre = ''")?,
+        without_bpm: count(conn, "SELECT count(*) FROM live_tracks WHERE bpm IS NULL")?,
+        without_key: count(conn, "SELECT count(*) FROM live_tracks WHERE key_camelot IS NULL")?,
+        without_artwork: count(conn, "SELECT count(*) FROM live_tracks WHERE has_artwork = 0")?,
+        unrated: count(conn, "SELECT count(*) FROM live_tracks WHERE rating IS NULL OR rating = 0")?,
         not_in_playlist: count(
             conn,
-            "SELECT count(*) FROM tracks t WHERE NOT EXISTS (SELECT 1 FROM playlist_tracks p WHERE p.track_id = t.id)",
+            "SELECT count(*) FROM live_tracks t WHERE NOT EXISTS (SELECT 1 FROM playlist_tracks p WHERE p.track_id = t.id)",
         )?,
         playlists: count(conn, "SELECT count(*) FROM playlists WHERE kind != 'folder'")?,
         duplicate_hash_groups: count(
             conn,
             "SELECT count(*) FROM (SELECT quick_hash FROM files WHERE quick_hash IS NOT NULL GROUP BY quick_hash HAVING count(DISTINCT track_id) > 1)",
         )?,
-        added_last_7_days: conn.query_row("SELECT count(*) FROM tracks WHERE created_at >= ?1", [week_ago], |r| r.get(0))?,
+        added_last_7_days: conn.query_row("SELECT count(*) FROM live_tracks WHERE created_at >= ?1", [week_ago], |r| r.get(0))?,
         genres: buckets(
             conn,
-            "SELECT genre, count(*) c FROM tracks WHERE genre IS NOT NULL AND genre != '' GROUP BY genre COLLATE NOCASE ORDER BY c DESC LIMIT 15",
+            "SELECT genre, count(*) c FROM live_tracks WHERE genre IS NOT NULL AND genre != '' GROUP BY genre COLLATE NOCASE ORDER BY c DESC LIMIT 15",
         )?,
         bpm: buckets(
             conn,
-            "SELECT CAST(CAST(bpm / 2 AS INTEGER) * 2 AS TEXT), count(*) FROM tracks WHERE bpm BETWEEN 60 AND 200
+            "SELECT CAST(CAST(bpm / 2 AS INTEGER) * 2 AS TEXT), count(*) FROM live_tracks WHERE bpm BETWEEN 60 AND 200
              GROUP BY CAST(bpm / 2 AS INTEGER) ORDER BY CAST(bpm / 2 AS INTEGER)",
         )?,
         keys: buckets(
             conn,
-            "SELECT key_camelot, count(*) FROM tracks WHERE key_camelot IS NOT NULL GROUP BY key_camelot
+            "SELECT key_camelot, count(*) FROM live_tracks WHERE key_camelot IS NOT NULL GROUP BY key_camelot
              ORDER BY CAST(rtrim(key_camelot, 'AB') AS INTEGER), key_camelot",
         )?,
         formats: buckets(conn, "SELECT upper(format), count(*) c FROM files GROUP BY upper(format) ORDER BY c DESC")?,
@@ -107,11 +107,11 @@ pub fn library_stats(conn: &Connection) -> Result<LibraryStats> {
             conn,
             // floor() for negative values without the math extension
             "SELECT CAST(b AS TEXT), count(*) FROM (SELECT CAST(lufs AS INTEGER) - (lufs < CAST(lufs AS INTEGER)) b
-             FROM tracks WHERE lufs IS NOT NULL) GROUP BY b ORDER BY b",
+             FROM live_tracks WHERE lufs IS NOT NULL) GROUP BY b ORDER BY b",
         )?,
         growth: buckets(
             conn,
-            "SELECT strftime('%Y-%m', created_at / 1000, 'unixepoch'), count(*) FROM tracks GROUP BY 1 ORDER BY 1",
+            "SELECT strftime('%Y-%m', created_at / 1000, 'unixepoch'), count(*) FROM live_tracks GROUP BY 1 ORDER BY 1",
         )?,
     })
 }

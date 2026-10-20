@@ -10,7 +10,7 @@
 //! * numeric fields accept `120`, `120-126`, `>120`, `>=120`, `<9`, `<=9`
 //! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible
 //! * `none` matches empty values: `genre:none`, `bpm:none`, `key:none`
-//! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`,
+//! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`, `archived:yes`,
 //!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
 //! * implicit AND, explicit `AND`, `OR`, `NOT` / leading `-`, parentheses
 
@@ -332,6 +332,7 @@ impl Parser {
             "artwork" => Ok(bool_expr("t.has_artwork = 1", value)?),
             "analyzed" => Ok(bool_expr("t.analysis_status = 'done'", value)?),
             "transcode" => Ok(bool_expr("t.transcode IS NOT NULL", value)?),
+            "archived" => Ok(bool_expr("t.archived = 1", value)?),
             "missing" => Ok(bool_expr(
                 "NOT EXISTS (SELECT 1 FROM files f2 WHERE f2.track_id = t.id AND f2.missing = 0)",
                 value,
@@ -496,6 +497,10 @@ fn sort_column(sort: &str) -> Option<&'static str> {
     })
 }
 
+fn mentions_archived(query: &str) -> bool {
+    query.to_ascii_lowercase().contains("archived:")
+}
+
 fn select_ids(conn: &Connection, q: &TrackQuery, with_total: bool) -> Result<(i64, Vec<String>)> {
     // A smart playlist resolves to its stored rule query.
     let mut rules: Option<String> = None;
@@ -515,6 +520,10 @@ fn select_ids(conn: &Connection, q: &TrackQuery, with_total: bool) -> Result<(i6
     let user = compile(&q.query)?;
     let mut params = user.params.clone();
     let mut where_sql = user.sql.clone();
+    // Archived tracks stay hidden unless the query asks about them.
+    if !mentions_archived(&q.query) {
+        where_sql = format!("({where_sql}) AND t.archived = 0");
+    }
     if let Some(r) = rules {
         let c = compile_at(&r, params.len())?;
         params.extend(c.params);

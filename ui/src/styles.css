@@ -1946,3 +1946,9 @@ tr.rejected td {
   white-space: normal;
   width: 100%;
 }
+.unused-list {
+  max-height: 30vh;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}

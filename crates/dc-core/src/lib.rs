@@ -7,6 +7,7 @@ pub mod audio;
 pub mod backup;
 pub mod cues;
 pub mod db;
+pub mod dedupe;
 pub mod error;
 pub mod eval;
 pub mod export;

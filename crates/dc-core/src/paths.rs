@@ -16,6 +16,11 @@ pub fn db_path() -> PathBuf {
     home().join("library.db")
 }
 
+/// Where merged duplicate copies are moved (never deleted).
+pub fn trash_dir() -> PathBuf {
+    home().join("trash")
+}
+
 pub fn backups_dir() -> PathBuf {
     home().join("backups")
 }
