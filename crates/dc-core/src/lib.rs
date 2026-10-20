@@ -15,6 +15,7 @@ pub mod fixes;
 pub mod history;
 pub mod jobs;
 pub mod keys;
+pub mod keystudy;
 pub mod library;
 pub mod map;
 pub mod metadata;

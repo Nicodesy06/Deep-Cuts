@@ -161,6 +161,24 @@ enum Cmd {
         #[arg(long, default_value = "")]
         name: String,
     },
+    /// Key-estimator design study. Without --use: score the variant grid on
+    /// a development corpus and write the best choice to --choose. With
+    /// --use: measure that fixed choice on a test corpus.
+    KeyStudy {
+        audio: PathBuf,
+        /// Directory of <stem>.key files, or a GiantSteps-MTG-Keys
+        /// annotations.txt (only confidence-2 labels are used)
+        #[arg(long)]
+        keys: PathBuf,
+        #[arg(long)]
+        choose: Option<PathBuf>,
+        #[arg(long = "use")]
+        use_choice: Option<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -188,6 +206,24 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             audio,
             keys.as_deref(),
             tempo.as_deref(),
+            out.as_deref(),
+            name,
+        );
+    }
+    if let Cmd::KeyStudy {
+        audio,
+        keys,
+        choose,
+        use_choice,
+        out,
+        name,
+    } = &cli.cmd
+    {
+        return key_study(
+            audio,
+            keys,
+            choose.as_deref(),
+            use_choice.as_deref(),
             out.as_deref(),
             name,
         );
@@ -652,7 +688,9 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 }
             }
         }
-        Cmd::Bench { .. } | Cmd::HelpQuery | Cmd::Eval { .. } => unreachable!(),
+        Cmd::Bench { .. } | Cmd::HelpQuery | Cmd::Eval { .. } | Cmd::KeyStudy { .. } => {
+            unreachable!()
+        }
     }
     Ok(())
 }
@@ -945,6 +983,174 @@ fn eval_corpus(
             );
         }
         export::write_atomic(&out.with_extension("csv"), w.as_bytes())?;
+    }
+    Ok(())
+}
+
+/// Reference keys by file stem: a directory of `<stem>.key` files, or an
+/// MTG-Keys `annotations.txt` (ID, key, confidence; ID = stem up to the first dot).
+fn load_key_refs(
+    keys: &std::path::Path,
+    files: &[PathBuf],
+) -> (Vec<(PathBuf, dc_core::keys::Key)>, usize) {
+    use dc_core::keys::Key;
+    let mut table = std::collections::HashMap::new();
+    if keys.is_file() {
+        for line in std::fs::read_to_string(keys).unwrap_or_default().lines() {
+            let cols: Vec<&str> = line.split('\t').collect();
+            if cols.len() >= 3 && cols[2].trim() == "2" {
+                table.insert(cols[0].trim().to_string(), cols[1].trim().to_string());
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let mut unparsed = 0;
+    for f in files {
+        let stem = f
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let label = if keys.is_file() {
+            table
+                .get(stem.split('.').next().unwrap_or_default())
+                .cloned()
+        } else {
+            read_annotation(Some(keys), &stem, "key")
+        };
+        match label.as_deref().map(Key::parse) {
+            Some(Some(k)) => out.push((f.clone(), k)),
+            Some(None) => unparsed += 1,
+            None => {}
+        }
+    }
+    (out, unparsed)
+}
+
+fn key_study(
+    audio: &std::path::Path,
+    keys: &std::path::Path,
+    choose: Option<&std::path::Path>,
+    use_choice: Option<&std::path::Path>,
+    out: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::analysis::key;
+    use dc_core::keystudy::{self, Choice};
+    use rayon::prelude::*;
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let (refs, unparsed) = load_key_refs(keys, &files);
+    let choice: Option<Choice> = match use_choice {
+        Some(p) => Some(
+            serde_json::from_slice(&std::fs::read(p)?)
+                .map_err(|e| dc_core::Error::Invalid(format!("bad choice file: {e}")))?,
+        ),
+        None => None,
+    };
+    let configs = match &choice {
+        Some(c) => vec![c.config, key::PRODUCTION],
+        None => keystudy::grid(),
+    };
+    let started = Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let extracted: Vec<_> = refs
+        .par_iter()
+        .filter_map(|(f, k)| {
+            let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if n.is_multiple_of(50) {
+                eprintln!("{n}/{}", refs.len());
+            }
+            let c = keystudy::extract(f, &configs).ok()?;
+            Some((c, *k))
+        })
+        .collect();
+    let failed = refs.len() - extracted.len();
+    // Silent tracks have no chroma in any configuration.
+    let per_config: Vec<Vec<_>> = (0..configs.len())
+        .map(|i| {
+            extracted
+                .iter()
+                .filter_map(|(c, k)| c[i].map(|c| (c, *k)))
+                .collect()
+        })
+        .collect();
+    let pct = |v: f64| format!("{:.1} %", v * 100.0);
+    let mut md = format!(
+        "# Key study{}\n\nAnnotated tracks: {} · unparseable labels skipped: {} · decode failures: {} · {:.0} s\n\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        refs.len(),
+        unparsed,
+        failed,
+        started.elapsed().as_secs_f64()
+    );
+    let row = |s: &dc_core::eval::KeySummary| {
+        format!(
+            "{} | {} | {} | {} | {} | {}",
+            pct(s.weighted),
+            pct(s.correct),
+            pct(s.fifth),
+            pct(s.relative),
+            pct(s.parallel),
+            pct(s.other)
+        )
+    };
+    match choice {
+        Some(c) => {
+            let chosen = keystudy::score(&per_config[0], &c.profiles);
+            let base = keystudy::score(&per_config[1], &key::KRUMHANSL);
+            md += &format!(
+                "Fixed choice from the development corpus ({} tracks, dev score {}): `{}` with **{}** profiles.\n\n| Variant | MIREX | Correct | Fifth | Relative | Parallel | Other |\n|---|---|---|---|---|---|---|\n| Chosen | {} |\n| Baseline dc-dsp 1.0.0 | {} |\n\n",
+                c.dev_tracks,
+                pct(c.dev_weighted),
+                c.config.label(),
+                c.profile_name,
+                row(&chosen),
+                row(&base)
+            );
+        }
+        None => {
+            let (results, best) = keystudy::study(&configs, &per_config);
+            md += "Learned profiles are scored with 5-fold cross-validation.\n\n| Chroma front-end | Profiles | MIREX | Correct | Fifth | Relative | Parallel | Other |\n|---|---|---|---|---|---|---|---|\n";
+            let mut lines = Vec::new();
+            for r in &results {
+                for (p, s) in [
+                    ("krumhansl", &r.krumhansl),
+                    ("temperley", &r.temperley),
+                    ("learned (cv)", &r.learned_cv),
+                ] {
+                    lines.push((
+                        s.weighted,
+                        format!("| {} | {} | {} |\n", r.label, p, row(s)),
+                    ));
+                }
+            }
+            lines.sort_by(|a, b| b.0.total_cmp(&a.0));
+            for (_, l) in lines {
+                md += &l;
+            }
+            if let Some(b) = best {
+                md += &format!(
+                    "\n**Choice:** `{}` with {} profiles (dev score {}).\n\nmajor: {:?}\n\nminor: {:?}\n",
+                    b.config.label(),
+                    b.profile_name,
+                    pct(b.dev_weighted),
+                    b.profiles.major.map(|v| (v * 1e4).round() / 1e4),
+                    b.profiles.minor.map(|v| (v * 1e4).round() / 1e4),
+                );
+                if let Some(p) = choose {
+                    let json = serde_json::to_vec_pretty(&b).unwrap_or_default();
+                    export::write_atomic(p, &json)?;
+                }
+            }
+        }
+    }
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
     }
     Ok(())
 }

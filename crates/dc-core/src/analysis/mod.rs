@@ -24,11 +24,11 @@ pub const ANALYZER_VERSION: &str = "1.0.0";
 pub const WAVEFORM_VERSION: i64 = 1;
 pub const WAVEFORM_BINS: usize = 1200;
 
-const SR: u32 = 22050;
+pub(crate) const SR: u32 = 22050;
 const ONSET_N: usize = 1024;
 const ONSET_HOP: usize = 128;
-const CHROMA_N: usize = 8192;
-const CHROMA_HOP: usize = 4096;
+pub(crate) const CHROMA_N: usize = 8192;
+pub(crate) const CHROMA_HOP: usize = 4096;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

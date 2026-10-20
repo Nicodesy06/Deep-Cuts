@@ -9,6 +9,7 @@ on:
     paths:
       - "crates/dc-core/src/analysis/**"
       - "crates/dc-core/src/eval.rs"
+      - "crates/dc-core/src/keystudy.rs"
       - "scripts/fetch_giantsteps.sh"
       - ".github/workflows/eval.yml"
 
@@ -52,4 +53,48 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: analyser-evaluation
+          path: eval-out/
+
+  # Key-estimator design study: variants are compared on GiantSteps-MTG-Keys
+  # (development corpus) and only the single chosen variant is measured on
+  # GiantSteps Key (test corpus). The two corpora share no tracks.
+  key-study:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build CLI
+        run: cargo build --release -p dc-cli
+
+      - name: Cache corpus audio
+        uses: actions/cache@v4
+        with:
+          path: |
+            audio-key
+            audio-mtg
+          key: giantsteps-key-mtg-audio-v1
+
+      - name: Fetch annotations and audio
+        run: |
+          git clone --depth 1 https://github.com/GiantSteps/giantsteps-key-dataset.git gs-key
+          git clone --depth 1 https://github.com/GiantSteps/giantsteps-mtg-key-dataset.git gs-mtg
+          scripts/fetch_giantsteps.sh gs-key audio-key 12
+          scripts/fetch_giantsteps.sh gs-mtg audio-mtg 12
+
+      - name: Study on development corpus, measure choice on test corpus
+        run: |
+          mkdir -p eval-out
+          ./target/release/deepcuts key-study audio-mtg --keys gs-mtg/annotations/annotations.txt --choose eval-out/key-choice.json --out eval-out/key-study-dev.md --name "GiantSteps-MTG-Keys (development)"
+          ./target/release/deepcuts key-study audio-key --keys gs-key/annotations/key --use eval-out/key-choice.json --out eval-out/key-study-test.md --name "GiantSteps Key (test)"
+          cat eval-out/key-study-test.md eval-out/key-study-dev.md >> "$GITHUB_STEP_SUMMARY"
+          cat eval-out/key-choice.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: key-study
           path: eval-out/
