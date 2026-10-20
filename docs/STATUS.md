@@ -1,5 +1,36 @@
 # Status report
 
+## Increment 3 — Discover, Set Builder, real-music evaluation (2026-10-20)
+
+### Implemented in this increment
+
+| Feature | Where | Verification |
+|---|---|---|
+| **Measured feature vectors** (17 dims: tempo, Camelot circle, mode, loudness, crest, spread, brightness, low/high band share, onset rate, flux, periodicity, energy mean/std/slope, breakdown depth) stored per analysed track, backfilled for older analyses | `dc-core::features`, schema v3 `track_features` | `features::tests`, `phase3::discovery_map_projects_all_analysed_tracks` |
+| **Similar tracks** with per-group explanation (tempo, harmonic relation, loudness, timbre, rhythm, energy), adjustable weights, query scope, user key corrections respected | `dc-core::similarity`, Discover → Similar, `deepcuts similar` | `phase3::similar_tracks_are_ranked_and_explained`, GUI check |
+| **Discovery map** (PCA of the z-scored vectors; axes show explained variance and top loadings; colour by key/decision) | `dc-core::map`, Discover → Map | `phase3::discovery_map…`, GUI check |
+| **Set Builder**: set playlists with chapters (opening/warm-up/build/peak/cool-down/closing), pinned tracks, per-transition report (BPM step, harmonic relation, energy step), **Magic Sort** (smooth / build / wave) with pins kept, undoable apply, next-track suggestions that exclude set members and passes, set notes | `dc-core::sets`, `ui/views/SetBuilder.tsx`, `deepcuts set` | `phase3::set_builder_chapters_locks_sort_suggest_and_undo`, `sets::tests`, GUI check |
+| **Playlist order changes** (add, remove, reorder, sort) recorded in the undo history | `library::reorder_playlist`, `history::Kind::PlaylistOrder` | same test |
+| **Real-music evaluation** of tempo and key on GiantSteps (CI workflow `eval.yml`, `deepcuts eval`) | `dc-core::eval`, `scripts/fetch_giantsteps.sh` | results in `AI_VALIDATION.md` |
+
+### Measured accuracy (dc-dsp 1.0.0, GiantSteps)
+
+Tempo Accuracy1 **65.8 %**, Accuracy2 **88.2 %** (v2 annotations). Key MIREX score **47.5 %**
+(exact 34.6 %). Key detection is weak and is the top analysis priority; see `AI_VALIDATION.md`.
+
+### Test totals (this increment, local)
+
+`cargo test --workspace --release`: **54 passed** · UI (vitest): **18 passed** · clippy: **0 warnings**.
+
+### Next priorities
+
+1. Improve key detection (tuned on GiantSteps-MTG-Keys, reported on GiantSteps Key) and tempo octave errors.
+2. Manual smoke test of installers on Windows/macOS.
+3. Acoustic-fingerprint duplicates and transcoding detection; file move/rename with undo.
+4. ONNX Runtime + model registry for Music DNA; loops/beatgrid editing.
+
+---
+
 ## Increment 2 — Phase 2 essentials (2026-10-20)
 
 ### Implemented in this increment
@@ -100,14 +131,11 @@ but its first run is pending.
 
 ## Known issues / limitations
 
-* Tags are never written back to audio files yet (deliberate, for data safety).
 * Editing a Smart Crate recreates it (new id).
 * Waveform/analysis memory scales with track length (~56 MB per 5-minute track per worker).
 * AIFF/ALAC preview on Windows relies on the decoded-WAV fallback (first play of a long file takes
   a moment).
-* No cue editor, tag editor UI, smart fixes, watch folders or undo stack yet.
-* Discover, Music DNA, Set Builder and Tag Editor pages are clearly marked *planned*. They contain no
-  simulated results.
+* Music DNA is the only page still marked *planned*. It contains no simulated results.
 
 ## Feature parity snapshot
 

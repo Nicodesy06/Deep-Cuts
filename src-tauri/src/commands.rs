@@ -7,6 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
+use dc_core::{map, sets, similarity};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -347,7 +348,12 @@ pub fn set_playlist_order(
     id: String,
     track_ids: Vec<String>,
 ) -> Res<()> {
-    with_conn!(state, |c| library::set_playlist_tracks(&c, &id, &track_ids))
+    with_conn!(state, |c| library::reorder_playlist(
+        &c,
+        &id,
+        &track_ids,
+        "playlist-reorder"
+    ))
 }
 
 #[tauri::command]
@@ -757,4 +763,143 @@ pub fn remove_watch_folder(app: AppHandle, state: State<'_, AppState>, path: Str
     with_conn!(state, |c| library::remove_watch_folder(&c, &path))?;
     crate::watch::restart(&app);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Discover: similarity + map
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn similar_tracks(
+    state: State<'_, AppState>,
+    id: String,
+    weights: Option<similarity::Weights>,
+    scope: Option<String>,
+    limit: Option<usize>,
+) -> Res<Vec<similarity::Match>> {
+    blocking(state.db_path.clone(), move |c| {
+        similarity::similar(
+            c,
+            &id,
+            &weights.unwrap_or_default(),
+            scope.as_deref().unwrap_or(""),
+            limit.unwrap_or(50),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn discovery_map(
+    state: State<'_, AppState>,
+    scope: Option<String>,
+) -> Res<map::DiscoveryMap> {
+    blocking(state.db_path.clone(), move |c| {
+        map::build(c, scope.as_deref().unwrap_or(""))
+    })
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// Set Builder
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn set_report(
+    state: State<'_, AppState>,
+    id: String,
+    mode: Option<String>,
+) -> Res<sets::SetReport> {
+    blocking(state.db_path.clone(), move |c| {
+        sets::report(c, &id, mode.as_deref().unwrap_or("smooth"))
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn set_chapter(
+    state: State<'_, AppState>,
+    playlist: String,
+    position: i64,
+    role: String,
+    name: Option<String>,
+) -> Res<String> {
+    with_conn!(state, |c| sets::set_chapter(
+        &c,
+        &playlist,
+        position,
+        &role,
+        name.as_deref()
+    ))
+}
+
+#[tauri::command]
+pub fn remove_chapter(state: State<'_, AppState>, id: String) -> Res<()> {
+    with_conn!(state, |c| sets::remove_chapter(&c, &id))
+}
+
+#[tauri::command]
+pub fn set_track_lock(
+    state: State<'_, AppState>,
+    playlist: String,
+    track: String,
+    locked: bool,
+) -> Res<()> {
+    with_conn!(state, |c| sets::set_lock(&c, &playlist, &track, locked))
+}
+
+#[tauri::command]
+pub fn set_playlist_notes(
+    state: State<'_, AppState>,
+    playlist: String,
+    notes: Option<String>,
+) -> Res<()> {
+    with_conn!(state, |c| sets::set_notes(
+        &c,
+        &playlist,
+        notes.as_deref().filter(|n| !n.trim().is_empty())
+    ))
+}
+
+#[tauri::command]
+pub async fn magic_sort(
+    state: State<'_, AppState>,
+    playlist: String,
+    mode: String,
+) -> Res<sets::SortResult> {
+    blocking(state.db_path.clone(), move |c| {
+        sets::magic_sort(c, &playlist, &mode)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn apply_set_order(
+    state: State<'_, AppState>,
+    playlist: String,
+    order: Vec<String>,
+) -> Res<()> {
+    with_conn!(state, |c| sets::apply_order(&c, &playlist, &order))
+}
+
+#[tauri::command]
+pub async fn suggest_next(
+    state: State<'_, AppState>,
+    playlist: String,
+    after: Option<usize>,
+    scope: Option<String>,
+    mode: Option<String>,
+    limit: Option<usize>,
+) -> Res<Vec<sets::Candidate>> {
+    blocking(state.db_path.clone(), move |c| {
+        sets::suggest_next(
+            c,
+            &playlist,
+            after,
+            scope.as_deref().unwrap_or(""),
+            mode.as_deref().unwrap_or("smooth"),
+            limit.unwrap_or(20),
+        )
+    })
+    .await
 }

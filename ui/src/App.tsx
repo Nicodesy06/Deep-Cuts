@@ -14,14 +14,16 @@ import { Settings } from "./views/Settings";
 import { SmartCrates } from "./views/SmartCrates";
 import { SyncExport } from "./views/SyncExport";
 import { TagEditor } from "./views/TagEditor";
+import { Discover } from "./views/Discover";
+import { SetBuilder } from "./views/SetBuilder";
 
 const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "dashboard", label: "nav.dashboard", icon: "◧" },
   { id: "library", label: "nav.library", icon: "≡" },
-  { id: "discover", label: "nav.discover", icon: "✦", planned: true },
+  { id: "discover", label: "nav.discover", icon: "✦" },
   { id: "dna", label: "nav.dna", icon: "⌬", planned: true },
   { id: "crates", label: "nav.crates", icon: "⚡" },
-  { id: "sets", label: "nav.sets", icon: "☰", planned: true },
+  { id: "sets", label: "nav.sets", icon: "☰" },
   { id: "health", label: "nav.health", icon: "✚" },
   { id: "tags", label: "nav.tags", icon: "#" },
   { id: "sync", label: "nav.sync", icon: "⇄" },
@@ -221,6 +223,12 @@ function Main() {
       break;
     case "tags":
       content = <TagEditor />;
+      break;
+    case "discover":
+      content = <Discover />;
+      break;
+    case "sets":
+      content = <SetBuilder />;
       break;
     default:
       content = <Planned view={view} />;

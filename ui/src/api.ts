@@ -169,6 +169,96 @@ export interface WatchFolder {
   exists: boolean;
 }
 
+export type Harmonic = "same" | "adjacent" | "relative" | "energyBoost" | "distant" | "unknown";
+
+export interface SimilarityWeights {
+  tempo: number;
+  harmony: number;
+  energy: number;
+  timbre: number;
+  rhythm: number;
+  dynamics: number;
+}
+
+export const DEFAULT_WEIGHTS: SimilarityWeights = { tempo: 0.25, harmony: 0.2, energy: 0.2, timbre: 0.15, rhythm: 0.12, dynamics: 0.08 };
+
+type Pair<T> = [T | null, T | null];
+
+export interface Match {
+  track: TrackRow;
+  score: number;
+  groups: { group: keyof SimilarityWeights; similarity: number | null }[];
+  facts: {
+    bpm: Pair<number>;
+    camelot: Pair<string>;
+    harmonic: Harmonic;
+    lufs: Pair<number>;
+    onsets: Pair<number>;
+    brightnessHz: Pair<number>;
+    lowShare: Pair<number>;
+    breakDepthDb: Pair<number>;
+  };
+}
+
+export interface MapPoint {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  camelot: string | null;
+  decision: Decision | null;
+  bpm: number | null;
+}
+
+export interface DiscoveryMap {
+  points: MapPoint[];
+  axes: { explained: number; top: [string, number][] }[];
+  missing: number;
+}
+
+export interface Transition {
+  harmonic: Harmonic;
+  bpmChangePct: number | null;
+  energyChange: number | null;
+  score: number;
+}
+
+export interface Chapter {
+  id: string;
+  position: number;
+  role: string;
+  name: string | null;
+}
+
+export const CHAPTER_ROLES = ["opening", "early-warmup", "building", "late-warmup", "peak", "closing", "custom"] as const;
+
+export interface SetTrack {
+  track: TrackRow;
+  energy: number | null;
+  locked: boolean;
+  chapter: string | null;
+  target: number | null;
+  transition: Transition | null;
+}
+
+export interface SetReport {
+  id: string;
+  name: string;
+  notes: string | null;
+  tracks: SetTrack[];
+  chapters: Chapter[];
+  durationMs: number;
+  unanalyzed: number;
+  weakTransitions: number;
+}
+
+export interface Candidate {
+  track: TrackRow;
+  transition: Transition;
+  energy: number | null;
+  fit: number;
+}
+
 export interface TrackDetail {
   tags: TrackTag[];
   history: ChangeRow[];
@@ -219,7 +309,7 @@ export interface Playlist {
   id: string;
   name: string;
   parentId: string | null;
-  kind: "manual" | "smart" | "folder";
+  kind: "manual" | "smart" | "folder" | "set";
   rules: string | null;
   source: string | null;
   trackCount: number;
@@ -328,7 +418,7 @@ export const api = {
     name?: string | null;
   }) => invoke<number>("export_tracks", { ids: null, query: null, name: null, ...args }),
   listPlaylists: () => invoke<Playlist[]>("list_playlists"),
-  createPlaylist: (name: string, kind: "manual" | "smart" = "manual", rules?: string | null, trackIds?: string[] | null) =>
+  createPlaylist: (name: string, kind: "manual" | "smart" | "set" = "manual", rules?: string | null, trackIds?: string[] | null) =>
     invoke<string>("create_playlist", { name, kind, rules: rules ?? null, trackIds: trackIds ?? null }),
   renamePlaylist: (id: string, name: string) => invoke<void>("rename_playlist", { id, name }),
   deletePlaylist: (id: string) => invoke<void>("delete_playlist", { id }),
@@ -396,6 +486,20 @@ export const api = {
   listWatchFolders: () => invoke<WatchFolder[]>("list_watch_folders"),
   addWatchFolder: (path: string) => invoke<string>("add_watch_folder", { path }),
   removeWatchFolder: (path: string) => invoke<void>("remove_watch_folder", { path }),
+  similarTracks: (id: string, weights: SimilarityWeights, scope: string, limit = 50) =>
+    invoke<Match[]>("similar_tracks", { id, weights, scope, limit }),
+  discoveryMap: (scope: string) => invoke<DiscoveryMap>("discovery_map", { scope }),
+  setReport: (id: string, mode: string) => invoke<SetReport>("set_report", { id, mode }),
+  setChapter: (playlist: string, position: number, role: string, name?: string | null) =>
+    invoke<string>("set_chapter", { playlist, position, role, name: name ?? null }),
+  removeChapter: (id: string) => invoke<void>("remove_chapter", { id }),
+  setTrackLock: (playlist: string, track: string, locked: boolean) => invoke<void>("set_track_lock", { playlist, track, locked }),
+  setPlaylistNotes: (playlist: string, notes: string | null) => invoke<void>("set_playlist_notes", { playlist, notes }),
+  magicSort: (playlist: string, mode: string) =>
+    invoke<{ order: string[]; costBefore: number; costAfter: number }>("magic_sort", { playlist, mode }),
+  applySetOrder: (playlist: string, order: string[]) => invoke<void>("apply_set_order", { playlist, order }),
+  suggestNext: (playlist: string, after: number | null, scope: string, mode: string, limit = 20) =>
+    invoke<Candidate[]>("suggest_next", { playlist, after, scope, mode, limit }),
 };
 
 /** URL the <audio> element can stream a library track from. */

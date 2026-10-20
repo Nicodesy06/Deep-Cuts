@@ -73,7 +73,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Lexicon | Ultimate | Automatic emergency loop | Performance safety loop | — | — | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Live performance feature. |
 | Lexicon | Ultimate | Find duplicates | Duplicate detection | HEALTH | Hash + metadata groups; acoustic fingerprint later | — | — | P0 | PARTIALLY VERIFIED | `duplicate_candidates` (copy at another path found; nothing deleted) | Cross-format/bitrate duplicates need fingerprints (P1). |
 | Lexicon | Ultimate | Find missing tags & album art | Gap report | HEALTH | Stats queries | none | — | P0 | PARTIALLY VERIFIED | Dashboard "Gaps to fill" (genre:none, bpm:none, key:none, artwork:no) | |
-| Lexicon | Ultimate | Discover new tracks, mixable tracks | Suggestions | SIM | Harmonic + tempo filters now, embeddings later | — | — | P1 | IN DESIGN | `key:8A+` compatibility query tested | Store links / online discovery out of the offline core. |
+| Lexicon | Ultimate | Discover new tracks, mixable tracks | Suggestions | SIM | Similar tracks + next-track suggestions | — | — | P1 | PARTIALLY VERIFIED | phase3 tests | Store links / online discovery out of the offline core. |
 | Lexicon | Ultimate | Cloud storage & DB backup | Cloud copy of library | BAK | User-owned storage only | — | No proprietary cloud | P2 | NOT STARTED | | Local backups (manual, daily auto, pre-risk) PARTIALLY VERIFIED (`backup_and_restore`). |
 | Lexicon | Ultimate | Send playlists to Spotify/Tidal/Beatport | Push to streaming | — | — | Service APIs | — | — | OUT OF SCOPE — JUSTIFIED | — | Online accounts; not local library management. |
 
@@ -81,14 +81,14 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| DJOID | Pro | Chapter Builder | Split a set into 3–20-track energy blocks; export chapters as crates | SET | Energy descriptors, sequencing | none | — | P1 | NOT STARTED | Chapters exported as Rekordbox playlists | Energy curve per track exists. |
-| DJOID | Pro | Graph Playlists | Graph of tracks by harmony/energy/emotion; suggests next tracks; resurfaces old tracks | SIM/UI | Similarity graph + layout | embedding model | Model licence check | P1 | NOT STARTED | Precision@K vs human pairs | Requires the embedding work of Phase 5. |
-| DJOID | Pro | Scatter Map | 2-D map of the whole library; proximity = compatibility | SIM/UI | Embeddings + UMAP/t-SNE + WebGL/canvas | — | — | P1 | NOT STARTED | Renders 100k points fluidly | |
-| DJOID | Pro | Magic Sorting | Automatic set ordering | SET | Sequencing optimiser | none | — | P1 | NOT STARTED | | |
+| DJOID | Pro | Chapter Builder | Split a set into 3–20-track energy blocks; export chapters as crates | SET | Chapters with roles (Opening → Closing) and energy targets | none | — | P1 | PARTIALLY VERIFIED | `phase3::set_builder_chapters_locks_sort_suggest_and_undo` | Chapters are not exported as separate crates yet (the whole set exports). Energy is a measured proxy. |
+| DJOID | Pro | Graph Playlists | Graph of tracks by harmony/energy/emotion; suggests next tracks; resurfaces old tracks | SIM/UI | Similarity graph + layout | embedding model | Model licence check | P1 | IN DESIGN | | Next-track suggestions exist in the Set Builder; the graph view is not built. "Emotion" needs Music DNA. |
+| DJOID | Pro | Scatter Map | 2-D map of the whole library; proximity = compatibility | SIM/UI | PCA of measured feature vectors, canvas with pan/zoom, area selection → playlist | — | — | P1 | PARTIALLY VERIFIED | `phase3::discovery_map_projects_all_analysed_tracks`, `map::tests`, GUI check | Measured features only (no embeddings yet), so the map reflects loudness/density/dynamics more than genre. |
+| DJOID | Pro | Magic Sorting | Automatic set ordering | SET | Greedy + local search (swap/relocate) on transition cost + energy target; pinned tracks fixed; undoable | none | — | P1 | PARTIALLY VERIFIED | `sets::tests` (build mode Spearman ρ > 0.9, pins kept), phase3 test | Cost model is hand-designed, not learned. |
 | DJOID | Pro | Auto Group | Not described by vendor (assumed clustering) | SIM | Clustering | — | — | P2 | IN DESIGN | | Behaviour to be confirmed. |
 | DJOID | Pro | Cue Points | Not described (assumed automatic cues) | AN | Phrase-aligned suggestions | — | — | P1 | PARTIALLY VERIFIED | see Lexicon "generate cue points" | |
 | DJOID | Pro | Genre Detection | Automatic genre/sub-genre | DNA | Classifier + validation | model weights | Licence of weights | P1 | NOT STARTED | Macro-F1 on annotated corpus | Not faked: UI says "planned". |
-| DJOID | Pro | Matching Tracks | Compatible-track finder | SIM | Harmonic/tempo now, embedding later | — | — | P0/P1 | PARTIALLY VERIFIED (harmonic) | `key:8A+ bpm:…` query | Timbral similarity not built. |
+| DJOID | Pro | Matching Tracks | Compatible-track finder | SIM | Weighted, explainable similarity over measured features (tempo, harmony, energy, timbre, rhythm density, dynamics) | — | — | P0/P1 | PARTIALLY VERIFIED | `similarity::tests`, `phase3::similar_tracks_are_ranked_and_explained` | No timbral embeddings yet. |
 | DJOID | Pro | Migration from DJ software (incl. Rekordbox tags) | Import playlists, crates, tags | IO | Adapters | — | — | P0 | PARTIALLY VERIFIED (Rekordbox XML) | `rekordbox_xml_round_trip` | Rekordbox "My Tag" data lives in master.db, not in XML: needs a separate, safe read path. |
 | DJOID | Pro | Clean export to DJ setup | Export crates | IO | Writers | — | — | P0 | PARTIALLY VERIFIED | M3U8/XML tests | |
 
@@ -100,7 +100,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | MIXO | Free | Edit metadata, cues, ratings | Editing | META | Field store | — | — | P0 | PARTIALLY VERIFIED | | Cue editing UI pending. |
 | MIXO | Free | Analyse key and BPM | Analysis | AN | DSP | — | — | P0 | PARTIALLY VERIFIED | `analysis_synthetic` | Real-corpus accuracy pending. |
 | MIXO | Free | Playlists & smart lists, fast search | Organisation | CORE/CRATE | FTS5 + query language | SQLite FTS5 | public domain | P0 | PARTIALLY VERIFIED | Bench: 100k tracks, filtered first page 0.3–120 ms | |
-| MIXO | Free | Related Track Finder | Similar tracks | SIM | — | — | — | P1 | IN DESIGN (harmonic only) | | |
+| MIXO | Free | Related Track Finder | Similar tracks | SIM | Explainable similarity (measured features) | — | — | P1 | PARTIALLY VERIFIED | phase3 similarity test | |
 | MIXO | Gold | Sync library to all devices | Multi-device | BAK | User-owned storage / LAN sync | — | No proprietary cloud | P2 | NOT STARTED | Conflict tests | |
 | MIXO | Gold | Export full library to most DJ apps | Conversion | IO | Adapters | — | — | P1 | NOT STARTED (except Rekordbox XML) | | |
 | MIXO | Gold | OneLibrary / Device Library / Engine USB export | USB prep | IO | Undocumented binary formats | — | Risky | P2 | NOT STARTED | Hardware test | Won't be claimed until verified on hardware. |
@@ -139,7 +139,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Vibes | Licence | Tag by vibe/energy/mood/era and combine filters | Tag-centric organisation | META/CRATE | Tag categories + query language | — | — | P1 | PARTIALLY VERIFIED | Tag tests + `tag:a -tag:b` queries | |
 | Vibes | Licence | On-device AI that learns your tagging and suggests tags | Personal tag suggestions | TASTE/DNA | Local classifier on embeddings | model | — | P1 | NOT STARTED | Suggestion precision vs user's later choices | |
 | Vibes | Licence | BPM/key/cue analysis on import | Auto analysis | AN | — | — | — | P0 | PARTIALLY VERIFIED (BPM/key; cues not yet) | | |
-| Vibes | Licence | Set Designer canvas with key/BPM suggestions | Visual set prep | SET | Canvas + compatibility | — | — | P1 | NOT STARTED | | |
+| Vibes | Licence | Set Designer canvas with key/BPM suggestions | Visual set prep | SET | Set Builder list with transition badges, energy/BPM progression, suggestions | — | — | P1 | PARTIALLY VERIFIED | phase3 test + GUI check | List-based, not a free canvas. |
 | Vibes | Licence | Export to Rekordbox/Serato/Traktor/Engine; Traktor import read-only | Interop | IO | Adapters | — | — | P0/P1 | PARTIALLY VERIFIED (Rekordbox) | | |
 
 ## Music Library Doctor (AlternativeTo listing only — low confidence)
@@ -154,8 +154,8 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Crate Hackers | Sub | AI suggestions by key/harmony/BPM | Next-track suggestions | SET/SIM | Compatibility scoring | — | — | P1 | IN DESIGN | | Harmonic filter exists. |
-| Crate Hackers | Sub | Magic Sorter (playlist → mixable crate) | Reorder for mixability | SET | Sequencing | — | — | P1 | NOT STARTED | | |
+| Crate Hackers | Sub | AI suggestions by key/harmony/BPM | Next-track suggestions | SET/SIM | Transition score + energy target + sound similarity | — | — | P1 | PARTIALLY VERIFIED | `phase3` suggest_next assertions | Not "AI": a documented scoring function. |
+| Crate Hackers | Sub | Magic Sorter (playlist → mixable crate) | Reorder for mixability | SET | Magic Sort | — | — | P1 | PARTIALLY VERIFIED | see DJOID Magic Sorting | |
 | Crate Hackers | Sub | Pre-made crates / "Banger button" | Curated online content | — | — | Online catalog | — | — | OUT OF SCOPE — JUSTIFIED | — | Online content service, not local library management. |
 
 ## Crate Intelligence Pro — BLOCKED
@@ -167,7 +167,7 @@ official link. No features were assumed.
 
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| DJ.Studio | Ultimate | Automatic playlist ordering (harmonic/energy) | Order a playlist for flow | SET | Optimiser | — | — | P1 | NOT STARTED | | Feature list not audited from official source yet. |
+| DJ.Studio | Ultimate | Automatic playlist ordering (harmonic/energy) | Order a playlist for flow | SET | Magic Sort (smooth / build / arc, or chapter targets) | — | — | P1 | PARTIALLY VERIFIED | see DJOID Magic Sorting | DJ.Studio feature list not audited from the official source. |
 | DJ.Studio | Ultimate | Timeline mixing, effects, video/audio rendering, mashups, stems | — | — | — | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Production and rendering are excluded by charter. |
 
 ---
@@ -180,6 +180,7 @@ official link. No features were assumed.
 | Data safety | User values never overwritten by imports/AI | PARTIALLY VERIFIED | Provenance precedence `user > import:* > file > analysis`, tests 7 and Rekordbox re-import |
 | Data safety | Backup before risky operations | PARTIALLY VERIFIED | Pre-Rekordbox-import and pre-restore snapshots, daily auto backup (app) |
 | Data safety | File identity independent of path | PARTIALLY VERIFIED | UUID track ids + content hash relink (move test) |
+| Analysis accuracy | Measured on real music | PARTIALLY VERIFIED | GiantSteps: tempo Acc1 65.8 % / Acc2 88.2 %, key MIREX 47.5 % (`AI_VALIDATION.md`) — key detection is weak |
 | Performance | 100k tracks | PARTIALLY VERIFIED | `deepcuts bench 100000` (see `docs/BENCHMARKS.md`) |
 | Jobs | Persistent queue, crash recovery, cancellation | PARTIALLY VERIFIED | `interrupted_jobs_are_recovered_once`, `cancellation` |
 | Privacy | Offline, no account, no remote AI | VERIFIED (by construction) | No network code in the app. The only online step is the optional dependency download at build time. |

@@ -448,6 +448,7 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
         params![track_id, WAVEFORM_VERSION, WAVEFORM_BINS as i64, a.waveform],
     )?;
     crate::cues::store_suggestions(tx, track_id, &a.result)?;
+    crate::features::store(tx, track_id, &a.result)?;
     Ok(())
 }
 

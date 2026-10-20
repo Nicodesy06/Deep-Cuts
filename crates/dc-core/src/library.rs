@@ -856,7 +856,7 @@ pub fn create_playlist(
     kind: &str,
     rules: Option<&str>,
 ) -> Result<String> {
-    if !["manual", "smart", "folder"].contains(&kind) {
+    if !["manual", "smart", "folder", "set"].contains(&kind) {
         return Err(Error::Invalid(format!("unknown playlist kind '{kind}'")));
     }
     let name = name.trim();
@@ -939,16 +939,40 @@ pub fn set_playlist_tracks(conn: &Connection, id: &str, track_ids: &[String]) ->
     })
 }
 
+/// User reorder / content change of a playlist, as one undoable batch.
+pub fn reorder_playlist(
+    conn: &Connection,
+    id: &str,
+    track_ids: &[String],
+    action: &str,
+) -> Result<()> {
+    let name: String = conn
+        .query_row("SELECT name FROM playlists WHERE id = ?1", [id], |r| {
+            r.get(0)
+        })
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("playlist {id}")))?;
+    history::batch(conn, action, &format!("{action}: {name}"), |tx, b| {
+        history::change(
+            tx,
+            b,
+            history::Kind::PlaylistOrder,
+            id,
+            id,
+            history::State::set(Some(&serde_json::to_string(track_ids)?)),
+        )?;
+        Ok(())
+    })
+}
+
 pub fn add_to_playlist(conn: &Connection, id: &str, track_ids: &[String]) -> Result<()> {
     let mut all = playlist_track_ids(conn, id)?;
-    all.extend(
-        track_ids
-            .iter()
-            .filter(|t| !all.contains(t))
-            .cloned()
-            .collect::<Vec<_>>(),
-    );
-    set_playlist_tracks(conn, id, &all)
+    for t in track_ids {
+        if !all.contains(t) {
+            all.push(t.clone());
+        }
+    }
+    reorder_playlist(conn, id, &all, "playlist-add")
 }
 
 pub fn remove_from_playlist(conn: &Connection, id: &str, track_ids: &[String]) -> Result<()> {
@@ -956,7 +980,7 @@ pub fn remove_from_playlist(conn: &Connection, id: &str, track_ids: &[String]) -
         .into_iter()
         .filter(|t| !track_ids.contains(t))
         .collect();
-    set_playlist_tracks(conn, id, &all)
+    reorder_playlist(conn, id, &all, "playlist-remove")
 }
 
 // ---------------------------------------------------------------------------

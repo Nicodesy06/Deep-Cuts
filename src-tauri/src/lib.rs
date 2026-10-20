@@ -171,6 +171,16 @@ pub fn run() {
             commands::list_watch_folders,
             commands::add_watch_folder,
             commands::remove_watch_folder,
+            commands::similar_tracks,
+            commands::discovery_map,
+            commands::set_report,
+            commands::set_chapter,
+            commands::remove_chapter,
+            commands::set_track_lock,
+            commands::set_playlist_notes,
+            commands::magic_sort,
+            commands::apply_set_order,
+            commands::suggest_next,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

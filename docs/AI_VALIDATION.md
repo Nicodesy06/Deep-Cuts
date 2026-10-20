@@ -1,8 +1,33 @@
 # Analysis & AI validation protocol
 
-**No accuracy figure for real music has been measured yet.** The only verified results are on
-synthetic signals with exact ground truth (see below). That checks the implementation, not
-real-world accuracy.
+## Real-music results (GiantSteps, measured 2026-10-20)
+
+Corpora: **GiantSteps Key** (604 two-minute Beatport previews, human-corrected keys) and
+**GiantSteps Tempo** (664 previews; original annotations and the crowdsourced v2 annotations of
+Schreiber & Müller 2018). Run by `.github/workflows/eval.yml` on GitHub runners with
+`deepcuts eval`. Audio is downloaded only for measurement and is never redistributed.
+Analyser: `dc-dsp 1.0.0` (pure DSP, no trained model).
+
+| Task | Metric | dc-dsp 1.0.0 |
+|---|---|---|
+| Tempo (v2 annotations, 661 tracks) | Accuracy1 (±4 %) | **65.8 %** |
+| | Accuracy2 (octave errors allowed) | **88.2 %** |
+| | Mean abs. error on Accuracy1 hits | 0.79 BPM |
+| Tempo (original annotations, 664) | Accuracy1 / Accuracy2 | 57.8 % / 81.0 % |
+| Key (604 tracks) | MIREX weighted score | **47.5 %** |
+| | Correct / fifth / relative / parallel / other | 34.6 % / 15.7 % / 6.0 % / 16.2 % / 27.5 % |
+| Speed | mean analysis time per 2-min preview (4 threads in parallel) | 0.45 s |
+
+**Reading.** Tempo is usable but has octave errors: 88 % is within ±4 % once double/half time is
+allowed. Key detection is **weak**: only about one track in three gets exactly the right key, and
+major/minor confusions (parallel, 16 %) are frequent. A DJ should not trust the measured key
+without listening. Commercial and research systems tuned for EDM do clearly better on this corpus.
+Improving key detection is the top analysis priority. The UI already shows the raw key
+correlation and margin, so low-confidence keys can be spotted.
+
+**Methodology for improvements.** Tuning must not happen on the test set. Design changes are
+evaluated on a separate development corpus (GiantSteps-MTG-Keys) and only then reported on
+GiantSteps Key/Tempo.
 
 ## What is verified today (synthetic)
 

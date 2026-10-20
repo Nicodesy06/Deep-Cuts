@@ -4,9 +4,7 @@ import type { MsgKey } from "../i18n";
 import { useApp, type View } from "../store";
 
 const INFO: Partial<Record<View, { title: MsgKey; body: MsgKey; phase: string; available?: MsgKey }>> = {
-  discover: { title: "nav.discover", body: "planned.discover", phase: "5", available: "planned.discoverNow" },
   dna: { title: "nav.dna", body: "planned.dna", phase: "4", available: "planned.dnaNow" },
-  sets: { title: "nav.sets", body: "planned.sets", phase: "6", available: "planned.setsNow" },
 };
 
 export function Planned({ view }: { view: View }) {

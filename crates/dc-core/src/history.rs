@@ -22,6 +22,8 @@ pub enum Kind {
     Favorite,
     /// User tag assignment (key = tag id).
     Tag,
+    /// Order/content of a playlist (track = key = playlist id, value = JSON ids).
+    PlaylistOrder,
 }
 
 impl Kind {
@@ -32,6 +34,7 @@ impl Kind {
             Kind::Notes => "notes",
             Kind::Favorite => "favorite",
             Kind::Tag => "tag",
+            Kind::PlaylistOrder => "playlist",
         }
     }
 
@@ -42,6 +45,7 @@ impl Kind {
             "notes" => Kind::Notes,
             "favorite" => Kind::Favorite,
             "tag" => Kind::Tag,
+            "playlist" => Kind::PlaylistOrder,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -113,6 +117,9 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
                 State::absent()
             }
         }
+        Kind::PlaylistOrder => State::set(Some(&serde_json::to_string(
+            &library::playlist_track_ids(conn, key)?,
+        )?)),
     })
 }
 
@@ -162,6 +169,10 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
                     params![track, key],
                 )?;
             }
+        }
+        Kind::PlaylistOrder => {
+            let ids: Vec<String> = serde_json::from_str(s.value.as_deref().unwrap_or("[]"))?;
+            library::set_playlist_tracks(conn, key, &ids)?;
         }
     }
     Ok(())

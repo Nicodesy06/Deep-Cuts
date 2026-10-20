@@ -28,7 +28,7 @@ interface Menu {
 const isMac = navigator.platform.toLowerCase().includes("mac");
 
 export function Library() {
-  const { t, lang, libraryNav, setLibraryNav, dataVersion, bump, play, nowPlaying, neighbourRef, prompt, confirm, toast } = useApp();
+  const { t, lang, libraryNav, setLibraryNav, dataVersion, bump, play, nowPlaying, neighbourRef, prompt, confirm, toast, openDiscover, openSet } = useApp();
   const act = useAction();
   const [input, setInput] = useState(libraryNav.query);
   const [query, setQuery] = useState(libraryNav.query);
@@ -157,7 +157,7 @@ export function Library() {
         setSel({ ids, anchor: 0, focus: sel.focus });
         return;
       }
-      if (e.altKey && currentPlaylist?.kind === "manual" && (e.key === "ArrowUp" || e.key === "ArrowDown") && sel.focus != null) {
+      if (e.altKey && (currentPlaylist?.kind === "manual" || currentPlaylist?.kind === "set") && (e.key === "ArrowUp" || e.key === "ArrowDown") && sel.focus != null) {
         e.preventDefault();
         const ids: string[] = [];
         for (let i = 0; i < pages.total; i++) ids.push(idAt(i) ?? "");
@@ -261,22 +261,22 @@ export function Library() {
         <button
           className={`pl-item ${active ? "active" : ""}`}
           onClick={() => setLibraryNav({ query: "", playlistId: p?.id ?? null })}
-          onDragOver={(e) => p?.kind === "manual" && e.preventDefault()}
+          onDragOver={(e) => (p?.kind === "manual" || p?.kind === "set") && e.preventDefault()}
           onDrop={(e) => {
-            if (!p || p.kind !== "manual") return;
+            if (!p || (p.kind !== "manual" && p.kind !== "set")) return;
             const ids = JSON.parse(e.dataTransfer.getData("application/x-deepcuts-tracks") || "[]");
             if (ids.length) act(() => api.addToPlaylist(p.id, ids), t("library.addedTo", { n: ids.length, name: p.name })).then(bump);
           }}
         >
-          <span className="pl-icon">{!p ? "◎" : p.kind === "smart" ? "⚡" : p.kind === "folder" ? "▸" : "♫"}</span>
+          <span className="pl-icon">{!p ? "◎" : p.kind === "smart" ? "⚡" : p.kind === "folder" ? "▸" : p.kind === "set" ? "☰" : "♫"}</span>
           <span className="pl-name">{p ? p.name : t("library.allTracks")}</span>
-          {p && p.kind !== "folder" && <span className="pl-count num">{p.kind === "manual" ? p.trackCount : ""}</span>}
+          {p && p.kind !== "folder" && <span className="pl-count num">{p.kind !== "smart" ? p.trackCount : ""}</span>}
         </button>
       </li>
     );
   };
 
-  const manualPlaylists = playlists.filter((p) => p.kind === "manual");
+  const manualPlaylists = playlists.filter((p) => p.kind === "manual" || p.kind === "set");
 
   return (
     <div className="library">
@@ -417,7 +417,7 @@ export function Library() {
             </div>
           }
         />
-        {currentPlaylist?.kind === "manual" && <div className="hint footer-hint">{t("library.reorderHint")}</div>}
+        {(currentPlaylist?.kind === "manual" || currentPlaylist?.kind === "set") && <div className="hint footer-hint">{t("library.reorderHint")}</div>}
       </section>
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
@@ -433,6 +433,14 @@ export function Library() {
           >
             {t("player.play")}
           </button>
+          <button
+            onClick={() => {
+              const r = selectedRows[0];
+              if (r) openDiscover(r);
+            }}
+          >
+            {t("disc.findSimilar")}
+          </button>
           <hr />
           {(["keep", "maybe", "pass"] as Decision[]).map((d) => (
             <button key={d} onClick={() => setDecision(d)}>
@@ -445,12 +453,25 @@ export function Library() {
           <button onClick={() => analyze(selectedIds, true)}>{t("action.reanalyze")}</button>
           <hr />
           <button onClick={() => newPlaylist(orderedSelection())}>{t("library.newPlaylistFromSel")}</button>
+          <button
+            onClick={async () => {
+              const name = await prompt(t("sets.newName"));
+              if (!name) return;
+              const id = await act(() => api.createPlaylist(name, "set", null, orderedSelection()));
+              if (id) {
+                bump();
+                openSet(id);
+              }
+            }}
+          >
+            {t("sets.newFromSel")}
+          </button>
           {manualPlaylists.slice(0, 12).map((p) => (
             <button key={p.id} onClick={() => act(() => api.addToPlaylist(p.id, orderedSelection()), t("library.addedTo", { n: selectedIds.length, name: p.name })).then(bump)}>
               + {p.name}
             </button>
           ))}
-          {currentPlaylist?.kind === "manual" && (
+          {(currentPlaylist?.kind === "manual" || currentPlaylist?.kind === "set") && (
             <button
               onClick={async () => {
                 if (await confirm(t("library.removeFromPlaylistQ", { n: selectedIds.length, name: currentPlaylist.name })))

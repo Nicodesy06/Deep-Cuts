@@ -63,6 +63,12 @@ interface Ctx {
   playerPosRef: React.MutableRefObject<{ trackId: string | null; ms: number }>;
   undo: () => void;
   redo: () => void;
+  /** Seed track for Discover › Similar. */
+  discoverSeed: TrackRow | null;
+  openDiscover: (seed: TrackRow) => void;
+  /** Set opened in the Set Builder. */
+  setId: string | null;
+  openSet: (id: string) => void;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -76,6 +82,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [nowPlaying, setNowPlaying] = useState<TrackRow | null>(null);
   const [playRequest, setPlayRequest] = useState<Ctx["playRequest"]>(null);
+  const [discoverSeed, setDiscoverSeed] = useState<TrackRow | null>(null);
+  const [setId, setSetId] = useState<string | null>(null);
   const neighbourRef = useRef<((id: string, delta: number) => TrackRow | undefined) | null>(null);
   const playerPosRef = useRef<{ trackId: string | null; ms: number }>({ trackId: null, ms: 0 });
   const toastId = useRef(0);
@@ -198,8 +206,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       playerPosRef,
       undo: () => runHistory("undo"),
       redo: () => runHistory("redo"),
+      discoverSeed,
+      openDiscover: (seed) => {
+        setDiscoverSeed(seed);
+        setView("discover");
+      },
+      setId,
+      openSet: (id) => {
+        setSetId(id);
+        setView("sets");
+      },
     }),
-    [lang, setLang, t, view, libraryNav, dataVersion, toasts, toast, dialog, prompt, confirm, nowPlaying, play, playRequest, runHistory],
+    [lang, setLang, t, view, libraryNav, dataVersion, toasts, toast, dialog, prompt, confirm, nowPlaying, play, playRequest, runHistory, discoverSeed, setId],
   );
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

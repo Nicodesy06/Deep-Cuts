@@ -7,6 +7,7 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, paths, rekordbox, stats,
     tags, tagwrite,
 };
+use dc_core::{sets, similarity};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -128,6 +129,24 @@ enum Cmd {
     },
     /// Show cue points (incl. suggestions) for a track id.
     Cues { id: String },
+    /// Tracks most similar to a track id (measured features, explained).
+    Similar {
+        id: String,
+        #[arg(long, default_value = "")]
+        scope: String,
+        #[arg(long, default_value_t = 15)]
+        limit: usize,
+    },
+    /// Sets: `set create <name> <query>`, `set show <name>`, `set sort <name> [--mode build] [--apply]`.
+    Set {
+        action: String,
+        name: String,
+        query: Option<String>,
+        #[arg(long, default_value = "smooth")]
+        mode: String,
+        #[arg(long)]
+        apply: bool,
+    },
     /// Evaluate the analyser on an annotated corpus (e.g. GiantSteps):
     /// <stem>.mp3 in AUDIO, <stem>.key in --keys, <stem>.bpm in --tempo.
     Eval {
@@ -536,6 +555,103 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 );
             }
         }
+        Cmd::Similar { id, scope, limit } => {
+            let id = resolve_id(&conn, &id)?;
+            for m in
+                similarity::similar(&conn, &id, &similarity::Weights::default(), &scope, limit)?
+            {
+                let groups: Vec<String> = m
+                    .groups
+                    .iter()
+                    .map(|g| {
+                        format!(
+                            "{}={}",
+                            g.group,
+                            g.similarity
+                                .map(|x| format!("{:.2}", x))
+                                .unwrap_or("-".into())
+                        )
+                    })
+                    .collect();
+                println!(
+                    "{:>3}%  {:<28} {:<36} {:?}  {}",
+                    (m.score * 100.0).round(),
+                    trunc(m.track.artist.as_deref().unwrap_or("-"), 28),
+                    trunc(m.track.title.as_deref().unwrap_or("-"), 36),
+                    m.facts.harmonic,
+                    groups.join(" ")
+                );
+            }
+        }
+        Cmd::Set {
+            action,
+            name,
+            query,
+            mode,
+            apply,
+        } => {
+            let find = |conn: &dc_core::rusqlite::Connection| -> dc_core::Result<String> {
+                library::list_playlists(conn)?
+                    .into_iter()
+                    .find(|p| p.kind == "set" && p.name.eq_ignore_ascii_case(&name))
+                    .map(|p| p.id)
+                    .ok_or_else(|| dc_core::Error::NotFound(format!("set '{name}'")))
+            };
+            match action.as_str() {
+                "create" => {
+                    let ids = query_track_ids(
+                        &conn,
+                        &TrackQuery {
+                            query: query.unwrap_or_default(),
+                            ..Default::default()
+                        },
+                    )?;
+                    let id = library::create_playlist(&conn, &name, None, "set", None)?;
+                    library::reorder_playlist(&conn, &id, &ids, "playlist-add")?;
+                    println!("set '{name}' created with {} tracks", ids.len());
+                }
+                "show" | "sort" => {
+                    let id = find(&conn)?;
+                    if action == "sort" {
+                        let r = sets::magic_sort(&conn, &id, &mode)?;
+                        println!("cost {:.2} -> {:.2}", r.cost_before, r.cost_after);
+                        if apply {
+                            sets::apply_order(&conn, &id, &r.order)?;
+                            println!("applied (undo with `deepcuts undo`)");
+                        }
+                    }
+                    let rep = sets::report(&conn, &id, &mode)?;
+                    for (i, t) in rep.tracks.iter().enumerate() {
+                        println!(
+                            "{:>3} {} {:<30} {:<30} {:>7} {:>4}  energy {:>4}  {}",
+                            i + 1,
+                            if t.locked { "#" } else { " " },
+                            trunc(t.track.artist.as_deref().unwrap_or("-"), 30),
+                            trunc(t.track.title.as_deref().unwrap_or("-"), 30),
+                            t.track.bpm.map(|b| format!("{b:.2}")).unwrap_or_default(),
+                            t.track.camelot.as_deref().unwrap_or(""),
+                            t.energy
+                                .map(|e| format!("{:.0}", e * 100.0))
+                                .unwrap_or("-".into()),
+                            t.transition
+                                .as_ref()
+                                .map(|x| format!(
+                                    "{:?} {:+.1}% ({:.2})",
+                                    x.harmonic,
+                                    x.bpm_change_pct.unwrap_or(0.0),
+                                    x.score
+                                ))
+                                .unwrap_or_default()
+                        );
+                    }
+                }
+                _ => {
+                    return Err(dc_core::Error::Invalid(
+                        "set actions: create, show, sort".into(),
+                    ));
+                }
+            }
+        }
         Cmd::Bench { .. } | Cmd::HelpQuery | Cmd::Eval { .. } => unreachable!(),
     }
     Ok(())
@@ -718,7 +834,7 @@ fn eval_corpus(
                 Err(e) => (None, None, Some(e.to_string())),
             };
             let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-            if k % 25 == 0 {
+            if k.is_multiple_of(25) {
                 eprintln!("{k}/{}", files.len());
             }
             Row {
