@@ -1,5 +1,19 @@
 # Status report
 
+## Increment 4 — Key estimation 1.1.0, rename & move files (2026-10-20)
+
+| Feature | Where | Verification |
+|---|---|---|
+| **Key estimation 1.1.0**: new chroma front-end + EDM key profiles, chosen on a development corpus and measured on a separate test corpus. GiantSteps Key MIREX **47.5 % → 64.8 %**, exact key **34.6 % → 55.5 %** | `analysis::key`, `keystudy`, `deepcuts key-study`, `eval.yml` job `key-study` | `AI_VALIDATION.md`; synthetic key tests still exact |
+| **Rename / move files from metadata**: pattern with tokens, dry-run preview with conflicts (missing, name clash, existing file, no metadata), never overwrites, verified cross-drive moves, one undoable batch (undo moves files back) | `dc-core::fileops`, `history::Kind::FilePath`, Library context menu, `deepcuts rename` | `tests/fileops.rs`, `fileops::tests`, GUI check (rename + undo on real files) |
+
+Existing analyses (1.0.0) are recomputed when the user runs *Analyze*; keys the user set by
+hand are never overwritten (user values win over analysis).
+
+`cargo test --workspace --release`: **57 passed** · UI: **18 passed** · clippy: **0 warnings**.
+
+---
+
 ## Increment 3 — Discover, Set Builder, real-music evaluation (2026-10-20)
 
 ### Implemented in this increment
@@ -24,7 +38,7 @@ Tempo Accuracy1 **65.8 %**, Accuracy2 **88.2 %** (v2 annotations). Key MIREX sco
 
 ### Next priorities
 
-1. Improve key detection (tuned on GiantSteps-MTG-Keys, reported on GiantSteps Key) and tempo octave errors.
+1. Tempo octave errors (same dev/test method).
 2. Manual smoke test of installers on Windows/macOS.
 3. Acoustic-fingerprint duplicates and transcoding detection; file move/rename with undo.
 4. ONNX Runtime + model registry for Music DNA; loops/beatgrid editing.

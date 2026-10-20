@@ -1,6 +1,30 @@
 # Analysis & AI validation protocol
 
-## Real-music results (GiantSteps, measured 2026-10-20)
+## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20)
+
+**Method.** `deepcuts key-study` compared 32 chroma front-ends (frequency range, log compression,
+spectral whitening, peak picking, frame normalisation) × 3 key-profile sets (Krumhansl–Kessler,
+Temperley, profiles learned from the corpus) = 96 variants on the **development corpus**
+GiantSteps-MTG-Keys (1,159 tracks with confidence-2 labels; learned profiles scored with 5-fold
+cross-validation). The best variant was picked automatically and then measured **once, unchanged**
+on the **test corpus** GiantSteps Key (604 tracks). The two corpora share no tracks. CI run
+`39500524471`, job `key-study`.
+
+Chosen: 100–5000 Hz, log(1+100·|X|), local whitening (±2 semitones), spectral peaks only,
+per-frame normalisation, profiles learned on the development corpus.
+
+| GiantSteps Key (test, 604) | MIREX | Correct | Fifth | Relative | Parallel | Other |
+|---|---|---|---|---|---|---|
+| **dc-dsp 1.1.0** | **64.8 %** | **55.5 %** | 10.8 % | 9.8 % | 5.3 % | 18.7 % |
+| dc-dsp 1.0.0 (baseline) | 47.5 % | 34.6 % | 15.7 % | 6.0 % | 16.2 % | 27.5 % |
+
+Development score of the choice: 68.1 % MIREX (cross-validated). The test score is lower than the
+development score, as expected for an unbiased estimate. Largest single gain: learned profiles
+(parallel major/minor confusions fall from 16 % to 5 %); whitening and peak picking add about
+3–5 points. About one key in five is still unrelated to the reference: check keys by ear before
+harmonic mixing.
+
+## Real-music results, dc-dsp 1.0.0 (GiantSteps, measured 2026-10-20)
 
 Corpora: **GiantSteps Key** (604 two-minute Beatport previews, human-corrected keys) and
 **GiantSteps Tempo** (664 previews; original annotations and the crowdsourced v2 annotations of
@@ -18,12 +42,12 @@ Analyser: `dc-dsp 1.0.0` (pure DSP, no trained model).
 | | Correct / fifth / relative / parallel / other | 34.6 % / 15.7 % / 6.0 % / 16.2 % / 27.5 % |
 | Speed | mean analysis time per 2-min preview (4 threads in parallel) | 0.45 s |
 
-**Reading.** Tempo is usable but has octave errors: 88 % is within ±4 % once double/half time is
+**Reading (1.0.0).** Tempo is usable but has octave errors: 88 % is within ±4 % once double/half time is
 allowed. Key detection is **weak**: only about one track in three gets exactly the right key, and
 major/minor confusions (parallel, 16 %) are frequent. A DJ should not trust the measured key
 without listening. Commercial and research systems tuned for EDM do clearly better on this corpus.
-Improving key detection is the top analysis priority. The UI already shows the raw key
-correlation and margin, so low-confidence keys can be spotted.
+Key detection was improved in 1.1.0 (above). Tempo (1.1.0 changes only the key stage) is
+unchanged. The UI shows the raw key correlation and margin, so low-confidence keys can be spotted.
 
 **Methodology for improvements.** Tuning must not happen on the test set. Design changes are
 evaluated on a separate development corpus (GiantSteps-MTG-Keys) and only then reported on

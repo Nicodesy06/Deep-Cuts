@@ -65,7 +65,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | Lexicon | Essential | Export CSV / M3U8 / HTML/PDF | Export lists | IO | Writers | csv | — | P0 | PARTIALLY VERIFIED | M3U8 content asserted, CSV written | HTML/PDF not built. |
 | Lexicon | Essential | Mobile app, Local API, plugins, Stream Deck | Remote/extension access | — | — | — | — | P3 | NOT STARTED | | Phase 8 optional (mobile companion architecture). |
 | Lexicon | Ultimate | Watch folder | Auto-import new files | CORE | OS watcher (notify) + 3 s debounce + startup rescan; removed paths marked missing → relink | notify (CC0-1.0) | — | P1 | PARTIALLY VERIFIED | Registry test + manual run on Linux: new file imported and queued for analysis, rename relinked to the same track, deletion marked missing | No automated test of the OS event loop; Windows/macOS not checked by hand. |
-| Lexicon | Ultimate | Move & rename files, target folder | Organise files on disk | CORE | Safe move with undo + DB relink | none | High risk: preview + backup | P1 | NOT STARTED | | |
+| Lexicon | Ultimate | Move & rename files, target folder | Organise files on disk | CORE | Safe move with undo + DB relink | none | High risk: preview + backup | P1 | PARTIALLY VERIFIED | `tests/fileops.rs` (rename, move to folder, conflicts, undo/redo, re-import consistent) + GUI check | Pattern-based; no automatic folder structure by genre/label yet. |
 | Lexicon | Ultimate | History | Change history per track | CORE | `changes` + `audit_log` | none | — | P1 | PARTIALLY VERIFIED | `history::track_history` in undo test; UI in details panel | |
 | Lexicon | Ultimate | Import tags from CSV | Bulk metadata from CSV | IO | CSV mapper | csv | — | P1 | NOT STARTED | | |
 | Lexicon | Ultimate | Local path mappings | Same library on different drives/OS | CORE | Path prefix map | none | — | P1 | NOT STARTED | | File identity is independent of path already. |
@@ -129,7 +129,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 | One Tagger | Free | Auto tagger from Beatport/Traxsource/Juno/Discogs/MusicBrainz | Fetch metadata for matched tracks | META | Matchers per catalog | Online APIs | Each catalog's ToS/rate limits must be checked. MusicBrainz is CC0 data. | P2 | NOT STARTED | Match precision on sample set | Optional and online. The core works without it. |
 | One Tagger | Free | Quick Tag with shortcuts (energy, mood, genre) | Keyboard tagging while listening | UI/META | Shift+1…9 quick-tag slots (toggle on selection) | — | — | P1 | PARTIALLY VERIFIED | Core test + GUI check | |
 | One Tagger | Free | Audio features (Spotify) → tags | Online features | — | Spotify API | — | — | — | OUT OF SCOPE — JUSTIFIED | — | Remote AI/feature service conflicts with local-only analysis. Local equivalents come from DNA. |
-| One Tagger | Free | Auto rename from template | Rename files | CORE | Safe rename + relink | — | High risk: preview/undo | P1 | NOT STARTED | | |
+| One Tagger | Free | Auto rename from template | Rename files | CORE | Safe rename + relink | — | High risk: preview/undo | P1 | PARTIALLY VERIFIED | `tests/fileops.rs`, `fileops::tests` | Tokens {artist} {title} {version} {remixer} {album} {label} {genre} {year} {bpm} {key} {camelot}; preview + undo. |
 | One Tagger | Free | Formats MP3/AIFF/FLAC/M4A | Read/write tags | META | lofty | — | — | P0 | PARTIALLY VERIFIED | Read: `encoded_formats_with_tags`; write: `write_tags_back_to_files` | |
 
 ## Vibes (developer posts + listings)
@@ -180,7 +180,7 @@ official link. No features were assumed.
 | Data safety | User values never overwritten by imports/AI | PARTIALLY VERIFIED | Provenance precedence `user > import:* > file > analysis`, tests 7 and Rekordbox re-import |
 | Data safety | Backup before risky operations | PARTIALLY VERIFIED | Pre-Rekordbox-import and pre-restore snapshots, daily auto backup (app) |
 | Data safety | File identity independent of path | PARTIALLY VERIFIED | UUID track ids + content hash relink (move test) |
-| Analysis accuracy | Measured on real music | PARTIALLY VERIFIED | GiantSteps: tempo Acc1 65.8 % / Acc2 88.2 %, key MIREX 47.5 % (`AI_VALIDATION.md`) — key detection is weak |
+| Analysis accuracy | Measured on real music | PARTIALLY VERIFIED | GiantSteps: tempo Acc1 65.8 % / Acc2 88.2 %, key MIREX 64.8 % (exact 55.5 %, dc-dsp 1.1.0, dev/test protocol) (`AI_VALIDATION.md`) |
 | Performance | 100k tracks | PARTIALLY VERIFIED | `deepcuts bench 100000` (see `docs/BENCHMARKS.md`) |
 | Jobs | Persistent queue, crash recovery, cancellation | PARTIALLY VERIFIED | `interrupted_jobs_are_recovered_once`, `cancellation` |
 | Privacy | Offline, no account, no remote AI | VERIFIED (by construction) | No network code in the app. The only online step is the optional dependency download at build time. |

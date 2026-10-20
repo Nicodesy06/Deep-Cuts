@@ -1097,7 +1097,7 @@ fn key_study(
         None => None,
     };
     let configs = match &choice {
-        Some(c) => vec![c.config, key::PRODUCTION],
+        Some(c) => vec![c.config, key::BASELINE_1_0],
         None => keystudy::grid(),
     };
     let started = Instant::now();

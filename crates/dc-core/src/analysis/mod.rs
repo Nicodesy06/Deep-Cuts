@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const ANALYZER: &str = "dc-dsp";
-pub const ANALYZER_VERSION: &str = "1.0.0";
+pub const ANALYZER_VERSION: &str = "1.1.0";
 pub const WAVEFORM_VERSION: i64 = 1;
 pub const WAVEFORM_BINS: usize = 1200;
 

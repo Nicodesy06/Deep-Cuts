@@ -219,6 +219,6 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert_eq!(choice.unwrap().dev_weighted, 1.0);
         assert_eq!(grid().len(), 32);
-        assert!(grid().contains(&key::PRODUCTION));
+        assert!(grid().contains(&key::PRODUCTION) && grid().contains(&key::BASELINE_1_0));
     }
 }

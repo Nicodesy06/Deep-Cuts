@@ -36,7 +36,43 @@ pub const TEMPERLEY: Profiles = Profiles {
     ],
 };
 
-pub const PRODUCTION_PROFILES: Profiles = KRUMHANSL;
+/// Mean tonic-aligned chroma of 1,159 confidently annotated tracks of
+/// GiantSteps-MTG-Keys (Faraldo et al. 2017), computed with the `PRODUCTION`
+/// front-end by `deepcuts key-study` (CI run 39500524471). Selected on that
+/// development corpus only; measured once on GiantSteps Key (see
+/// docs/AI_VALIDATION.md).
+pub const LEARNED_EDM: Profiles = Profiles {
+    major: [
+        0.14010313105051195,
+        0.05286517098537118,
+        0.09772456542832952,
+        0.0517932599728921,
+        0.11120689246028194,
+        0.07135700308849484,
+        0.05691678260399586,
+        0.13834702435608331,
+        0.053785335535353876,
+        0.08483160782712192,
+        0.05898886606614101,
+        0.0820803606254225,
+    ],
+    minor: [
+        0.1337395428946274,
+        0.059710830035074686,
+        0.08945686126966677,
+        0.08223488085240768,
+        0.0770874899163471,
+        0.07973839277896416,
+        0.05823571020953659,
+        0.13371364074524356,
+        0.06429468769897423,
+        0.06694729588406342,
+        0.09111273035603266,
+        0.06372793735906171,
+    ],
+};
+
+pub const PRODUCTION_PROFILES: Profiles = LEARNED_EDM;
 
 /// Chroma front-end settings.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -57,12 +93,23 @@ pub struct ChromaConfig {
     pub frame_norm: bool,
 }
 
-pub const PRODUCTION: ChromaConfig = ChromaConfig {
+/// dc-dsp 1.0.0 front-end (kept as the study baseline).
+pub const BASELINE_1_0: ChromaConfig = ChromaConfig {
     fmin: 60.0,
     fmax: 2100.0,
     log_gamma: 0.0,
     whiten: false,
     peaks: false,
+    frame_norm: true,
+};
+
+/// Front-end chosen by the key study (dc-dsp 1.1.0).
+pub const PRODUCTION: ChromaConfig = ChromaConfig {
+    fmin: 100.0,
+    fmax: 5000.0,
+    log_gamma: 100.0,
+    whiten: true,
+    peaks: true,
     frame_norm: true,
 };
 

@@ -24,6 +24,19 @@ Before every release, regenerate this table with `cargo tree -e normal --format 
 `npx license-checker-rseidelsohn --production` (or `cargo deny` with a licence policy) and ship
 third-party notices with the installers. This is listed under Phase 9.
 
+## Evaluation corpora and learned parameters
+
+Audio of GiantSteps Key, GiantSteps Tempo and GiantSteps-MTG-Keys is downloaded only on CI
+runners for measurement and is never committed or redistributed. The annotations are used
+under their published licences, with credit:
+
+* GiantSteps Key / Tempo: Knees et al., ISMIR 2015; tempo v2 annotations: Schreiber & Müller,
+  ISMIR 2018.
+* GiantSteps-MTG-Keys: Faraldo, Jordà & Herrera, 2017.
+
+The only parameters derived from a corpus are the 24 numbers of `key::LEARNED_EDM` (mean pitch
+class profiles of GiantSteps-MTG-Keys), cited at their definition.
+
 ## Codec patents
 
 Symphonia's MP3 and AAC decoders are enabled. MP3 patents have expired worldwide. AAC-LC decoding
