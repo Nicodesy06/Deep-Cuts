@@ -1,0 +1,55 @@
+name: Analyser evaluation
+
+# Scores the local analyser on public, human-annotated corpora (GiantSteps
+# key + tempo, electronic dance music). Audio is downloaded on the runner
+# for measurement only; only the metric reports are uploaded.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "crates/dc-core/src/analysis/**"
+      - "crates/dc-core/src/eval.rs"
+      - "scripts/fetch_giantsteps.sh"
+      - ".github/workflows/eval.yml"
+
+jobs:
+  giantsteps:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build CLI
+        run: cargo build --release -p dc-cli
+
+      - name: Cache corpus audio
+        uses: actions/cache@v4
+        with:
+          path: |
+            audio-key
+            audio-tempo
+          key: giantsteps-audio-v1
+
+      - name: Fetch annotations and audio
+        run: |
+          git clone --depth 1 https://github.com/GiantSteps/giantsteps-key-dataset.git gs-key
+          git clone --depth 1 https://github.com/GiantSteps/giantsteps-tempo-dataset.git gs-tempo
+          scripts/fetch_giantsteps.sh gs-key audio-key 12
+          scripts/fetch_giantsteps.sh gs-tempo audio-tempo 12
+
+      - name: Evaluate
+        run: |
+          mkdir -p eval-out
+          ./target/release/deepcuts eval audio-key --keys gs-key/annotations/key --out eval-out/giantsteps-key.md --name "GiantSteps Key"
+          ./target/release/deepcuts eval audio-tempo --tempo gs-tempo/annotations_v2/tempo --out eval-out/giantsteps-tempo-v2.md --name "GiantSteps Tempo (annotations v2)"
+          ./target/release/deepcuts eval audio-tempo --tempo gs-tempo/annotations/tempo --out eval-out/giantsteps-tempo-v1.md --name "GiantSteps Tempo (original annotations)"
+          cat eval-out/*.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: analyser-evaluation
+          path: eval-out/

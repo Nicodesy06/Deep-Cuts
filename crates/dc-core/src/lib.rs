@@ -8,6 +8,7 @@ pub mod backup;
 pub mod cues;
 pub mod db;
 pub mod error;
+pub mod eval;
 pub mod export;
 pub mod fixes;
 pub mod history;

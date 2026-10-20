@@ -128,6 +128,20 @@ enum Cmd {
     },
     /// Show cue points (incl. suggestions) for a track id.
     Cues { id: String },
+    /// Evaluate the analyser on an annotated corpus (e.g. GiantSteps):
+    /// <stem>.mp3 in AUDIO, <stem>.key in --keys, <stem>.bpm in --tempo.
+    Eval {
+        audio: PathBuf,
+        #[arg(long)]
+        keys: Option<PathBuf>,
+        #[arg(long)]
+        tempo: Option<PathBuf>,
+        /// Markdown report path (a .csv with per-track results is written next to it)
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -142,6 +156,22 @@ fn run(cli: Cli) -> dc_core::Result<()> {
     let db_path = cli.db.clone().unwrap_or_else(paths::db_path);
     if let Cmd::Bench { tracks, dir } = &cli.cmd {
         return bench(*tracks, dir);
+    }
+    if let Cmd::Eval {
+        audio,
+        keys,
+        tempo,
+        out,
+        name,
+    } = &cli.cmd
+    {
+        return eval_corpus(
+            audio,
+            keys.as_deref(),
+            tempo.as_deref(),
+            out.as_deref(),
+            name,
+        );
     }
     if let Cmd::HelpQuery = &cli.cmd {
         println!("{}", QUERY_HELP);
@@ -506,7 +536,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 );
             }
         }
-        Cmd::Bench { .. } | Cmd::HelpQuery => unreachable!(),
+        Cmd::Bench { .. } | Cmd::HelpQuery | Cmd::Eval { .. } => unreachable!(),
     }
     Ok(())
 }
@@ -632,6 +662,174 @@ fn bench(n: usize, dir: &std::path::Path) -> dc_core::Result<()> {
         s.total_tracks,
         t.elapsed().as_secs_f64() * 1000.0
     );
+    Ok(())
+}
+
+fn read_annotation(dir: Option<&std::path::Path>, stem: &str, ext: &str) -> Option<String> {
+    let p = dir?.join(format!("{stem}.{ext}"));
+    std::fs::read_to_string(p)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Run the analyser over a corpus and score it against annotations.
+fn eval_corpus(
+    audio: &std::path::Path,
+    keys: Option<&std::path::Path>,
+    tempo: Option<&std::path::Path>,
+    out: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::eval::{key_relation, summarize_keys, summarize_tempo, tempo_acc1, tempo_acc2};
+    use dc_core::keys::Key;
+    use rayon::prelude::*;
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let started = Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    struct Row {
+        stem: String,
+        ref_key: Option<String>,
+        est_key: Option<Key>,
+        ref_bpm: Option<f64>,
+        est_bpm: Option<f64>,
+        error: Option<String>,
+        secs: f64,
+    }
+    let rows: Vec<Row> = files
+        .par_iter()
+        .map(|f| {
+            let stem = f
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string();
+            let ref_key = read_annotation(keys, &stem, "key");
+            let ref_bpm = read_annotation(tempo, &stem, "bpm")
+                .and_then(|b| b.parse::<f64>().ok())
+                .filter(|b| *b > 0.0);
+            let t = Instant::now();
+            let (est_key, est_bpm, error) = match analysis::analyze_file(f, &|| false) {
+                Ok(a) => (
+                    a.result.key.as_ref().and_then(|k| Key::parse(&k.name)),
+                    a.result.tempo.as_ref().map(|t| t.bpm),
+                    None,
+                ),
+                Err(e) => (None, None, Some(e.to_string())),
+            };
+            let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if k % 25 == 0 {
+                eprintln!("{k}/{}", files.len());
+            }
+            Row {
+                stem,
+                ref_key,
+                est_key,
+                ref_bpm,
+                est_bpm,
+                error,
+                secs: t.elapsed().as_secs_f64(),
+            }
+        })
+        .collect();
+    let elapsed = started.elapsed().as_secs_f64();
+
+    let key_pairs: Vec<(Option<Key>, Key)> = rows
+        .iter()
+        .filter_map(|r| {
+            r.ref_key
+                .as_deref()
+                .and_then(Key::parse)
+                .map(|k| (r.est_key, k))
+        })
+        .collect();
+    let unparsed_keys = rows
+        .iter()
+        .filter(|r| {
+            r.ref_key
+                .as_deref()
+                .is_some_and(|k| Key::parse(k).is_none())
+        })
+        .count();
+    let tempo_pairs: Vec<(Option<f64>, f64)> = rows
+        .iter()
+        .filter_map(|r| r.ref_bpm.map(|b| (r.est_bpm, b)))
+        .collect();
+    let ks = summarize_keys(&key_pairs);
+    let ts = summarize_tempo(&tempo_pairs);
+    let failed = rows.iter().filter(|r| r.error.is_some()).count();
+    let pct = |v: f64| format!("{:.1} %", v * 100.0);
+
+    let mut md = format!(
+        "# Analyser evaluation{}\n\nAnalyser: `{} {}` · files: {} · decode failures: {} · wall time: {:.1} s ({} threads) · mean per file: {:.2} s\n\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        analysis::ANALYZER,
+        analysis::ANALYZER_VERSION,
+        rows.len(),
+        failed,
+        elapsed,
+        rayon::current_num_threads(),
+        rows.iter().map(|r| r.secs).sum::<f64>() / rows.len().max(1) as f64,
+    );
+    if ts.n > 0 {
+        md += &format!(
+            "## Tempo ({} annotated)\n\n| Metric | Value |\n|---|---|\n| Accuracy1 (±4 %) | {} |\n| Accuracy2 (octave errors allowed) | {} |\n| Mean abs. error on Accuracy1 hits | {:.2} BPM |\n| No estimate | {} |\n\n",
+            ts.n,
+            pct(ts.acc1),
+            pct(ts.acc2),
+            ts.mae_acc1_hits,
+            ts.no_estimate
+        );
+    }
+    if ks.n > 0 {
+        md += &format!(
+            "## Key ({} annotated, {} unparseable labels skipped)\n\n| Metric | Value |\n|---|---|\n| MIREX weighted score | {} |\n| Correct | {} |\n| Fifth | {} |\n| Relative | {} |\n| Parallel | {} |\n| Other | {} |\n| No estimate | {} |\n\n",
+            ks.n,
+            unparsed_keys,
+            pct(ks.weighted),
+            pct(ks.correct),
+            pct(ks.fifth),
+            pct(ks.relative),
+            pct(ks.parallel),
+            pct(ks.other),
+            ks.no_estimate
+        );
+    }
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
+        let mut w =
+            String::from("file,ref_bpm,est_bpm,acc1,acc2,ref_key,est_key,key_relation,error\n");
+        for r in &rows {
+            let rk = r.ref_key.as_deref().and_then(Key::parse);
+            w += &format!(
+                "{},{},{},{},{},{},{},{},{}\n",
+                r.stem,
+                r.ref_bpm.map(|b| b.to_string()).unwrap_or_default(),
+                r.est_bpm.map(|b| format!("{b:.2}")).unwrap_or_default(),
+                match (r.est_bpm, r.ref_bpm) {
+                    (Some(e), Some(b)) => tempo_acc1(e, b).to_string(),
+                    _ => String::new(),
+                },
+                match (r.est_bpm, r.ref_bpm) {
+                    (Some(e), Some(b)) => tempo_acc2(e, b).to_string(),
+                    _ => String::new(),
+                },
+                rk.map(|k| k.camelot()).unwrap_or_default(),
+                r.est_key.map(|k| k.camelot()).unwrap_or_default(),
+                match (r.est_key, rk) {
+                    (Some(e), Some(k)) => format!("{:?}", key_relation(e, k)),
+                    _ => String::new(),
+                },
+                r.error.clone().unwrap_or_default().replace(',', ";"),
+            );
+        }
+        export::write_atomic(&out.with_extension("csv"), w.as_bytes())?;
+    }
     Ok(())
 }
 
