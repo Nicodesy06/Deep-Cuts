@@ -29,7 +29,8 @@ pub struct MovePlan {
     pub file_id: String,
     pub from: String,
     pub to: String,
-    /// Why this file cannot be moved (it is then skipped by `apply`).
+    /// Why this file is skipped by `apply`: no-metadata, missing,
+    /// unchanged, duplicate-in-plan, exists or no-target.
     pub conflict: Option<String>,
 }
 
@@ -82,7 +83,15 @@ pub fn render(pattern: &str, t: &TrackRow) -> Result<Option<String>> {
         if !TOKENS.contains(&token) {
             return Err(Error::Invalid(format!("unknown token {{{token}}}")));
         }
-        match token_value(t, token) {
+        // Titles often already carry the version ("Track (Extended Mix)").
+        let value = token_value(t, token).filter(|v| {
+            !(token == "version" || token == "remixer")
+                || !t
+                    .title
+                    .as_deref()
+                    .is_some_and(|title| title.to_lowercase().contains(&v.to_lowercase()))
+        });
+        match value {
             Some(v) => {
                 out.push_str(&v);
                 any = true;
@@ -157,22 +166,22 @@ pub fn plan(
         let to = match render(pattern, &t)? {
             Some(stem) => dir.join(format!("{stem}{ext}")),
             None => {
-                conflict = Some("no metadata for the pattern".into());
+                conflict = Some("no-metadata".into());
                 from_p.clone()
             }
         };
         let to_s = to.to_string_lossy().into_owned();
         if conflict.is_none() {
             if missing || !from_p.exists() {
-                conflict = Some("file is missing".into());
+                conflict = Some("missing".into());
             } else if to_s == from {
                 conflict = Some("unchanged".into());
             } else if taken.contains(&to_s.to_lowercase()) {
-                conflict = Some("another file in this plan gets the same name".into());
+                conflict = Some("duplicate-in-plan".into());
             } else if to.exists() && !same_file(&from_p, &to) {
-                conflict = Some("a file with this name already exists".into());
+                conflict = Some("exists".into());
             } else if target_dir.is_some_and(|d| !d.is_dir()) {
-                conflict = Some("target folder does not exist".into());
+                conflict = Some("no-target".into());
             }
         }
         if conflict.is_none() {
@@ -258,6 +267,71 @@ pub(crate) fn set_file_path(conn: &Connection, file_id: &str, to: &str) -> Resul
         params![to_key, crate::util::now_ms(), file_id],
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(title: &str, version: Option<&str>) -> TrackRow {
+        TrackRow {
+            id: "x".into(),
+            title: Some(title.into()),
+            artist: Some("AC/DC".into()),
+            version: version.map(String::from),
+            remixer: None,
+            album: None,
+            label: None,
+            genre: None,
+            year: None,
+            bpm: Some(124.4),
+            key: None,
+            camelot: Some("8A".into()),
+            duration_ms: None,
+            rating: None,
+            favorite: false,
+            decision: None,
+            comment: None,
+            path: None,
+            format: None,
+            bitrate: None,
+            missing: false,
+            lufs: None,
+            preview_ms: None,
+            analysis_status: "none".into(),
+            created_at: 0,
+        }
+    }
+
+    #[test]
+    fn render_patterns() {
+        let p = "{artist} - {title} ({version}) [{camelot}] {bpm}";
+        assert_eq!(
+            render(p, &row("Thunder", Some("Extended Mix")))
+                .unwrap()
+                .unwrap(),
+            "AC_DC - Thunder (Extended Mix) [8A] 124"
+        );
+        assert_eq!(
+            render(p, &row("Thunder", None)).unwrap().unwrap(),
+            "AC_DC - Thunder [8A] 124"
+        );
+        // version already in the title is not repeated
+        assert_eq!(
+            render(
+                DEFAULT_PATTERN,
+                &row("Thunder (Extended Mix)", Some("Extended Mix"))
+            )
+            .unwrap()
+            .unwrap(),
+            "AC_DC - Thunder (Extended Mix)"
+        );
+        let mut empty = row("", None);
+        empty.title = None;
+        empty.artist = None;
+        assert_eq!(render("{artist} - {title}", &empty).unwrap(), None);
+        assert!(render("{bogus}", &empty).is_err());
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize)]

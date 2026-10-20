@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, type MovePlan, type RenameReport } from "../api";
 import { useApp } from "../store";
+import type { MsgKey } from "../i18n";
 
 export const DEFAULT_PATTERN = "{artist} - {title} ({version})";
 const TOKENS = ["artist", "title", "version", "remixer", "album", "label", "genre", "year", "bpm", "key", "camelot"];
@@ -84,7 +85,7 @@ export function RenameDialog({ ids, onClose }: { ids: string[]; onClose: () => v
                       {plan.slice(0, 300).map((p) => (
                         <tr key={p.fileId} className={p.conflict ? "muted" : ""}>
                           <td className="path">{fileName(p.from)}</td>
-                          <td>{p.conflict ? <span className="err">{p.conflict}</span> : <>→ {targetDir ? p.to : fileName(p.to)}</>}</td>
+                          <td>{p.conflict ? <span className={p.conflict === "unchanged" ? "muted" : "err"}>{t(`rename.conflict.${p.conflict}` as MsgKey)}</span> : <>→ {targetDir ? p.to : fileName(p.to)}</>}</td>
                         </tr>
                       ))}
                     </tbody>

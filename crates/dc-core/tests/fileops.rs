@@ -65,10 +65,7 @@ fn rename_preview_apply_undo_redo() {
         pa.to
     );
     let pb = plan.iter().find(|p| p.track_id == b).unwrap();
-    assert_eq!(
-        pb.conflict.as_deref(),
-        Some("a file with this name already exists")
-    );
+    assert_eq!(pb.conflict.as_deref(), Some("exists"));
     // the file name of the untagged wav comes from its filename-derived title
     let moved_plan = fileops::plan(&conn, &ids, "{artist} - {title}", Some(&out)).unwrap();
     let rep = fileops::apply(&conn, &moved_plan).unwrap();
