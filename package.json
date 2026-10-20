@@ -2,15 +2,15 @@
   "name": "deep-cuts",
   "private": true,
   "version": "0.1.0",
-  "description": "Deep Cuts — free, local, AI-ready DJ library intelligence",
+  "description": "Deep Cuts \u2014 free, local, AI-ready DJ library intelligence",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "postinstall": "npm --prefix ui install",
+    "postinstall": "cd ui && npm install",
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "test": "npm --prefix ui test && cargo test --workspace",
-    "test:ui": "npm --prefix ui test"
+    "test": "cd ui && npm test && cd .. && cargo test --workspace",
+    "test:ui": "cd ui && npm test"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3"
