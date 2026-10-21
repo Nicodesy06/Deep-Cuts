@@ -110,6 +110,8 @@ fn relocate_rewrites_paths_and_undoes() {
     let (conn, _) = lib(tmp.path());
     let old = tmp.path().join("music");
     let new = tmp.path().join("moved");
+    // The prefix as stored (canonical), taken while the folder still exists.
+    let from = library::path_key(&old);
     std::fs::rename(&old, &new).unwrap();
     library::check_missing_files(&conn).unwrap();
     assert_eq!(
@@ -125,8 +127,6 @@ fn relocate_rewrites_paths_and_undoes() {
         3
     );
 
-    let from = library::path_key(&old); // as stored (canonical parent + name)
-    let from = from.to_string();
     let pv = relocate::preview(&conn, &from, &new.to_string_lossy()).unwrap();
     assert_eq!((pv.matched, pv.found), (3, 3));
     assert_eq!(

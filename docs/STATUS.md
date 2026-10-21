@@ -1,5 +1,45 @@
 # Status report
 
+## Increment 5 — Library tools, DJ software interop, Music DNA, automation (2026-10-21)
+
+Goal of this increment: every planned local feature in a usable state before improving the analysis.
+
+| Feature | Where | Verification |
+|---|---|---|
+| **Merge duplicates** safely (keep one copy, re-point playlists, carry decision/tags/rating/notes, other files to a dated trash folder, archive copies, undoable); **archive** (hidden, `archived:yes`); broken playlists; unused files in a folder | `dedupe`, Library Health, Library menu | `tests/dedupe.rs`, GUI check |
+| **Find & replace** (plain / whole word / regex), **playlist tools** (merge, common, subtract, duplicate, shuffle, prefix, occurrences) | `bulk`, `playlist_tools` | `tests/bulk_tools.rs`, GUI check |
+| **CSV metadata import** with column mapping and validation; **relocate library** (path prefix mapping between drives/OS) | `csvimport`, `relocate`, Sync & Export, Settings | `tests/csv_relocate.rs`, GUI check |
+| **Traktor, Serato, VirtualDJ** import/export; whole-library Rekordbox export with folders and smart-crate snapshots | `djlib`, `traktor`, `serato`, `vdj`, `deepcuts import-dj/export-dj` | `tests/dj_apps.rs` (round trip through every format) |
+| **Music DNA**: energy 1–10 (library rank of the measured energy proxy), genre and tag suggestions learned from the user's own labels (accuracy measured leave-one-out and shown), automatic groups | `dna`, Music DNA page | `tests/dna.rs`, GUI check |
+| **Beatgrid editor and loops** (downbeat at playhead, nudge, BPM ×2/÷2, tap tempo, zoomed view, beat-snapped 4/8/16-beat loops; user grid wins on export; undoable) | `grid`, `GridEditor` | `phase2::user_beatgrid_edit_loop_and_undo`, GUI check |
+| **Build a set from a track** (beam search over the transition graph) | `sets::build_path`, Library menu | `phase3::graph_path_from_seed…`, GUI check |
+| **Recipes**: saved search + actions, run on demand or on import (watch folders too), one undoable step | `recipes`, Smart Crates | `tests/recipes.rs`, GUI check (run + undo) |
+| **Cover art** add/replace/remove in files, with backups and read-back verification | `artwork`, Library menu | `phase2::album_art_add_and_remove_safely` |
+| **Rebuild external playlists offline** (Exportify/Spotify CSV, Apple Music text, M3U, "Artist - Title" lists): fuzzy match with version awareness, review, playlist creation, missing list | `playlist_match`, Sync & Export, `deepcuts match-playlist` | `tests/playlist_match.rs`, `playlist_match::tests`, GUI check |
+
+### Out of scope for the local version (justified)
+
+Engine DJ / Pioneer USB / OneLibrary writing (undocumented binary formats, risk of corrupting a
+stick used live — supported path: Rekordbox XML → Rekordbox → USB), direct streaming-service
+import (online, account, API terms — the offline matcher covers exported playlists), online
+auto-tagging from catalogues, cloud sync, mobile apps and a local network API (the app makes no
+network requests; the CLI covers scripting). Rekordbox `master.db` (encrypted) is not read.
+
+### Fixed while testing
+
+- Relocate test failed on macOS/Windows: the old prefix was canonicalised after the folder had
+  been renamed. The destination is now stored in canonical form too, so later scans match.
+- Playlist matcher: another version/edit of a song is never auto-accepted (offered for review).
+- Smart-crate hint promised a natural-language generator that does not exist; text corrected.
+
+### Next priorities
+
+1. Tempo (BPM): perceptual-tempo development set and/or beat tracker, same dev/test protocol.
+2. Key, cue and energy improvements measured the same way.
+3. Manual smoke test of installers on Windows/macOS; load exports in the real DJ applications.
+
+---
+
 ## Increment 4 — Key estimation 1.1.0, rename & move files (2026-10-20)
 
 | Feature | Where | Verification |

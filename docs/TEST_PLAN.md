@@ -30,7 +30,19 @@ Run everything: `npm install && npm test` (UI unit tests + `cargo test --workspa
 | Smart fixes: rules (unit), preview is read-only, partial apply, undo | `fixes::tests`, `smart_fixes_preview_apply_undo` | | |
 | Cue suggestions on the phrase grid; user cues protected across re-analysis; accept → locked hot cue; suggestions not exported | `cues::tests`, `analysis_creates_phrase_cue_suggestions_and_user_cues_are_protected` | | synthetic track with a −16 dB breakdown |
 | Tag writing: plan, changed-on-disk refusal, backups, read-back, DB refresh, audio still decodes | `write_tags_back_to_files` | | MP3, FLAC, AAC-M4A, AIFF via ffmpeg |
-| Schema v1 → v2 migration | manual on the v1 test library + `db::migrate` on every open | | |
+| File rename/move from metadata: plan, conflicts, cross-volume moves, undo/redo | `tests/fileops.rs`, `fileops::tests` | | |
+| Transcode detection (fake FLAC / fake 320k flagged; genuine and honest files not) | `tests/transcode.rs`, `bandwidth::tests` | | real LAME/FLAC encodes via ffmpeg |
+| Acoustic duplicates across formats, gain and trims; other recordings not grouped | `tests/fingerprint.rs` | | ffmpeg encodes of broadband synthetic music |
+| Merge duplicates, archive, broken playlists, unused files | `tests/dedupe.rs` | | |
+| Find & replace (plain/word/regex, preview, undo); playlist combine/shuffle/prefix/occurrences | `tests/bulk_tools.rs` | | |
+| CSV metadata import (artist+title and path matching, validation); relocate + undo | `tests/csv_relocate.rs`, `relocate::tests` | | also run with a symlinked TMPDIR to mimic macOS `/var` → `/private/var` |
+| Rekordbox / Traktor / Serato / VirtualDJ export → re-import round trip | `tests/dj_apps.rs` | | |
+| Energy rank, genre/tag suggestions with leave-one-out accuracy, auto groups | `tests/dna.rs` | | |
+| Beatgrid edit, loops, undo; cover art add/remove with backups | `phase2::user_beatgrid_edit_loop_and_undo`, `phase2::album_art_add_and_remove_safely` | | |
+| Set from a seed track over the transition graph | `phase3::graph_path_from_seed…` | | |
+| Recipes on demand and on import, undo | `tests/recipes.rs` | | |
+| External playlist matching (CSV/M3U/text parsing, version-aware scoring, playlist creation) | `tests/playlist_match.rs`, `playlist_match::tests` | | |
+| Schema migrations (v1 → v8) | manual on the v1 test library + `db::migrate` on every open | | |
 | UI: formatting, selection model, i18n parity, virtual table, histograms, tag tree | `ui/src/**/*.test.ts(x)` | vitest + jsdom | |
 
 ## Not yet automated (manual or pending)
@@ -41,7 +53,7 @@ Run everything: `npm install && npm test` (UI unit tests + `cargo test --workspa
 | Watch folders (OS events) | Manual: add a folder, copy/rename/delete files while the app runs, check import/relink. Automated test pending. |
 | Packaging (MSI/NSIS, DMG) | `npm run build` on each OS in CI. Signing/notarisation in Phase 9. |
 | Audible playback per platform | Manual check on Windows (WebView2) and macOS (WKWebView): MP3, WAV, FLAC, AIFF, M4A. The headless Linux container has no audio device. |
-| Rekordbox fidelity | Import exported XML into Rekordbox 6/7, compare fields, cues, grids. Then round-trip a real collection. |
+| DJ software fidelity | Load exported Rekordbox XML, Traktor NML, Serato crates and VirtualDJ playlists into the real applications; compare fields, cues, grids. Then round-trip a real collection. |
 | Large libraries (real files) | Import 100k real files from a network or USB drive; measure time and memory. |
 | UI end-to-end | WebDriver (tauri-driver) suite in Phase 9. |
 

@@ -65,10 +65,19 @@ fn candidates(
             r.get::<_, String>(2)?,
         ))
     })?;
+    // An existing destination is stored in canonical form, like imports
+    // (e.g. /private/var on macOS, long names on Windows), so a later scan
+    // recognises the relocated files.
+    let to_dir = Path::new(to);
+    let to = if to_dir.is_dir() {
+        crate::library::path_key(to_dir)
+    } else {
+        to.to_string()
+    };
     let mut out = Vec::new();
     for r in rows {
         let (fid, tid, path) = r?;
-        if let Some(new) = map_path(&path, from, to) {
+        if let Some(new) = map_path(&path, from, &to) {
             out.push((fid, tid, path, new));
         }
     }

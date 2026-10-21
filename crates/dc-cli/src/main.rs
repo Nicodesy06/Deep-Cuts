@@ -1107,11 +1107,12 @@ fn eval_corpus(
     );
     if ts.n > 0 {
         md += &format!(
-            "## Tempo ({} annotated)\n\n| Metric | Value |\n|---|---|\n| Accuracy1 (±4 %) | {} |\n| Accuracy2 (octave errors allowed) | {} |\n| Mean abs. error on Accuracy1 hits | {:.2} BPM |\n| No estimate | {} |\n\n",
+            "## Tempo ({} annotated)\n\n| Metric | Value |\n|---|---|\n| Accuracy1 (±4 %) | {} |\n| Accuracy2 (octave errors allowed) | {} |\n| Mean abs. error on Accuracy1 hits | {:.3} BPM |\n| Exact (±0.05 BPM) | {} |\n| No estimate | {} |\n\n",
             ts.n,
             pct(ts.acc1),
             pct(ts.acc2),
             ts.mae_acc1_hits,
+            pct(ts.exact),
             ts.no_estimate
         );
     }
@@ -1408,39 +1409,67 @@ fn tempo_study(
         samples.len(),
         started.elapsed().as_secs_f64()
     );
+    let full = |cfg: &tp::TempoConfig, fine: &tp::FineConfig| {
+        tempostudy::fine_scores(&samples, cfg, std::slice::from_ref(fine)).remove(0)
+    };
+    let row = |label: &str, s: &dc_core::eval::TempoSummary| {
+        format!(
+            "| {label} | {} | {} | {} | {:.3} |\n",
+            pct(s.acc1),
+            pct(s.acc2),
+            pct(s.exact),
+            s.mae_acc1_hits
+        )
+    };
+    let header = "| Variant | Accuracy1 | Accuracy2 | Exact (±0.05) | MAE on Acc1 hits (BPM) |\n|---|---|---|---|---|\n";
     match choice {
         Some(c) => {
-            let chosen = tempostudy::score(&samples, &c.config);
-            let base = tempostudy::score(&samples, &tp::BASELINE_1_0);
+            let chosen = full(&c.config, &c.fine);
+            let base = full(&tp::BASELINE_1_0, &tp::FINE_BASELINE);
             md += &format!(
-                "Fixed choice from the development corpus ({} tracks, dev Acc1 {} / Acc2 {}): `{}`.\n\n| Variant | Accuracy1 | Accuracy2 |\n|---|---|---|\n| Chosen | {} | {} |\n| Baseline dc-dsp 1.1.0 | {} | {} |\n",
+                "Fixed choice from the development corpus ({} tracks, dev Acc1 {} / Acc2 {} / exact {}): `{}` + `{}`.\n\n{header}",
                 c.dev_tracks,
                 pct(c.dev_acc1),
                 pct(c.dev_acc2),
+                pct(c.dev_exact),
                 c.config.label(),
-                pct(chosen.acc1),
-                pct(chosen.acc2),
-                pct(base.acc1),
-                pct(base.acc2)
+                c.fine.label(),
             );
+            md += &row("Chosen", &chosen);
+            md += &row("Baseline dc-dsp 1.2.0", &base);
         }
         None => {
             let (results, best) = tempostudy::study(&samples);
             let base = tempostudy::score(&samples, &tp::BASELINE_1_0);
             md += &format!(
-                "Baseline dc-dsp 1.1.0: Acc1 {} / Acc2 {}\n\n| Variant | Accuracy1 | Accuracy2 |\n|---|---|---|\n",
+                "## Octave decision (coarse stage)\n\nBaseline dc-dsp 1.2.0: Acc1 {} / Acc2 {}\n\n| Variant | Accuracy1 | Accuracy2 |\n|---|---|---|\n",
                 pct(base.acc1),
                 pct(base.acc2)
             );
             for (c, s) in results.iter().take(40) {
                 md += &format!("| {} | {} | {} |\n", c.label(), pct(s.acc1), pct(s.acc2));
             }
-            if let Some(b) = best {
+            if let Some(mut b) = best {
+                let (fine_all, fine, fs) = tempostudy::fine_study(&samples, &b.config);
+                b.fine = fine;
+                b.dev_exact = fs.exact;
+                let fine_base = full(&b.config, &tp::FINE_BASELINE);
+                md +=
+                    &format!("\n## Precision stage (after the chosen octave decision)\n\n{header}");
+                md += &row(
+                    &format!("Baseline: {}", tp::FINE_BASELINE.label()),
+                    &fine_base,
+                );
+                for (f, s) in fine_all.iter().take(30) {
+                    md += &row(&f.label(), s);
+                }
                 md += &format!(
-                    "\n**Choice:** `{}` (dev Acc1 {}, Acc2 {}).\n",
+                    "\n**Choice:** `{}` + `{}` (dev Acc1 {}, Acc2 {}, exact {}).\n",
                     b.config.label(),
+                    b.fine.label(),
                     pct(b.dev_acc1),
-                    pct(b.dev_acc2)
+                    pct(b.dev_acc2),
+                    pct(b.dev_exact)
                 );
                 if let Some(p) = choose {
                     export::write_atomic(p, &serde_json::to_vec_pretty(&b).unwrap_or_default())?;

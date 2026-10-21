@@ -72,8 +72,13 @@ pub struct TempoSummary {
     pub acc2: f64,
     /// Mean absolute error (BPM) over Accuracy1 hits.
     pub mae_acc1_hits: f64,
+    /// Share within ±0.05 BPM of the reference (grid-level precision).
+    pub exact: f64,
     pub no_estimate: usize,
 }
+
+/// Tolerance of the "exact" tempo metric, in BPM.
+pub const EXACT_TOL: f64 = 0.05 + 1e-9;
 
 pub fn summarize_tempo(pairs: &[(Option<f64>, f64)]) -> TempoSummary {
     let n = pairs.len();
@@ -84,9 +89,13 @@ pub fn summarize_tempo(pairs: &[(Option<f64>, f64)]) -> TempoSummary {
     let mut a2 = 0;
     let mut none = 0;
     let mut err = 0.0;
+    let mut exact = 0;
     for (est, r) in pairs {
         match est {
             Some(e) => {
+                if (e - r).abs() <= EXACT_TOL {
+                    exact += 1;
+                }
                 if tempo_acc1(*e, *r) {
                     a1 += 1;
                     err += (e - r).abs();
@@ -103,6 +112,7 @@ pub fn summarize_tempo(pairs: &[(Option<f64>, f64)]) -> TempoSummary {
         acc1: a1 as f64 / n as f64,
         acc2: a2 as f64 / n as f64,
         mae_acc1_hits: if a1 > 0 { err / a1 as f64 } else { 0.0 },
+        exact: exact as f64 / n as f64,
         no_estimate: none,
     }
 }
@@ -178,6 +188,8 @@ mod tests {
             (Some(100.0), 128.0),
         ]);
         assert_eq!((s.acc1, s.acc2, s.no_estimate), (0.25, 0.5, 1));
+        let s = summarize_tempo(&[(Some(128.04), 128.0), (Some(127.9), 128.0)]);
+        assert_eq!(s.exact, 0.5);
     }
 
     #[test]

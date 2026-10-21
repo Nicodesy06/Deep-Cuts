@@ -150,6 +150,79 @@ pub fn coarse_bpm(ac: &[f32], fps: f64, cfg: &TempoConfig) -> Option<f64> {
     )
 }
 
+/// Precision stage after the octave decision: a comb over many beat
+/// multiples around the coarse tempo, optionally snapped to the nearest
+/// whole BPM when that fits the signal almost as well (most club music is
+/// produced at an integer tempo, and grids drift with small errors).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FineConfig {
+    /// Beat multiples in the fine comb.
+    pub multiples: usize,
+    /// Snap when the nearest integer is within this many BPM (0 = never).
+    pub snap_tol: f64,
+    /// ... and its comb score is at least this share of the best score.
+    pub snap_ratio: f64,
+}
+
+/// dc-dsp 1.0.0 – 1.2.0 settings.
+pub const FINE_BASELINE: FineConfig = FineConfig {
+    multiples: 64,
+    snap_tol: 0.0,
+    snap_ratio: 1.0,
+};
+
+pub const FINE_PRODUCTION: FineConfig = FINE_BASELINE;
+
+impl FineConfig {
+    pub fn label(&self) -> String {
+        if self.snap_tol > 0.0 {
+            format!(
+                "comb{} snap ±{:.2} ≥{:.3}",
+                self.multiples, self.snap_tol, self.snap_ratio
+            )
+        } else {
+            format!("comb{} no snap", self.multiples)
+        }
+    }
+}
+
+/// Fine comb curve: (bpm, score) every 0.002 BPM within ±1.5 % of `coarse`.
+pub fn fine_curve(ac: &[f32], fps: f64, coarse: f64, multiples: usize) -> Vec<(f64, f64)> {
+    let n = ((coarse * 0.03) / 0.002).round() as usize;
+    let start = coarse * 0.985;
+    (0..=n)
+        .map(|i| {
+            let b = start + i as f64 * 0.002;
+            (b, comb_score(ac, fps, b, multiples))
+        })
+        .collect()
+}
+
+/// Final tempo from a fine curve (see `FineConfig`).
+pub fn pick_fine(curve: &[(f64, f64)], ac: &[f32], fps: f64, f: &FineConfig) -> Option<f64> {
+    let best = curve
+        .iter()
+        .copied()
+        .fold(None, |b: Option<(f64, f64)>, x| match b {
+            Some(b) if b.1 >= x.1 => Some(b),
+            _ => Some(x),
+        })?;
+    if f.snap_tol > 0.0 {
+        let r = best.0.round();
+        if (r - best.0).abs() <= f.snap_tol
+            && comb_score(ac, fps, r, f.multiples) >= f.snap_ratio * best.1
+        {
+            return Some(r);
+        }
+    }
+    Some(best.0)
+}
+
+pub fn refine(ac: &[f32], fps: f64, coarse: f64, f: &FineConfig) -> f64 {
+    pick_fine(&fine_curve(ac, fps, coarse, f.multiples), ac, fps, f).unwrap_or(coarse)
+}
+
 /// Tempo from `onset_env` or the kick-band `low_env` (per `cfg`); the beat
 /// phase follows `low_env` when it carries enough energy.
 pub fn estimate(
@@ -164,17 +237,7 @@ pub fn estimate(
     let search = tempo_envelope(onset_env, low_env, cfg.envelope);
     let ac = stft::autocorrelation(&search);
     let coarse = coarse_bpm(&ac, fps, cfg)?;
-    // Fine search: many beat multiples sharpen the peak for steady tempi.
-    let mut fine = (coarse, f64::MIN);
-    let mut b = coarse * 0.985;
-    while b <= coarse * 1.015 {
-        let s = comb_score(&ac, fps, b, 64);
-        if s > fine.1 {
-            fine = (b, s);
-        }
-        b += 0.002;
-    }
-    let bpm = fine.0;
+    let bpm = refine(&ac, fps, coarse, &FINE_PRODUCTION);
     let periodicity = comb_score(&ac, fps, bpm, 16).clamp(0.0, 1.0);
 
     // Beat phase: offset that collects the most onset energy on the grid.
