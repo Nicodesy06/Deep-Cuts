@@ -589,6 +589,7 @@ export interface RbImportResult {
     playlistEntries: number;
     unresolvedPlaylistEntries: number;
     warnings: string[];
+    myTags?: { tracks: number; tags: number; assignments: number } | null;
   };
 }
 

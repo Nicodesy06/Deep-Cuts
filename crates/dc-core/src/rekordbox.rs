@@ -278,6 +278,9 @@ pub struct RbImportReport {
     pub playlist_entries: usize,
     pub unresolved_playlist_entries: usize,
     pub warnings: Vec<String>,
+    /// Rekordbox My Tags found in comments (`/* a / b */`), now tags.
+    #[serde(default)]
+    pub my_tags: Option<crate::mytag::MyTagReport>,
 }
 
 /// Import a Rekordbox XML. Read-only towards the XML and the audio files.
@@ -285,7 +288,9 @@ pub struct RbImportReport {
 pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportReport> {
     let xml = std::fs::read_to_string(xml_path)?;
     let lib = parse(&xml)?;
-    import_library(conn, &lib, REKORDBOX, xml_path)
+    let mut rep = import_library(conn, &lib, REKORDBOX, xml_path)?;
+    rep.my_tags = Some(crate::mytag::import_from_comments(conn, SOURCE)?);
+    Ok(rep)
 }
 
 /// Import a parsed DJ library (Rekordbox, Traktor, VirtualDJ, Serato all map

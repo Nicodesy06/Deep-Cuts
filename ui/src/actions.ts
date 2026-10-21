@@ -78,6 +78,7 @@ export async function importRekordboxXml(t: T, toast: Toast, bump: () => void): 
       }),
       "ok",
     );
+    if (rep.myTags && rep.myTags.tracks > 0) toast(t("sync.myTags", { tracks: rep.myTags.tracks, tags: rep.myTags.tags }), "ok");
   } catch (e) {
     toast(String(e), "error");
   }
