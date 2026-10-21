@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-import { api, type Playlist } from "../api";
+import { api, type DjApp, type Playlist } from "../api";
 import { exportTracks, importFolders, importRekordboxXml, type ExportFormat } from "../actions";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { CsvImportDialog } from "../components/CsvImportDialog";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store";
 
-const PLATFORMS: { name: string; status: "available" | "planned"; notes: string }[] = [
-  { name: "Rekordbox", status: "available", notes: "sync.rbNotes" },
-  { name: "Serato DJ", status: "planned", notes: "sync.plannedNotes" },
-  { name: "Traktor", status: "planned", notes: "sync.plannedNotes" },
-  { name: "Engine DJ", status: "planned", notes: "sync.plannedNotes" },
-  { name: "VirtualDJ", status: "planned", notes: "sync.plannedNotes" },
-  { name: "djay Pro", status: "planned", notes: "sync.plannedNotes" },
+type Target = { kind: "file"; ext: string } | { kind: "dir" };
+const PLATFORMS: { name: string; app?: DjApp; importFrom?: Target; exportTo?: Target; notes: string }[] = [
+  { name: "Rekordbox", app: "rekordbox", importFrom: { kind: "file", ext: "xml" }, exportTo: { kind: "file", ext: "xml" }, notes: "sync.rbNotes" },
+  { name: "Traktor", app: "traktor", importFrom: { kind: "file", ext: "nml" }, exportTo: { kind: "file", ext: "nml" }, notes: "sync.traktorNotes" },
+  { name: "Serato DJ", app: "serato", importFrom: { kind: "dir" }, exportTo: { kind: "dir" }, notes: "sync.seratoNotes" },
+  { name: "VirtualDJ", app: "virtualdj", importFrom: { kind: "dir" }, exportTo: { kind: "dir" }, notes: "sync.vdjNotes" },
+  { name: "Engine DJ", notes: "sync.engineNotes" },
+  { name: "djay Pro", notes: "sync.djayNotes" },
 ];
 
 export function SyncExport() {
@@ -33,6 +34,54 @@ export function SyncExport() {
     if (source === "__query") return exportTracks(t, toast, format, { query: { query } }, query);
     const p = playlists.find((x) => x.id === source);
     return exportTracks(t, toast, format, { query: { query: "", playlistId: source } }, p?.name ?? "Playlist");
+  };
+
+  const scope = () => {
+    if (source === "__all") return { whole: true, name: "Deep Cuts" };
+    if (source === "__query") return { whole: false, query: { query }, name: query };
+    const p = playlists.find((x) => x.id === source);
+    return { whole: false, query: { query: "", playlistId: source }, name: p?.name ?? "Playlist" };
+  };
+
+  const exportDj = async (app: DjApp, target: Target) => {
+    const sc = scope();
+    const path =
+      target.kind === "file"
+        ? await save({ title: t("export.saveTitle"), defaultPath: `${sc.name.replace(/[\\/:*?"<>|]+/g, "_")}.${target.ext}`, filters: [{ name: target.ext.toUpperCase(), extensions: [target.ext] }] })
+        : await open({ directory: true, multiple: false, title: t(`sync.exportDir.${app}` as never) });
+    if (typeof path !== "string") return;
+    try {
+      const r = await api.exportDj({ app, whole: sc.whole, query: sc.query ?? null, name: sc.name, target: path });
+      toast(t("sync.djExported", { tracks: r.tracks, playlists: r.playlists, files: r.files, skipped: r.skipped, target: r.target }), r.skipped ? "info" : "ok");
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  };
+
+  const importDj = async (app: DjApp, from: Target) => {
+    const path =
+      from.kind === "file"
+        ? await open({ multiple: false, title: t(`sync.importFrom.${app}` as never), filters: [{ name: from.ext.toUpperCase(), extensions: [from.ext] }] })
+        : await open({ directory: true, multiple: false, title: t(`sync.importFrom.${app}` as never) });
+    if (typeof path !== "string") return;
+    try {
+      const r = await api.importDj(app, path);
+      const rep = r.report;
+      toast(
+        t("sync.djImported", {
+          tracks: rep.tracksInXml,
+          matched: rep.matchedExisting,
+          created: rep.created,
+          missing: rep.missingFiles,
+          cues: rep.cuesImported,
+          playlists: rep.playlistsImported,
+        }),
+        "ok",
+      );
+    } catch (e) {
+      toast(String(e), "error");
+    }
+    bump();
   };
 
   return (
@@ -124,15 +173,27 @@ export function SyncExport() {
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
       <section className="panel">
         <h2>{t("sync.platforms")}</h2>
-        <table className="grid-table">
+        <p className="hint">{t("sync.platformsHint")}</p>
+        <table className="grid-table platforms">
           <tbody>
             {PLATFORMS.map((p) => (
               <tr key={p.name}>
                 <td>
                   <strong>{p.name}</strong>
                 </td>
-                <td>
-                  <span className={`badge ${p.status === "available" ? "badge-ok" : ""}`}>{t(`sync.${p.status}` as never)}</span>
+                <td className="nowrap">
+                  {p.app && p.importFrom ? (
+                    <button className="btn small ghost" onClick={() => importDj(p.app!, p.importFrom!)}>
+                      {t("sync.import")}
+                    </button>
+                  ) : (
+                    <span className="badge">{t("sync.notSupported")}</span>
+                  )}{" "}
+                  {p.app && p.exportTo && (
+                    <button className="btn small" onClick={() => exportDj(p.app!, p.exportTo!)}>
+                      {t("sync.export")}
+                    </button>
+                  )}
                 </td>
                 <td className="muted small">{t(p.notes as never)}</td>
               </tr>

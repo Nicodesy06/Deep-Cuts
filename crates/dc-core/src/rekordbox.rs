@@ -14,6 +14,21 @@ use std::path::{Path, PathBuf};
 
 pub const SOURCE: &str = "import:rekordbox";
 
+/// Where an imported library comes from: the field/cue/playlist source tag
+/// (e.g. "import:traktor") and the key used in `external_ids`.
+#[derive(Debug, Clone, Copy)]
+pub struct Origin {
+    pub source: &'static str,
+    pub external: &'static str,
+    pub audit_action: &'static str,
+}
+
+pub const REKORDBOX: Origin = Origin {
+    source: SOURCE,
+    external: "rekordbox",
+    audit_action: "import-rekordbox",
+};
+
 // ---------------------------------------------------------------------------
 // Location URIs
 // ---------------------------------------------------------------------------
@@ -270,6 +285,18 @@ pub struct RbImportReport {
 pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportReport> {
     let xml = std::fs::read_to_string(xml_path)?;
     let lib = parse(&xml)?;
+    import_library(conn, &lib, REKORDBOX, xml_path)
+}
+
+/// Import a parsed DJ library (Rekordbox, Traktor, VirtualDJ, Serato all map
+/// to `RbLibrary`). Track entries carry a `Location` file URI; playlists refer
+/// to tracks by id (key_type 0) or by Location (key_type 1).
+pub fn import_library(
+    conn: &mut Connection,
+    lib: &RbLibrary,
+    origin: Origin,
+    origin_file: &Path,
+) -> Result<RbImportReport> {
     let mut rep = RbImportReport {
         tracks_in_xml: lib.tracks.len(),
         ..Default::default()
@@ -314,8 +341,8 @@ pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportRepo
             Some(id) => Some(id),
             None => tx
                 .query_row(
-                    "SELECT track_id FROM external_ids WHERE source = 'rekordbox' AND external_id = ?1",
-                    [&t.track_id],
+                    "SELECT track_id FROM external_ids WHERE source = ?2 AND external_id = ?1",
+                    params![&t.track_id, origin.external],
                     |r| r.get(0),
                 )
                 .optional()?,
@@ -350,10 +377,10 @@ pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportRepo
             }
         };
         tx.execute(
-            "INSERT OR REPLACE INTO external_ids (track_id, source, external_id) VALUES (?1, 'rekordbox', ?2)",
-            params![track_id, t.track_id],
+            "INSERT OR REPLACE INTO external_ids (track_id, source, external_id) VALUES (?1, ?3, ?2)",
+            params![track_id, t.track_id, origin.external],
         )?;
-        apply_track(&tx, &track_id, t, &mut rep)?;
+        apply_track(&tx, &track_id, t, origin.source, &mut rep)?;
         library::refresh_fts(&tx, &track_id)?;
         rb_to_track.insert(t.track_id.clone(), track_id.clone());
         loc_to_track.insert(loc.clone(), track_id);
@@ -369,9 +396,11 @@ pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportRepo
                 folder,
                 parent.as_deref(),
                 "folder",
+                origin.source,
             )?);
         }
-        let pid = find_or_create_playlist(&tx, &pl.name, parent.as_deref(), "manual")?;
+        let pid =
+            find_or_create_playlist(&tx, &pl.name, parent.as_deref(), "manual", origin.source)?;
         let mut ids = Vec::new();
         for k in &pl.keys {
             let resolved = if pl.key_type == 1 {
@@ -390,10 +419,10 @@ pub fn import_xml(conn: &mut Connection, xml_path: &Path) -> Result<RbImportRepo
     }
     audit(
         &tx,
-        "import-rekordbox",
+        origin.audit_action,
         "library",
         None,
-        serde_json::json!({"file": xml_path, "tracks": rep.tracks_in_xml, "created": rep.created, "playlists": rep.playlists_imported}),
+        serde_json::json!({"file": origin_file, "tracks": rep.tracks_in_xml, "created": rep.created, "playlists": rep.playlists_imported}),
     )?;
     tx.commit()?;
     Ok(rep)
@@ -404,11 +433,12 @@ fn find_or_create_playlist(
     name: &str,
     parent: Option<&str>,
     kind: &str,
+    source: &str,
 ) -> Result<String> {
     let existing: Option<String> = conn
         .query_row(
             "SELECT id FROM playlists WHERE name = ?1 AND parent_id IS ?2 AND source = ?3 AND kind = ?4",
-            params![name, parent, SOURCE, kind],
+            params![name, parent, source, kind],
             |r| r.get(0),
         )
         .optional()?;
@@ -418,7 +448,7 @@ fn find_or_create_playlist(
     let id = new_id();
     conn.execute(
         "INSERT INTO playlists (id, name, parent_id, kind, source, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-        params![id, name, parent, kind, SOURCE, now_ms()],
+        params![id, name, parent, kind, source, now_ms()],
     )?;
     Ok(id)
 }
@@ -427,6 +457,7 @@ fn apply_track(
     conn: &Connection,
     track_id: &str,
     t: &RbTrack,
+    source: &str,
     rep: &mut RbImportReport,
 ) -> Result<()> {
     let a = &t.attrs;
@@ -447,21 +478,21 @@ fn apply_track(
         ("Mix", "version"),
     ] {
         match text(attr) {
-            Some(v) => library::set_field(conn, track_id, field, SOURCE, Some(&v))?,
-            None => library::clear_field_source(conn, track_id, field, SOURCE)?,
+            Some(v) => library::set_field(conn, track_id, field, source, Some(&v))?,
+            None => library::clear_field_source(conn, track_id, field, source)?,
         }
     }
     if let Some(y) = text("Year")
         .and_then(|y| y.parse::<i64>().ok())
         .filter(|y| *y > 0)
     {
-        library::set_field(conn, track_id, "year", SOURCE, Some(&y.to_string()))?;
+        library::set_field(conn, track_id, "year", source, Some(&y.to_string()))?;
     }
     if let Some(b) = text("AverageBpm")
         .and_then(|b| b.parse::<f64>().ok())
         .filter(|b| *b > 0.0)
     {
-        library::set_field(conn, track_id, "bpm", SOURCE, Some(&b.to_string()))?;
+        library::set_field(conn, track_id, "bpm", source, Some(&b.to_string()))?;
     }
     if let Some(d) = text("TotalTime")
         .and_then(|d| d.parse::<f64>().ok())
@@ -471,7 +502,7 @@ fn apply_track(
             conn,
             track_id,
             "durationMs",
-            SOURCE,
+            source,
             Some(&((d * 1000.0) as i64).to_string()),
         )?;
     }
@@ -480,7 +511,7 @@ fn apply_track(
             conn,
             track_id,
             "rating",
-            SOURCE,
+            source,
             Some(&rating_to_stars(r).to_string()),
         )?;
     }
@@ -490,7 +521,7 @@ fn apply_track(
              ON CONFLICT(track_id, source) DO UPDATE SET bpm = excluded.bpm, first_beat_ms = excluded.first_beat_ms, markers = excluded.markers",
             params![
                 track_id,
-                SOURCE,
+                source,
                 bpm,
                 inizio * 1000.0,
                 (t.tempos.len() > 1).then(|| serde_json::to_string(&t.tempos).unwrap_or_default())
@@ -500,7 +531,7 @@ fn apply_track(
     // Replace only cues that previously came from Rekordbox.
     conn.execute(
         "DELETE FROM cue_points WHERE track_id = ?1 AND source = ?2 AND locked = 0",
-        params![track_id, SOURCE],
+        params![track_id, source],
     )?;
     for m in &t.marks {
         let kind = match (m.kind, m.num) {
@@ -520,7 +551,7 @@ fn apply_track(
                 m.end.map(|e| e * 1000.0),
                 (!m.name.is_empty()).then_some(m.name.clone()),
                 m.color,
-                SOURCE,
+                source,
                 now_ms()
             ],
         )?;
@@ -595,6 +626,48 @@ pub fn cues(conn: &Connection, track_id: &str) -> Result<Vec<Cue>> {
 }
 
 pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Result<String> {
+    Ok(build_xml_lib(&crate::djlib::for_ids(
+        conn,
+        ids,
+        playlist_name,
+    )?))
+}
+
+/// Folder tree of playlists for writers that nest NODEs.
+pub(crate) enum Node<'a> {
+    Folder(String, Vec<Node<'a>>),
+    Playlist(&'a crate::djlib::XPlaylist),
+}
+
+pub(crate) fn playlist_tree(lib: &crate::djlib::ExportLibrary) -> Vec<Node<'_>> {
+    fn insert<'a>(nodes: &mut Vec<Node<'a>>, folders: &[String], p: &'a crate::djlib::XPlaylist) {
+        match folders.split_first() {
+            None => nodes.push(Node::Playlist(p)),
+            Some((first, rest)) => {
+                let pos = nodes
+                    .iter()
+                    .position(|n| matches!(n, Node::Folder(name, _) if name == first));
+                let i = match pos {
+                    Some(i) => i,
+                    None => {
+                        nodes.push(Node::Folder(first.clone(), Vec::new()));
+                        nodes.len() - 1
+                    }
+                };
+                if let Node::Folder(_, children) = &mut nodes[i] {
+                    insert(children, rest, p);
+                }
+            }
+        }
+    }
+    let mut root = Vec::new();
+    for p in &lib.playlists {
+        insert(&mut root, &p.folders, p);
+    }
+    root
+}
+
+pub fn build_xml_lib(lib: &crate::djlib::ExportLibrary) -> String {
     let mut s = String::from(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<DJ_PLAYLISTS Version=\"1.0.0\">\n",
     );
@@ -602,25 +675,12 @@ pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Resu
         "  <PRODUCT Name=\"Deep Cuts\" Version=\"{}\" Company=\"Deep Cuts\"/>\n",
         env!("CARGO_PKG_VERSION")
     ));
-    let mut unique: Vec<&String> = Vec::new();
-    for id in ids {
-        if !unique.contains(&id) {
-            unique.push(id);
-        }
-    }
-    s.push_str(&format!("  <COLLECTION Entries=\"{}\">\n", unique.len()));
-    let mut num: HashMap<&String, usize> = HashMap::new();
-    for (i, id) in unique.iter().enumerate() {
-        let t = library::get_track(conn, id)?;
-        num.insert(id, i + 1);
-        let (size, sample_rate): (Option<i64>, Option<i64>) = conn
-            .query_row(
-                "SELECT size, sample_rate FROM files WHERE track_id = ?1 ORDER BY missing, added_at LIMIT 1",
-                [id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?
-            .unwrap_or((None, None));
+    s.push_str(&format!(
+        "  <COLLECTION Entries=\"{}\">\n",
+        lib.tracks.len()
+    ));
+    for (i, x) in lib.tracks.iter().enumerate() {
+        let t = &x.row;
         let added = chrono::DateTime::from_timestamp_millis(t.created_at)
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default();
@@ -631,7 +691,7 @@ pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Resu
         line += &attr("Album", t.album.as_deref().unwrap_or(""));
         line += &attr("Genre", t.genre.as_deref().unwrap_or(""));
         line += &attr("Kind", kind_name(t.format.as_deref()));
-        line += &attr("Size", &size.unwrap_or(0).to_string());
+        line += &attr("Size", &x.size.to_string());
         line += &attr(
             "TotalTime",
             &t.duration_ms
@@ -647,7 +707,7 @@ pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Resu
         );
         line += &attr("DateAdded", &added);
         line += &attr("BitRate", &t.bitrate.unwrap_or(0).to_string());
-        line += &attr("SampleRate", &sample_rate.unwrap_or(0).to_string());
+        line += &attr("SampleRate", &x.sample_rate.unwrap_or(0).to_string());
         line += &attr("Comments", t.comment.as_deref().unwrap_or(""));
         line += &attr(
             "Rating",
@@ -664,25 +724,13 @@ pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Resu
         line.push('>');
         s.push_str(&line);
         s.push('\n');
-        // Prefer the user's/imported grid over our own analysis.
-        let grid: Option<(f64, f64)> = conn
-            .query_row(
-                "SELECT bpm, first_beat_ms FROM beatgrids WHERE track_id = ?1
-                 ORDER BY CASE source WHEN 'user' THEN 0 WHEN 'analysis' THEN 2 ELSE 1 END LIMIT 1",
-                [id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
-        if let Some((bpm, first)) = grid {
+        if let Some((bpm, first)) = x.grid {
             s.push_str(&format!(
                 "      <TEMPO Inizio=\"{:.3}\" Bpm=\"{bpm:.2}\" Metro=\"4/4\" Battito=\"1\"/>\n",
                 first / 1000.0
             ));
         }
-        for c in cues(conn, id)?
-            .into_iter()
-            .filter(|c| c.kind != "suggestion")
-        {
+        for c in &x.cues {
             let (ty, end) = match (c.kind.as_str(), c.end_ms) {
                 ("loop", Some(e)) => (4, format!(" End=\"{:.3}\"", e / 1000.0)),
                 _ => (0, String::new()),
@@ -711,17 +759,41 @@ pub fn build_xml(conn: &Connection, ids: &[String], playlist_name: &str) -> Resu
         }
         s.push_str("    </TRACK>\n");
     }
-    s.push_str("  </COLLECTION>\n  <PLAYLISTS>\n    <NODE Type=\"0\" Name=\"ROOT\" Count=\"1\">\n");
-    s.push_str(&format!(
-        "      <NODE Name=\"{}\" Type=\"1\" KeyType=\"0\" Entries=\"{}\">\n",
-        esc(playlist_name),
-        ids.len()
-    ));
-    for id in ids {
-        s.push_str(&format!("        <TRACK Key=\"{}\"/>\n", num[id]));
+    fn write_nodes(s: &mut String, nodes: &[Node], depth: usize) {
+        let pad = "  ".repeat(depth);
+        for n in nodes {
+            match n {
+                Node::Folder(name, children) => {
+                    s.push_str(&format!(
+                        "{pad}<NODE Type=\"0\" Name=\"{}\" Count=\"{}\">\n",
+                        esc(name),
+                        children.len()
+                    ));
+                    write_nodes(s, children, depth + 1);
+                    s.push_str(&format!("{pad}</NODE>\n"));
+                }
+                Node::Playlist(p) => {
+                    s.push_str(&format!(
+                        "{pad}<NODE Name=\"{}\" Type=\"1\" KeyType=\"0\" Entries=\"{}\">\n",
+                        esc(&p.name),
+                        p.tracks.len()
+                    ));
+                    for i in &p.tracks {
+                        s.push_str(&format!("{pad}  <TRACK Key=\"{}\"/>\n", i + 1));
+                    }
+                    s.push_str(&format!("{pad}</NODE>\n"));
+                }
+            }
+        }
     }
-    s.push_str("      </NODE>\n    </NODE>\n  </PLAYLISTS>\n</DJ_PLAYLISTS>\n");
-    Ok(s)
+    let tree = playlist_tree(lib);
+    s.push_str(&format!(
+        "  </COLLECTION>\n  <PLAYLISTS>\n    <NODE Type=\"0\" Name=\"ROOT\" Count=\"{}\">\n",
+        tree.len()
+    ));
+    write_nodes(&mut s, &tree, 3);
+    s.push_str("    </NODE>\n  </PLAYLISTS>\n</DJ_PLAYLISTS>\n");
+    s
 }
 
 #[cfg(test)]

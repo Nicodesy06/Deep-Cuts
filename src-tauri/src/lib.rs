@@ -122,6 +122,8 @@ pub fn run() {
             commands::cancel_import,
             commands::import_rekordbox,
             commands::export_tracks,
+            commands::import_dj,
+            commands::export_dj,
             commands::list_playlists,
             commands::create_playlist,
             commands::rename_playlist,

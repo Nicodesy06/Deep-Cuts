@@ -1976,3 +1976,7 @@ tr.rejected td {
   overflow: auto;
   margin: 8px 0 12px;
 }
+
+.nowrap {
+  white-space: nowrap;
+}

@@ -467,6 +467,16 @@ export interface DuplicateGroup {
   tracks: TrackRow[];
 }
 
+export type DjApp = "rekordbox" | "traktor" | "serato" | "virtualdj";
+
+export interface DjExportSummary {
+  tracks: number;
+  playlists: number;
+  files: number;
+  skipped: number;
+  target: string;
+}
+
 export interface RbImportResult {
   backup: BackupInfo;
   report: {
@@ -500,6 +510,9 @@ export const api = {
   importPaths: (paths: string[], analyze: boolean) => invoke<ImportReport>("import_paths", { paths, analyze }),
   cancelImport: () => invoke<void>("cancel_import"),
   importRekordbox: (path: string) => invoke<RbImportResult>("import_rekordbox", { path }),
+  importDj: (app: DjApp, path: string) => invoke<RbImportResult>("import_dj", { app, path }),
+  exportDj: (args: { app: DjApp; whole: boolean; ids?: string[] | null; query?: TrackQuery | null; name?: string | null; target: string }) =>
+    invoke<DjExportSummary>("export_dj", args),
   exportTracks: (args: {
     ids?: string[] | null;
     query?: TrackQuery | null;

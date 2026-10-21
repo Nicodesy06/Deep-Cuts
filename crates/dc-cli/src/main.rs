@@ -67,6 +67,20 @@ enum Cmd {
     },
     /// Import a Rekordbox XML collection (backup taken first).
     ImportRekordbox { xml: PathBuf },
+    /// Import another DJ app: rekordbox (.xml), traktor (.nml), serato
+    /// (_Serato_ folder), virtualdj (VirtualDJ folder).
+    ImportDj { app: String, path: PathBuf },
+    /// Export to a DJ app: the whole library with playlists (no --query),
+    /// or the tracks matching --query as one playlist. Target: .xml/.nml
+    /// file, _Serato_ folder, or a folder for .vdjfolder playlists.
+    ExportDj {
+        app: String,
+        target: PathBuf,
+        #[arg(long)]
+        query: Option<String>,
+        #[arg(long, default_value = "Deep Cuts Export")]
+        name: String,
+    },
     /// Library statistics as JSON.
     Stats,
     /// Mark files that no longer exist.
@@ -456,6 +470,34 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             println!("backup: {}", b.path);
             let rep = rekordbox::import_xml(&mut conn, &xml)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Cmd::ImportDj { app, path } => {
+            let b = backup::create(&conn, &backups, &format!("pre-{app}-import"))?;
+            println!("backup: {}", b.path);
+            let rep = dc_core::djlib::import_from(&mut conn, &app, &path)?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Cmd::ExportDj {
+            app,
+            target,
+            query,
+            name,
+        } => {
+            let lib = match query {
+                None => dc_core::djlib::whole_library(&conn)?,
+                Some(q) => {
+                    let ids = query_track_ids(
+                        &conn,
+                        &TrackQuery {
+                            query: q,
+                            ..Default::default()
+                        },
+                    )?;
+                    dc_core::djlib::for_ids(&conn, &ids, &name)?
+                }
+            };
+            let s = dc_core::djlib::export_to(&app, &lib, &target)?;
+            println!("{}", serde_json::to_string_pretty(&s)?);
         }
         Cmd::Stats => println!(
             "{}",

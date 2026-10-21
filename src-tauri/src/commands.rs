@@ -7,7 +7,9 @@ use dc_core::{
     analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
     tagwrite,
 };
-use dc_core::{bulk, csvimport, dedupe, fileops, map, playlist_tools, relocate, sets, similarity};
+use dc_core::{
+    bulk, csvimport, dedupe, djlib, fileops, map, playlist_tools, relocate, sets, similarity,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -251,6 +253,49 @@ pub async fn import_rekordbox(state: State<'_, AppState>, path: String) -> Res<R
         let b = backup::create(conn, &dir, "pre-rekordbox-import")?;
         let report = rekordbox::import_xml(conn, std::path::Path::new(&path))?;
         Ok(RbImportResult { backup: b, report })
+    })
+    .await
+}
+
+/// Import another DJ application's library (backup first).
+#[tauri::command]
+pub async fn import_dj(
+    state: State<'_, AppState>,
+    app: String,
+    path: String,
+) -> Res<RbImportResult> {
+    let dir = state.backups_dir.clone();
+    blocking(state.db_path.clone(), move |conn| {
+        let b = backup::create(conn, &dir, &format!("pre-{app}-import"))?;
+        let report = djlib::import_from(conn, &app, std::path::Path::new(&path))?;
+        Ok(RbImportResult { backup: b, report })
+    })
+    .await
+}
+
+/// Export to another DJ application. `whole` = every track and playlist;
+/// otherwise `ids` (or the tracks matching `query`) as one playlist.
+#[tauri::command]
+pub async fn export_dj(
+    state: State<'_, AppState>,
+    app: String,
+    whole: bool,
+    ids: Option<Vec<String>>,
+    query: Option<TrackQuery>,
+    name: Option<String>,
+    target: String,
+) -> Res<djlib::ExportSummary> {
+    blocking(state.db_path.clone(), move |conn| {
+        let lib = if whole {
+            djlib::whole_library(conn)?
+        } else {
+            let ids = match ids {
+                Some(ids) => ids,
+                None => dc_core::query::query_track_ids(conn, &query.unwrap_or_default())?,
+            };
+            djlib::for_ids(conn, &ids, name.as_deref().unwrap_or("Deep Cuts Export"))?
+        };
+        djlib::export_to(&app, &lib, std::path::Path::new(&target))
     })
     .await
 }
