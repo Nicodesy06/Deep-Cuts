@@ -14,6 +14,8 @@ import { clickRow, emptySelection, moveFocus, type Selection } from "../selectio
 import { useAction, useApp } from "../store";
 import { useTrackPages } from "../useTrackPages";
 
+const KEY_ONLY = ["key"];
+
 function loadColumns(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem("dc.columns") ?? "null");
@@ -48,6 +50,7 @@ export function Library() {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
+  const [keyWriteIds, setKeyWriteIds] = useState<string[] | null>(null);
   const [cover, setCover] = useState<{ ids: string[]; mode: "set" | "remove" } | null>(null);
   const [renameIds, setRenameIds] = useState<string[] | null>(null);
   const [frIds, setFrIds] = useState<string[] | null>(null);
@@ -440,6 +443,7 @@ export function Library() {
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
+      {keyWriteIds && <WriteTagsDialog ids={keyWriteIds} fields={KEY_ONLY} onClose={() => setKeyWriteIds(null)} />}
       {cover && <CoverDialog ids={cover.ids} mode={cover.mode} onClose={() => setCover(null)} />}
       {renameIds && <RenameDialog ids={renameIds} onClose={() => setRenameIds(null)} />}
       {frIds && <FindReplaceDialog ids={frIds} onClose={() => setFrIds(null)} />}
@@ -614,6 +618,7 @@ export function Library() {
             + {t("tags.newForSelection")}
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
+          <button onClick={() => setKeyWriteIds(selectedIds)}>{t("keyNotation.menu")}</button>
           <button onClick={() => setCover({ ids: selectedIds, mode: "set" })}>{t("cover.setMenu")}</button>
           <button onClick={() => setCover({ ids: selectedIds, mode: "remove" })}>{t("cover.removeMenu")}</button>
           <button onClick={() => setFrIds(selectedIds)}>{t("fr.menu")}</button>

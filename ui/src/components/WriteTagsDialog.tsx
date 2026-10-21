@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, type WritePlan, type WriteReport } from "../api";
 import { useApp } from "../store";
 
-export function WriteTagsDialog({ ids, onClose }: { ids: string[]; onClose: () => void }) {
+export function WriteTagsDialog({ ids, fields, onClose }: { ids: string[]; fields?: string[]; onClose: () => void }) {
   const { t, bump } = useApp();
   const [plan, setPlan] = useState<WritePlan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -12,13 +12,13 @@ export function WriteTagsDialog({ ids, onClose }: { ids: string[]; onClose: () =
   const [report, setReport] = useState<WriteReport | null>(null);
 
   useEffect(() => {
-    api.planTagWrite(ids).then(setPlan, (e) => setError(String(e)));
-  }, [ids]);
+    api.planTagWrite(ids, fields).then(setPlan, (e) => setError(String(e)));
+  }, [ids, fields]);
 
   const write = async () => {
     setBusy(true);
     try {
-      const r = await api.writeTags(plan!.map((p) => p.trackId), keepBackup);
+      const r = await api.writeTags(plan!.map((p) => p.trackId), keepBackup, fields);
       setReport(r);
       bump();
     } catch (e) {
@@ -31,7 +31,7 @@ export function WriteTagsDialog({ ids, onClose }: { ids: string[]; onClose: () =
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal wide" role="dialog" aria-modal onMouseDown={(e) => e.stopPropagation()}>
-        <h3>{t("write.title")}</h3>
+        <h3>{t(fields?.length === 1 && fields[0] === "key" ? "keyNotation.title" : "write.title")}</h3>
         {error && <div className="query-error">{error}</div>}
         {!plan && !error && <p className="muted">{t("common.loading")}</p>}
         {plan && !report && (

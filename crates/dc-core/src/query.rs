@@ -8,7 +8,8 @@
 //!   artist, version, remixer, album, label, genre, comment, notes and path
 //! * `field:value` — substring match on text fields, `field:"exact phrase"`
 //! * numeric fields accept `120`, `120-126`, `>120`, `>=120`, `<9`, `<=9`
-//! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible
+//! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible,
+//!   `key:8A++` = compatible or an energy move (+2 / +7)
 //! * `none` matches empty values: `genre:none`, `bpm:none`, `key:none`
 //! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`, `archived:yes`,
 //!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
@@ -291,9 +292,14 @@ impl Parser {
             ),
             "key" if value.eq_ignore_ascii_case("none") => Ok("t.key_camelot IS NULL".into()),
             "key" => {
-                let (raw, compatible) = match value.strip_suffix('+') {
-                    Some(v) => (v, true),
-                    None => (value, false),
+                // key:8A+ = compatible, key:8A++ = compatible or an energy
+                // move (+2 / +7 on the same ring).
+                let (raw, compatible, boost) = if let Some(v) = value.strip_suffix("++") {
+                    (v, true, true)
+                } else if let Some(v) = value.strip_suffix('+') {
+                    (v, true, false)
+                } else {
+                    (value, false, false)
                 };
                 let key = Key::parse(raw)
                     .ok_or_else(|| Error::Invalid(format!("unknown key '{raw}'")))?;
@@ -308,6 +314,10 @@ impl Parser {
                 codes.push(format!("{}{ring}", (n % 12) + 1));
                 codes.push(format!("{}{ring}", ((n + 10) % 12) + 1));
                 codes.push(format!("{n}{other}"));
+                if boost {
+                    codes.push(format!("{}{ring}", ((n + 1) % 12) + 1));
+                    codes.push(format!("{}{ring}", ((n + 6) % 12) + 1));
+                }
                 let ps: Vec<String> = codes
                     .into_iter()
                     .map(|c| self.param(Value::Text(c)))
@@ -645,5 +655,29 @@ mod tests {
         let c = compile("lufs:-14--8").unwrap();
         assert!(c.sql.contains("BETWEEN"), "{}", c.sql);
         assert_eq!(c.params, vec![Value::Real(-14.0), Value::Real(-8.0)]);
+    }
+
+    #[test]
+    fn harmonic_key_queries() {
+        let codes = |q: &str| -> Vec<String> {
+            let mut v: Vec<String> = compile(q)
+                .unwrap()
+                .params
+                .into_iter()
+                .filter_map(|p| match p {
+                    Value::Text(t) => Some(t),
+                    _ => None,
+                })
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(codes("key:8A"), vec!["8A"]);
+        assert_eq!(codes("key:8A+"), vec!["7A", "8A", "8B", "9A"]);
+        assert_eq!(codes("key:8A++"), vec!["10A", "3A", "7A", "8A", "8B", "9A"]);
+        assert_eq!(
+            codes("key:12B++"),
+            vec!["11B", "12A", "12B", "1B", "2B", "7B"]
+        );
     }
 }

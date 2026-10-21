@@ -66,7 +66,10 @@ pub enum Harmonic {
     Same,
     Adjacent,
     Relative,
+    /// +2 on the same ring (e.g. 8A → 10A), the "energy boost" move.
     EnergyBoost,
+    /// +7 on the same ring (e.g. 8A → 3A): one semitone up.
+    SemitoneUp,
     Distant,
     Unknown,
 }
@@ -91,9 +94,11 @@ pub fn harmonic(a: Option<&str>, b: Option<&str>) -> Harmonic {
         if d == 1 || d == 11 {
             return Harmonic::Adjacent;
         }
-        if d == 2 || d == 7 {
-            // +2 ("energy boost") and +7 semitone-up moves used by DJs
+        if d == 2 {
             return Harmonic::EnergyBoost;
+        }
+        if d == 7 {
+            return Harmonic::SemitoneUp;
         }
         return Harmonic::Distant;
     }
@@ -108,7 +113,7 @@ fn harmonic_sim(h: Harmonic) -> f32 {
     match h {
         Harmonic::Same => 1.0,
         Harmonic::Adjacent | Harmonic::Relative => 0.8,
-        Harmonic::EnergyBoost => 0.5,
+        Harmonic::EnergyBoost | Harmonic::SemitoneUp => 0.5,
         Harmonic::Unknown => 0.5,
         Harmonic::Distant => 0.0,
     }
@@ -373,6 +378,9 @@ mod tests {
         assert_eq!(harmonic(Some("8A"), Some("8B")), Harmonic::Relative);
         assert_eq!(harmonic(Some("Am"), Some("C")), Harmonic::Relative);
         assert_eq!(harmonic(Some("8A"), Some("10A")), Harmonic::EnergyBoost);
+        assert_eq!(harmonic(Some("8A"), Some("3A")), Harmonic::SemitoneUp);
+        assert_eq!(harmonic(Some("Am"), Some("A#m")), Harmonic::SemitoneUp);
+        assert_eq!(harmonic(Some("10A"), Some("8A")), Harmonic::Distant);
         assert_eq!(harmonic(Some("8A"), Some("3B")), Harmonic::Distant);
         assert_eq!(harmonic(None, Some("3B")), Harmonic::Unknown);
     }

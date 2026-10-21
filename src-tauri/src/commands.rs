@@ -1127,8 +1127,13 @@ pub fn rename_cue(
 pub async fn plan_tag_write(
     state: State<'_, AppState>,
     ids: Vec<String>,
+    fields: Option<Vec<String>>,
 ) -> Res<Vec<tagwrite::WritePlan>> {
-    blocking(state.db_path.clone(), move |c| tagwrite::plan(c, &ids)).await
+    blocking(state.db_path.clone(), move |c| {
+        let opts = tagwrite::WriteOptions::from_settings(c, fields);
+        tagwrite::plan_with(c, &ids, &opts)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1136,10 +1141,12 @@ pub async fn write_tags(
     state: State<'_, AppState>,
     ids: Vec<String>,
     keep_backup: bool,
+    fields: Option<Vec<String>>,
 ) -> Res<tagwrite::WriteReport> {
     let dir = state.backups_dir.join("audio-originals");
     blocking(state.db_path.clone(), move |c| {
-        tagwrite::write(c, &ids, keep_backup.then_some(dir.as_path()))
+        let opts = tagwrite::WriteOptions::from_settings(c, fields);
+        tagwrite::write_with(c, &ids, keep_backup.then_some(dir.as_path()), &opts)
     })
     .await
 }

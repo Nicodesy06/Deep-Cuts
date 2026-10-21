@@ -223,7 +223,7 @@ export interface WatchFolder {
   exists: boolean;
 }
 
-export type Harmonic = "same" | "adjacent" | "relative" | "energyBoost" | "distant" | "unknown";
+export type Harmonic = "same" | "adjacent" | "relative" | "energyBoost" | "semitoneUp" | "distant" | "unknown";
 
 export interface SimilarityWeights {
   tempo: number;
@@ -705,8 +705,8 @@ export const api = {
   acceptCue: (id: string, hotSlot?: number | null) => invoke<string>("accept_cue", { id, hotSlot: hotSlot ?? null }),
   deleteCue: (id: string) => invoke<void>("delete_cue", { id }),
   renameCue: (id: string, name: string | null, color: string | null) => invoke<void>("rename_cue", { id, name, color }),
-  planTagWrite: (ids: string[]) => invoke<WritePlan[]>("plan_tag_write", { ids }),
-  writeTags: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("write_tags", { ids, keepBackup }),
+  planTagWrite: (ids: string[], fields?: string[]) => invoke<WritePlan[]>("plan_tag_write", { ids, fields: fields ?? null }),
+  writeTags: (ids: string[], keepBackup: boolean, fields?: string[]) => invoke<WriteReport>("write_tags", { ids, keepBackup, fields: fields ?? null }),
   setCover: (ids: string[], image: string, keepBackup: boolean) => invoke<WriteReport>("set_cover", { ids, image, keepBackup }),
   removeCovers: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("remove_covers", { ids, keepBackup }),
   planRename: (ids: string[], pattern: string, targetDir: string | null) =>

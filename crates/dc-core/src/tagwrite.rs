@@ -8,7 +8,7 @@
 use crate::error::{Error, Result};
 use crate::library::{self, SOURCE_FILE};
 use crate::metadata;
-use lofty::config::WriteOptions;
+use lofty::config::WriteOptions as LoftyWriteOptions;
 use lofty::prelude::*;
 use lofty::tag::{ItemKey, Tag};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -67,10 +67,74 @@ fn norm(field: &str, v: Option<String>) -> Option<String> {
     })
 }
 
+/// How the key is written into files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum KeyNotation {
+    /// As stored in the library (whatever the source wrote).
+    #[default]
+    Original,
+    /// 8A / 8B
+    Camelot,
+    /// 1m / 1d
+    OpenKey,
+    /// Am / Db
+    Musical,
+}
+
+impl KeyNotation {
+    pub fn parse(s: &str) -> KeyNotation {
+        match s {
+            "camelot" => KeyNotation::Camelot,
+            "openKey" => KeyNotation::OpenKey,
+            "musical" => KeyNotation::Musical,
+            _ => KeyNotation::Original,
+        }
+    }
+
+    pub fn format(self, value: &str) -> String {
+        let Some(k) = crate::keys::Key::parse(value) else {
+            return value.to_string();
+        };
+        match self {
+            KeyNotation::Original => value.to_string(),
+            KeyNotation::Camelot => k.camelot(),
+            KeyNotation::OpenKey => k.open_key(),
+            KeyNotation::Musical => k.name(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WriteOptions {
+    pub key_notation: KeyNotation,
+    /// Only these fields (None = all writable fields).
+    pub fields: Option<Vec<String>>,
+}
+
+impl WriteOptions {
+    /// Key notation from the library settings ("tagKeyNotation").
+    pub fn from_settings(conn: &Connection, fields: Option<Vec<String>>) -> Self {
+        let key_notation = library::get_setting(conn, "tagKeyNotation")
+            .ok()
+            .flatten()
+            .map(|s| KeyNotation::parse(&s))
+            .unwrap_or_default();
+        WriteOptions {
+            key_notation,
+            fields,
+        }
+    }
+}
+
 /// (field, value in the file, effective library value)
 type FieldPair = (String, Option<String>, Option<String>);
 
-fn effective_values(conn: &Connection, track_id: &str) -> Result<Vec<FieldPair>> {
+fn effective_values(
+    conn: &Connection,
+    track_id: &str,
+    opts: &WriteOptions,
+) -> Result<Vec<FieldPair>> {
     // (field, file value, effective value) for writable fields.
     let rank = |s: &str| match s {
         "user" => 0,
@@ -81,6 +145,11 @@ fn effective_values(conn: &Connection, track_id: &str) -> Result<Vec<FieldPair>>
     let fields = library::field_values(conn, track_id)?;
     let mut out = Vec::new();
     for &f in WRITABLE {
+        if let Some(only) = &opts.fields
+            && !only.iter().any(|o| o == f)
+        {
+            continue;
+        }
         let mut vals: Vec<_> = fields.iter().filter(|v| v.field == f).collect();
         vals.sort_by_key(|v| rank(&v.source));
         let file = vals
@@ -92,6 +161,11 @@ fn effective_values(conn: &Connection, track_id: &str) -> Result<Vec<FieldPair>>
             .iter()
             .find(|v| v.source != "analysis" || f == "bpm" || f == "key")
             .and_then(|v| v.value.clone());
+        let eff = if f == "key" {
+            eff.map(|v| opts.key_notation.format(&v))
+        } else {
+            eff
+        };
         out.push((f.to_string(), norm(f, file), norm(f, eff)));
     }
     Ok(out)
@@ -109,15 +183,19 @@ fn bpm_in_sync(file: &Option<String>, eff: &Option<String>) -> bool {
     }
 }
 
-/// Dry run: what would change in each file.
+/// Dry run: what would change in each file (options from the settings).
 pub fn plan(conn: &Connection, ids: &[String]) -> Result<Vec<WritePlan>> {
+    plan_with(conn, ids, &WriteOptions::from_settings(conn, None))
+}
+
+pub fn plan_with(conn: &Connection, ids: &[String], opts: &WriteOptions) -> Result<Vec<WritePlan>> {
     let mut out = Vec::new();
     for id in ids {
         let path = match library::track_path(conn, id) {
             Ok(p) => p,
             Err(_) => continue,
         };
-        let changes: Vec<FieldChange> = effective_values(conn, id)?
+        let changes: Vec<FieldChange> = effective_values(conn, id, opts)?
             .into_iter()
             .filter(|(field, file, eff)| file != eff && !(field == "bpm" && bpm_in_sync(file, eff)))
             .map(|(field, file_value, new_value)| FieldChange {
@@ -270,7 +348,17 @@ pub fn write(
     ids: &[String],
     backup_dir: Option<&Path>,
 ) -> Result<WriteReport> {
-    let plans = plan(conn, ids)?;
+    let opts = WriteOptions::from_settings(conn, None);
+    write_with(conn, ids, backup_dir, &opts)
+}
+
+pub fn write_with(
+    conn: &mut Connection,
+    ids: &[String],
+    backup_dir: Option<&Path>,
+    opts: &WriteOptions,
+) -> Result<WriteReport> {
+    let plans = plan_with(conn, ids, opts)?;
     let mut rep = WriteReport {
         unchanged: ids.len().saturating_sub(plans.len()),
         ..Default::default()
@@ -368,7 +456,7 @@ pub(crate) fn rewrite_file(
         let tag = tagged.tag_mut(tag_type).expect("tag inserted above");
         edit(tag)?;
         tagged
-            .save_to_path(&path, WriteOptions::default())
+            .save_to_path(&path, LoftyWriteOptions::default())
             .map_err(|e| Error::Metadata(e.to_string()))?;
         check(&path)
     })();

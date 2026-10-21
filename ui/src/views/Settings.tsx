@@ -87,6 +87,23 @@ export function Settings() {
               </select>
             </label>
             <p className="hint">{t("bpmRange.hint")}</p>
+            <label className="field col">
+              <span className="field-label">{t("keyNotation.label")}</span>
+              <select
+                value={settings.tagKeyNotation ?? "original"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSettings((s) => ({ ...s, tagKeyNotation: v }));
+                  act(() => api.setSetting("tagKeyNotation", v));
+                }}
+              >
+                <option value="original">{t("keyNotation.original")}</option>
+                <option value="camelot">Camelot (8A)</option>
+                <option value="openKey">Open Key (1m)</option>
+                <option value="musical">{t("keyNotation.musical")}</option>
+              </select>
+            </label>
+            <p className="hint">{t("keyNotation.hint")}</p>
             <button className="btn ghost" onClick={() => act(() => api.reanalyzeAll()).then((r) => r && toast(t("bpmRange.requeued", { n: r.queued }), "ok"))}>
               {t("bpmRange.reanalyze")}
             </button>
