@@ -83,6 +83,13 @@ pub fn query_tracks(state: State<'_, AppState>, query: TrackQuery) -> Res<TrackP
     with_conn!(state, |c| dc_core::query::query_tracks(&c, &query))
 }
 
+/// Ids of every track matching `query`, in table order (select all, range
+/// selection beyond the rows loaded in the table).
+#[tauri::command]
+pub fn track_ids(state: State<'_, AppState>, query: TrackQuery) -> Res<Vec<String>> {
+    with_conn!(state, |c| dc_core::query::query_track_ids(&c, &query))
+}
+
 #[tauri::command]
 pub fn validate_query(state: State<'_, AppState>, query: String) -> Res<i64> {
     with_conn!(state, |c| dc_core::query::query_tracks(

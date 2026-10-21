@@ -167,12 +167,11 @@ export function Library() {
       }
       if (mod && e.key.toLowerCase() === "a") {
         e.preventDefault();
-        const ids = new Set<string>();
-        for (let i = 0; i < pages.total; i++) {
-          const id = idAt(i);
-          if (id) ids.add(id);
-        }
-        setSel({ ids, anchor: 0, focus: sel.focus });
+        // Every matching track, not only the rows loaded in the table.
+        api.trackIds(tq).then(
+          (all) => setSel({ ids: new Set(all), anchor: 0, focus: sel.focus }),
+          (err) => toast(String(err), "error"),
+        );
         return;
       }
       if (e.altKey && (currentPlaylist?.kind === "manual" || currentPlaylist?.kind === "set") && (e.key === "ArrowUp" || e.key === "ArrowDown") && sel.focus != null) {
@@ -240,7 +239,7 @@ export function Library() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sel, pages, idAt, play, setDecision, analyze, selectedIds, act, bump, currentPlaylist, toast, t]);
+  }, [sel, pages, idAt, play, setDecision, analyze, selectedIds, act, bump, currentPlaylist, toast, t, tq]);
 
   useEffect(() => {
     const close = () => {
@@ -416,7 +415,22 @@ export function Library() {
           onRowClick={(i, r, e) => {
             const toggle = isMac ? e.metaKey : e.ctrlKey;
             if (!e.shiftKey && !toggle && sel.ids.has(r.id) && sel.ids.size > 1) return; // allow dragging a multi-selection
-            setSel(clickRow(sel, i, r.id, { shift: e.shiftKey, toggle }, idAt));
+            const next = clickRow(sel, i, r.id, { shift: e.shiftKey, toggle }, idAt);
+            setSel(next);
+            // A shift range over rows not loaded yet: take the ids from the
+            // database so the whole range is selected, however long.
+            if (e.shiftKey && sel.anchor != null) {
+              const [a, b] = sel.anchor < i ? [sel.anchor, i] : [i, sel.anchor];
+              let complete = true;
+              for (let k = a; k <= b && complete; k++) if (!idAt(k)) complete = false;
+              if (!complete) {
+                api.trackIds(tq).then((all) => {
+                  const ids = toggle ? new Set(sel.ids) : new Set<string>();
+                  for (const id of all.slice(a, b + 1)) ids.add(id);
+                  setSel({ ids, anchor: sel.anchor, focus: i });
+                }, () => {});
+              }
+            }
           }}
           onRowDoubleClick={(_, r) => play(r, r.previewMs ?? 0)}
           onRowContext={(i, r, e) => {

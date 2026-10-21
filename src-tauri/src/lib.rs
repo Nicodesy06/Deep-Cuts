@@ -122,6 +122,7 @@ pub fn run() {
             commands::app_info,
             commands::library_stats,
             commands::query_tracks,
+            commands::track_ids,
             commands::track_detail,
             commands::waveform,
             commands::set_decision,

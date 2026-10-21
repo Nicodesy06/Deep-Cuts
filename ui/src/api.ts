@@ -695,6 +695,7 @@ export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   stats: () => invoke<LibraryStats>("library_stats"),
   queryTracks: (query: TrackQuery) => invoke<TrackPage>("query_tracks", { query }),
+  trackIds: (query: TrackQuery) => invoke<string[]>("track_ids", { query }),
   validateQuery: (query: string) => invoke<number>("validate_query", { query }),
   trackDetail: (id: string) => invoke<TrackDetail>("track_detail", { id }),
   waveform: (id: string) => invoke<number[] | null>("waveform", { id }),
