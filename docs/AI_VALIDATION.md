@@ -45,6 +45,16 @@ set evidently do not represent the tempo conventions of the test annotations (de
 Accuracy1 is about 26 points above test). Next step for tempo: a development set with perceptual
 tempo annotations, or a learned beat tracker evaluated the same way.
 
+## Precision of the tempo references (measured 2026-10-21)
+
+GiantSteps Tempo labels cannot measure sub-BPM precision. Comparing the two published versions on
+the 664 tracks: they agree within 4 % on 541 tracks (others differ by an octave or 3:2), but of
+those 541, **379 differ by more than 0.5 BPM** (e.g. 128 vs 125, 170 vs 174). They are perceptual,
+rounded values. GiantSteps therefore stays the check for Accuracy1/Accuracy2 (octave and
+gross errors), while grid-level precision ("exact", ±0.05 BPM) is measured against Beatport BPMs
+(whole numbers published with the release) on the development corpus: the precision stage is
+chosen on one half (track-disjoint split by file name) and measured once on the other.
+
 ## Acoustic duplicates (dc-dsp 1.2.0)
 
 Fingerprint: 17 log-spaced band energies (300 Hz–3 kHz, 372 ms windows every 186 ms), 16 bits per
