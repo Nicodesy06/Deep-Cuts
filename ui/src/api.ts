@@ -616,7 +616,7 @@ export const api = {
   exportTracks: (args: {
     ids?: string[] | null;
     query?: TrackQuery | null;
-    format: "m3u8" | "csv" | "rekordbox";
+    format: "m3u8" | "csv" | "rekordbox" | "html" | "pdf";
     path: string;
     name?: string | null;
   }) => invoke<number>("export_tracks", { ids: null, query: null, name: null, ...args }),
@@ -688,6 +688,7 @@ export const api = {
   saveCueTemplate: (template: CueTemplate) => invoke<CueTemplate>("save_cue_template", { template }),
   deleteCueTemplate: (id: string) => invoke<void>("delete_cue_template", { id }),
   applyCueTemplate: (template: CueTemplate, ids: string[]) => invoke<{ tracks: number; created: number; skipped: [string, string][] }>("apply_cue_template", { template, ids }),
+  virtualdjFilter: (query: string) => invoke<{ filter: string | null; unsupported: string[] }>("virtualdj_filter", { query }),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   undo: () => invoke<BatchInfo | null>("undo"),

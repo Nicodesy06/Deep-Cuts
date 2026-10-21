@@ -57,7 +57,7 @@ enum Cmd {
     },
     /// Show stored analysis for one track id.
     Show { id: String },
-    /// Export tracks matching a query as m3u8, csv or rekordbox xml.
+    /// Export tracks matching a query as m3u8, csv, rekordbox xml, html or pdf.
     Export {
         out: PathBuf,
         #[arg(default_value = "")]
@@ -469,9 +469,10 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 "m3u8" | "m3u" => export::export_m3u8(&conn, &ids, &out)?,
                 "csv" => export::export_csv(&conn, &ids, &out)?,
                 "xml" => export::export_rekordbox_xml(&conn, &ids, &name, &out)?,
+                "html" | "pdf" => dc_core::printable::export(&conn, &ids, &name, None, &ext, &out)?,
                 _ => {
                     return Err(dc_core::Error::Invalid(
-                        "output must end in .m3u8, .csv or .xml".into(),
+                        "output must end in .m3u8, .csv, .xml, .html or .pdf".into(),
                     ));
                 }
             };

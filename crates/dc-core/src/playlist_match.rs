@@ -217,7 +217,7 @@ fn parse_lines(text: &str) -> Vec<Wanted> {
 // Normalisation and similarity
 // ---------------------------------------------------------------------------
 
-fn fold(c: char) -> char {
+pub(crate) fn fold(c: char) -> char {
     match c {
         'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' => 'a',
         'ç' | 'č' | 'ć' => 'c',

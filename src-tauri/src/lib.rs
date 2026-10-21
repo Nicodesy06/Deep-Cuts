@@ -136,6 +136,7 @@ pub fn run() {
             commands::set_playlist_order,
             commands::enqueue_analysis,
             commands::queue_summary,
+            commands::virtualdj_filter,
             commands::list_cue_templates,
             commands::save_cue_template,
             commands::delete_cue_template,

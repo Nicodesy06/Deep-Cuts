@@ -27,14 +27,124 @@ pub struct XPlaylist {
     pub tracks: Vec<usize>,
 }
 
+/// A smart crate's rule, kept next to its snapshot playlist.
+#[derive(Debug, Clone)]
+pub struct SmartRule {
+    pub folders: Vec<String>,
+    pub name: String,
+    pub query: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ExportLibrary {
     pub tracks: Vec<XTrack>,
     pub playlists: Vec<XPlaylist>,
+    pub smart: Vec<SmartRule>,
 }
 
-fn load_track(conn: &Connection, id: &str) -> Result<XTrack> {
-    let row = library::get_track(conn, id)?;
+/// What goes into the exported Comment and Genre fields (other software
+/// has no place for tags, energy or notes).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldMapping {
+    /// Parts of the exported comment, in order: "comment", "tags" (as
+    /// `/* a / b */`, the Rekordbox My Tag convention), "energy", "key",
+    /// "notes", "decision", "rating".
+    pub comment: Vec<String>,
+    /// Append the subgenre to the genre ("Techno / Hypnotic").
+    #[serde(default)]
+    pub genre_with_subgenre: bool,
+}
+
+impl Default for FieldMapping {
+    fn default() -> Self {
+        FieldMapping {
+            comment: vec!["comment".into()],
+            genre_with_subgenre: false,
+        }
+    }
+}
+
+pub const COMMENT_PARTS: &[&str] = &[
+    "comment", "tags", "energy", "key", "notes", "decision", "rating",
+];
+
+#[derive(Debug, Clone, Default)]
+pub struct ExportOptions {
+    pub mapping: FieldMapping,
+    /// Export each chapter of a set as its own playlist next to the set.
+    pub chapters: bool,
+}
+
+impl ExportOptions {
+    pub fn from_settings(conn: &Connection) -> Self {
+        let mapping = library::get_setting(conn, "exportMapping")
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        let chapters = library::get_setting(conn, "exportChapters")
+            .ok()
+            .flatten()
+            .is_none_or(|v| v != "false");
+        ExportOptions { mapping, chapters }
+    }
+}
+
+fn apply_mapping(conn: &Connection, row: &mut TrackRow, m: &FieldMapping) -> Result<()> {
+    if m.genre_with_subgenre {
+        let sub: Option<String> = conn
+            .query_row(
+                "SELECT subgenre FROM tracks WHERE id = ?1",
+                [&row.id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten();
+        if let Some(sub) = sub.filter(|s| !s.trim().is_empty()) {
+            row.genre = Some(match row.genre.take().filter(|g| !g.trim().is_empty()) {
+                Some(g) => format!("{g} / {sub}"),
+                None => sub,
+            });
+        }
+    }
+    if m.comment.len() == 1 && m.comment[0] == "comment" {
+        return Ok(());
+    }
+    let mut parts: Vec<String> = Vec::new();
+    for p in &m.comment {
+        let v: Option<String> = match p.as_str() {
+            "comment" => row.comment.clone(),
+            "tags" => {
+                let mut names: Vec<String> = crate::tags::for_track(conn, &row.id)?
+                    .into_iter()
+                    .filter(|t| t.status == "confirmed")
+                    .map(|t| t.name)
+                    .collect();
+                names.sort_by_key(|n| n.to_lowercase());
+                (!names.is_empty()).then(|| format!("/* {} */", names.join(" / ")))
+            }
+            "energy" => row.energy.map(|e| format!("Energy {e}")),
+            "key" => row.camelot.clone(),
+            "notes" => library::track_notes(conn, &row.id)?,
+            "decision" => row.decision.clone(),
+            "rating" => row
+                .rating
+                .filter(|r| *r > 0)
+                .map(|r| "★".repeat(r as usize)),
+            _ => None,
+        };
+        if let Some(v) = v.map(|v| v.trim().to_string()).filter(|v| !v.is_empty()) {
+            parts.push(v);
+        }
+    }
+    row.comment = (!parts.is_empty()).then(|| parts.join(" · "));
+    Ok(())
+}
+
+fn load_track(conn: &Connection, id: &str, opts: &ExportOptions) -> Result<XTrack> {
+    let mut row = library::get_track(conn, id)?;
+    apply_mapping(conn, &mut row, &opts.mapping)?;
     let (size, sample_rate): (Option<i64>, Option<i64>) = conn
         .query_row(
             "SELECT size, sample_rate FROM files WHERE track_id = ?1 ORDER BY missing, added_at LIMIT 1",
@@ -66,6 +176,7 @@ fn load_track(conn: &Connection, id: &str) -> Result<XTrack> {
 
 struct Builder<'a> {
     conn: &'a Connection,
+    opts: ExportOptions,
     lib: ExportLibrary,
     index: HashMap<String, usize>,
 }
@@ -75,7 +186,7 @@ impl Builder<'_> {
         if let Some(i) = self.index.get(id) {
             return Ok(*i);
         }
-        let t = load_track(self.conn, id)?;
+        let t = load_track(self.conn, id, &self.opts)?;
         self.lib.tracks.push(t);
         let i = self.lib.tracks.len() - 1;
         self.index.insert(id.to_string(), i);
@@ -87,6 +198,7 @@ impl Builder<'_> {
 pub fn for_ids(conn: &Connection, ids: &[String], name: &str) -> Result<ExportLibrary> {
     let mut b = Builder {
         conn,
+        opts: ExportOptions::from_settings(conn),
         lib: ExportLibrary::default(),
         index: HashMap::new(),
     };
@@ -105,8 +217,13 @@ pub fn for_ids(conn: &Connection, ids: &[String], name: &str) -> Result<ExportLi
 /// The whole library: every live track, every manual playlist and set with
 /// its folder path, and smart crates as snapshots under "Smart Crates".
 pub fn whole_library(conn: &Connection) -> Result<ExportLibrary> {
+    whole_library_with(conn, ExportOptions::from_settings(conn))
+}
+
+pub fn whole_library_with(conn: &Connection, opts: ExportOptions) -> Result<ExportLibrary> {
     let mut b = Builder {
         conn,
+        opts,
         lib: ExportLibrary::default(),
         index: HashMap::new(),
     };
@@ -120,18 +237,21 @@ pub fn whole_library(conn: &Connection) -> Result<ExportLibrary> {
     for id in &ids {
         b.idx(id)?;
     }
-    let pls: Vec<(String, String, Option<String>, String)> = {
+    type Pl = (String, String, Option<String>, String, Option<String>);
+    let pls: Vec<Pl> = {
         let mut stmt = conn.prepare(
-            "SELECT id, name, parent_id, kind FROM playlists ORDER BY name COLLATE NOCASE",
+            "SELECT id, name, parent_id, kind, rules FROM playlists ORDER BY name COLLATE NOCASE",
         )?;
-        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-            .collect::<std::result::Result<_, _>>()?
+        stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?
+        .collect::<std::result::Result<_, _>>()?
     };
     let by_id: HashMap<&str, (&str, Option<&str>)> = pls
         .iter()
-        .map(|(id, name, parent, _)| (id.as_str(), (name.as_str(), parent.as_deref())))
+        .map(|(id, name, parent, _, _)| (id.as_str(), (name.as_str(), parent.as_deref())))
         .collect();
-    for (id, name, parent, kind) in &pls {
+    for (id, name, parent, kind, rules) in &pls {
         let mut folders = Vec::new();
         let mut p = parent.as_deref();
         let mut guard = 0;
@@ -161,6 +281,43 @@ pub fn whole_library(conn: &Connection) -> Result<ExportLibrary> {
         let mut tracks = Vec::with_capacity(track_ids.len());
         for t in &track_ids {
             tracks.push(b.idx(t)?);
+        }
+        if kind == "smart" {
+            b.lib.smart.push(SmartRule {
+                folders: folders.clone(),
+                name: name.clone(),
+                query: rules.clone().unwrap_or_default(),
+            });
+        }
+        // Chapters of a set as playlists in a folder named after the set.
+        let chapters = if kind == "set" && b.opts.chapters {
+            crate::sets::chapters(conn, id)?
+        } else {
+            Vec::new()
+        };
+        for (i, ch) in chapters.iter().enumerate() {
+            let start = (ch.position.max(0) as usize).min(tracks.len());
+            let end = chapters
+                .get(i + 1)
+                .map(|n| (n.position.max(0) as usize).min(tracks.len()))
+                .unwrap_or(tracks.len())
+                .max(start);
+            let mut f = folders.clone();
+            f.push(format!("{name} – chapters"));
+            b.lib.playlists.push(XPlaylist {
+                folders: f,
+                name: format!(
+                    "{:02} {}{}",
+                    i + 1,
+                    ch.role,
+                    ch.name
+                        .as_deref()
+                        .filter(|n| !n.trim().is_empty())
+                        .map(|n| format!(" – {n}"))
+                        .unwrap_or_default()
+                ),
+                tracks: tracks[start..end].to_vec(),
+            });
         }
         b.lib.playlists.push(XPlaylist {
             folders,

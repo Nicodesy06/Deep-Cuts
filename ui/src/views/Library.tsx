@@ -636,6 +636,8 @@ export function Library() {
           <button onClick={() => doExport("m3u8")}>{t("export.m3u8")}</button>
           <button onClick={() => doExport("rekordbox")}>{t("export.rekordbox")}</button>
           <button onClick={() => doExport("csv")}>{t("export.csv")}</button>
+          <button onClick={() => doExport("html")}>{t("export.html")}</button>
+          <button onClick={() => doExport("pdf")}>{t("export.pdf")}</button>
         </div>
       )}
     </div>

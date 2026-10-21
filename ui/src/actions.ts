@@ -35,9 +35,9 @@ export async function importFolders(t: T, toast: Toast, bump: () => void, paths?
   bump();
 }
 
-export type ExportFormat = "m3u8" | "csv" | "rekordbox";
+export type ExportFormat = "m3u8" | "csv" | "rekordbox" | "html" | "pdf";
 
-const EXT: Record<ExportFormat, string> = { m3u8: "m3u8", csv: "csv", rekordbox: "xml" };
+const EXT: Record<ExportFormat, string> = { m3u8: "m3u8", csv: "csv", rekordbox: "xml", html: "html", pdf: "pdf" };
 
 export async function exportTracks(
   t: T,

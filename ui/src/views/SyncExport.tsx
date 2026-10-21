@@ -4,6 +4,7 @@ import { exportTracks, importFolders, importRekordboxXml, type ExportFormat } fr
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { CsvImportDialog } from "../components/CsvImportDialog";
 import { MatchPlaylistDialog } from "../components/MatchPlaylistDialog";
+import { ExportMappingPanel } from "../components/ExportMappingPanel";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store";
 
@@ -162,11 +163,18 @@ export function SyncExport() {
               <button className="btn ghost" onClick={() => run("csv")}>
                 {t("export.csv")}
               </button>
+              <button className="btn ghost" onClick={() => run("html")}>
+                {t("export.html")}
+              </button>
+              <button className="btn ghost" onClick={() => run("pdf")}>
+                {t("export.pdf")}
+              </button>
             </div>
             <p className="hint">{t("sync.rbExportHint")}</p>
           </div>
         </section>
       </div>
+      <ExportMappingPanel />
       <section className="panel">
         <h2>{t("write.title")}</h2>
         <p className="hint">{t("write.sectionHint")}</p>

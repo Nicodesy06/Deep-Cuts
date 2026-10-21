@@ -312,12 +312,21 @@ pub async fn export_tracks(
     name: Option<String>,
 ) -> Res<usize> {
     blocking(state.db_path.clone(), move |conn| {
+        let playlist = query.as_ref().and_then(|q| q.playlist_id.clone());
         let ids = match ids {
             Some(ids) => ids,
             None => dc_core::query::query_track_ids(conn, &query.unwrap_or_default())?,
         };
         let out = std::path::Path::new(&path);
         match format.as_str() {
+            "html" | "pdf" => dc_core::printable::export(
+                conn,
+                &ids,
+                name.as_deref().unwrap_or("Deep Cuts"),
+                playlist.as_deref(),
+                &format,
+                out,
+            ),
             "m3u8" => export::export_m3u8(conn, &ids, out),
             "csv" => export::export_csv(conn, &ids, out),
             "rekordbox" => export::export_rekordbox_xml(
@@ -468,6 +477,28 @@ pub async fn apply_cue_template(
         dc_core::cues::apply_template(c, &template, &ids)
     })
     .await
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VdjFilter {
+    filter: Option<String>,
+    unsupported: Vec<String>,
+}
+
+/// A smart-crate rule in VirtualDJ filter syntax.
+#[tauri::command]
+pub fn virtualdj_filter(query: String) -> Res<VdjFilter> {
+    match dc_core::rules::to_virtualdj(&query).map_err(|e| e.to_string())? {
+        Ok(f) => Ok(VdjFilter {
+            filter: Some(f),
+            unsupported: vec![],
+        }),
+        Err(bad) => Ok(VdjFilter {
+            filter: None,
+            unsupported: bad,
+        }),
+    }
 }
 
 #[tauri::command]

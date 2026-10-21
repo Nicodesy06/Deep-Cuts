@@ -306,6 +306,38 @@ pub fn export(lib: &ExportLibrary, dir: &Path) -> Result<usize> {
         )?;
         n += 1;
     }
+    if !lib.smart.is_empty() {
+        // VirtualDJ filter folders are created in its own editor: write the
+        // translated rule for each smart crate, ready to paste.
+        let mut txt = String::from(
+            "Deep Cuts smart crates as VirtualDJ filters\n\
+             In VirtualDJ: right-click My Lists > Add Filter, then paste the filter.\n\
+             The .vdjfolder playlists next to this file are snapshots of the same crates.\n\n",
+        );
+        for r in &lib.smart {
+            let path = r
+                .folders
+                .iter()
+                .chain([&r.name])
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" / ");
+            match crate::rules::to_virtualdj(&r.query) {
+                Ok(Ok(f)) => txt += &format!("{path}\n  {f}\n\n"),
+                Ok(Err(bad)) => {
+                    txt += &format!(
+                        "{path}\n  (no VirtualDJ equivalent for: {})\n\n",
+                        bad.join(", ")
+                    )
+                }
+                Err(e) => txt += &format!("{path}\n  (invalid rule: {e})\n\n"),
+            }
+        }
+        crate::export::write_atomic(
+            &dir.join("Smart Crates - VirtualDJ filters.txt"),
+            txt.as_bytes(),
+        )?;
+    }
     Ok(n)
 }
 

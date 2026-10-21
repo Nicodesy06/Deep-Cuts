@@ -184,6 +184,12 @@ export function SetBuilder() {
                   <button className="btn ghost small" onClick={() => exportTracks(t, toast, "m3u8", { query: { query: "", playlistId: rep.id } }, rep.name)}>
                     M3U8
                   </button>
+                  <button className="btn ghost small" onClick={() => exportTracks(t, toast, "pdf", { query: { query: "", playlistId: rep.id } }, rep.name)}>
+                    PDF
+                  </button>
+                  <button className="btn ghost small" onClick={() => exportTracks(t, toast, "html", { query: { query: "", playlistId: rep.id } }, rep.name)}>
+                    HTML
+                  </button>
                 </div>
               </div>
               {preview && (

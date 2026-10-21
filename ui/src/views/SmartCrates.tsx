@@ -14,7 +14,7 @@ const TEMPLATES = [
 ];
 
 export function SmartCrates() {
-  const { t, lang, dataVersion, bump, openLibrary, confirm } = useApp();
+  const { t, lang, dataVersion, bump, openLibrary, confirm, toast } = useApp();
   const act = useAction();
   const [crates, setCrates] = useState<Playlist[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -119,6 +119,19 @@ export function SmartCrates() {
                   <td className="row">
                     <button className="btn small" onClick={() => openLibrary({ playlistId: c.id })}>
                       {t("crates.open")}
+                    </button>
+                    <button
+                      className="btn small ghost"
+                      title={t("crates.vdjHint")}
+                      onClick={async () => {
+                        const r = await api.virtualdjFilter(c.rules ?? "");
+                        if (r.filter != null) {
+                          await navigator.clipboard.writeText(r.filter).catch(() => {});
+                          toast(t("crates.vdjCopied", { f: r.filter }), "ok");
+                        } else toast(t("crates.vdjNo", { terms: r.unsupported.join(", ") }), "error");
+                      }}
+                    >
+                      VirtualDJ
                     </button>
                     <button className="btn small ghost" onClick={() => (setEditing(c.id), setName(c.name), setRules(c.rules ?? ""))}>
                       {t("crates.editBtn")}

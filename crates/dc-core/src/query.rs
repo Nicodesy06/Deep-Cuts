@@ -23,7 +23,7 @@ use rusqlite::types::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
-enum Tok {
+pub(crate) enum Tok {
     LParen,
     RParen,
     Or,
@@ -36,7 +36,7 @@ enum Tok {
     },
 }
 
-fn tokenize(input: &str) -> Result<Vec<Tok>> {
+pub(crate) fn tokenize(input: &str) -> Result<Vec<Tok>> {
     let chars: Vec<char> = input.chars().collect();
     let mut i = 0;
     let mut out = Vec::new();
