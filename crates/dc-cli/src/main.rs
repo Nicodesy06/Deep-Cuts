@@ -265,6 +265,30 @@ enum Cmd {
         #[arg(long, default_value = "")]
         name: String,
     },
+    /// Zero-shot genre retrieval with the CLAP text search model
+    ClapEval {
+        audio: PathBuf,
+        #[arg(long)]
+        genres: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Write the embeddings (stem, 512 values) for parity checks
+        #[arg(long)]
+        dump: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
+    /// Compare Beat This! tempo with the production estimator on annotated
+    /// audio (same reference formats as tempo-study)
+    BeatEval {
+        audio: PathBuf,
+        #[arg(long)]
+        tempo: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -341,6 +365,25 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             out.as_deref(),
             name,
         );
+    }
+    if let Cmd::BeatEval {
+        audio,
+        tempo,
+        out,
+        name,
+    } = &cli.cmd
+    {
+        return beat_eval(audio, tempo, out.as_deref(), name);
+    }
+    if let Cmd::ClapEval {
+        audio,
+        genres,
+        out,
+        dump,
+        name,
+    } = &cli.cmd
+    {
+        return clap_eval(audio, genres, out.as_deref(), dump.as_deref(), name);
     }
     if let Cmd::HelpQuery = &cli.cmd {
         println!("{}", QUERY_HELP);
@@ -1014,7 +1057,9 @@ fn run(cli: Cli) -> dc_core::Result<()> {
         | Cmd::Eval { .. }
         | Cmd::KeyStudy { .. }
         | Cmd::GenreEval { .. }
-        | Cmd::TempoStudy { .. } => {
+        | Cmd::TempoStudy { .. }
+        | Cmd::BeatEval { .. }
+        | Cmd::ClapEval { .. } => {
             unreachable!()
         }
     }
@@ -1514,16 +1559,12 @@ fn load_tempo_refs(tempo: &std::path::Path, files: &[PathBuf]) -> Vec<(PathBuf, 
         .collect()
 }
 
-fn genre_eval(
-    audio: &std::path::Path,
+/// Genre per file stem: a directory of <stem>.genre files, or a
+/// tab-separated metadata file with a "BP GENRE" column.
+fn genre_table(
     genres: &std::path::Path,
-    out: Option<&std::path::Path>,
-    features: Option<&std::path::Path>,
-    name: &str,
-) -> dc_core::Result<()> {
-    use dc_core::ml;
-    use rayon::prelude::*;
-    let table: std::collections::HashMap<String, String> = if genres.is_dir() {
+) -> dc_core::Result<std::collections::HashMap<String, String>> {
+    Ok(if genres.is_dir() {
         std::fs::read_dir(genres)?
             .filter_map(|e| {
                 let p = e.ok()?.path();
@@ -1549,7 +1590,137 @@ fn genre_eval(
                 ))
             })
             .collect()
-    };
+    })
+}
+
+/// Zero-shot genre retrieval with the CLAP text search model: every file is
+/// embedded, every genre is a query ("<genre> music").
+fn clap_eval(
+    audio: &std::path::Path,
+    genres: &std::path::Path,
+    out: Option<&std::path::Path>,
+    dump: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::clap;
+    let table = genre_table(genres)?;
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let enc = clap::AudioEncoder::load()?;
+    let txt = clap::TextEncoder::load()?;
+    let started = Instant::now();
+    let mut rows: Vec<(String, Vec<f32>, String)> = Vec::new();
+    for (i, f) in files.iter().enumerate() {
+        let Some(stem) = f.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let key = stem.split('.').next().unwrap_or(stem).to_string();
+        let Some(g) = table.get(&key) else { continue };
+        if i % 50 == 49 {
+            eprintln!("{}/{}", i + 1, files.len());
+        }
+        let mut mono: Vec<f32> = Vec::new();
+        let Ok((info, _)) = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
+            let ch = info.channels;
+            mono.extend(
+                frames
+                    .chunks_exact(ch)
+                    .map(|x| x.iter().sum::<f32>() / ch as f32),
+            );
+        }) else {
+            continue;
+        };
+        if let Ok(v) = enc.embed_signal(&mono, info.sample_rate) {
+            rows.push((key, v, g.clone()));
+        }
+    }
+    let secs = started.elapsed().as_secs_f64();
+    if let Some(p) = dump {
+        let mut t = String::new();
+        for (k, v, _) in &rows {
+            let vs: Vec<String> = v.iter().map(|x| format!("{x:.6}")).collect();
+            t += &format!("{k}\t{}\n", vs.join(" "));
+        }
+        export::write_atomic(p, t.as_bytes())?;
+    }
+    let mut counts: std::collections::BTreeMap<&str, usize> = Default::default();
+    for (_, _, g) in &rows {
+        *counts.entry(g.as_str()).or_default() += 1;
+    }
+    let names: Vec<&str> = counts.keys().copied().collect();
+    let queries: Vec<Vec<f32>> = names
+        .iter()
+        .map(|g| txt.embed(&format!("{g} music")))
+        .collect::<dc_core::Result<_>>()?;
+    let vecs: Vec<(String, Vec<f32>)> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, (_, v, _))| (i.to_string(), v.clone()))
+        .collect();
+    let mut md = format!(
+        "# CLAP text search{}\n\nTracks: {} · genres: {} · {:.0} s embedding ({:.2} s/track)\n\n| Genre (query \"<genre> music\") | Tracks | Precision@10 | Chance |\n|---|---|---|---|\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        rows.len(),
+        names.len(),
+        secs,
+        secs / rows.len().max(1) as f64
+    );
+    let mut p10_sum = 0.0;
+    for (g, q) in names.iter().zip(&queries) {
+        let hits = clap::rank(q, vecs.clone(), 10);
+        let p = hits
+            .iter()
+            .filter(|h| rows[h.track_id.parse::<usize>().unwrap_or(0)].2 == *g)
+            .count() as f64
+            / hits.len().max(1) as f64;
+        p10_sum += p;
+        md += &format!(
+            "| {g} | {} | {:.0} % | {:.0} % |\n",
+            counts[g],
+            p * 100.0,
+            counts[g] as f64 / rows.len() as f64 * 100.0
+        );
+    }
+    // Zero-shot classification: the best-matching genre query per track.
+    let correct = rows
+        .iter()
+        .filter(|(_, v, g)| {
+            let best = queries
+                .iter()
+                .enumerate()
+                .map(|(i, q)| (i, q.iter().zip(v).map(|(a, b)| a * b).sum::<f32>()))
+                .max_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|x| x.0);
+            best.map(|i| names[i] == g.as_str()).unwrap_or(false)
+        })
+        .count();
+    let majority = counts.values().copied().max().unwrap_or(0);
+    md += &format!(
+        "\nMean Precision@10: {:.1} %. Zero-shot genre (best query per track): {:.1} % (majority class {:.1} %).\n",
+        p10_sum / names.len().max(1) as f64 * 100.0,
+        correct as f64 / rows.len().max(1) as f64 * 100.0,
+        majority as f64 / rows.len().max(1) as f64 * 100.0
+    );
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
+    }
+    Ok(())
+}
+
+fn genre_eval(
+    audio: &std::path::Path,
+    genres: &std::path::Path,
+    out: Option<&std::path::Path>,
+    features: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::ml;
+    use rayon::prelude::*;
+    let table = genre_table(genres)?;
     let files = library::collect_audio_files(&[audio.to_path_buf()]);
     let refs: Vec<(PathBuf, String, String)> = files
         .into_iter()
@@ -1760,6 +1931,91 @@ fn tempo_study(
             &tempostudy::range_score(&samples, Some(*r)),
         );
     }
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
+    }
+    Ok(())
+}
+
+fn beat_eval(
+    audio: &std::path::Path,
+    tempo: &std::path::Path,
+    out: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::analysis::tempo as tp;
+    use dc_core::beatnet;
+    use dc_core::eval::summarize_tempo;
+    use dc_core::tempostudy;
+    use rayon::prelude::*;
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let refs = load_tempo_refs(tempo, &files);
+    let model = beatnet::BeatModel::load()?;
+    let started = Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    // (production, beat this median, beat this fit, reference)
+    type Row = (Option<f64>, Option<f64>, Option<f64>, f64);
+    let rows: Vec<Row> = refs
+        .par_iter()
+        .map(|(f, r)| {
+            let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if n.is_multiple_of(50) {
+                eprintln!("{n}/{}", refs.len());
+            }
+            let prod = tempostudy::extract(f).ok().flatten().and_then(|t| {
+                tempostudy::fine_estimates(&t, &tp::PRODUCTION, &[tp::FINE_PRODUCTION])[0]
+            });
+            let mut mono: Vec<f32> = Vec::new();
+            let beats = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
+                let ch = info.channels;
+                mono.extend(
+                    frames
+                        .chunks_exact(ch)
+                        .map(|x| x.iter().sum::<f32>() / ch as f32),
+                );
+            })
+            .ok()
+            .and_then(|(info, _)| model.track(&mono, info.sample_rate).ok());
+            let med = beats.as_ref().and_then(|b| b.bpm());
+            let fit = beats.as_ref().and_then(|b| b.fitted_bpm());
+            (prod, med, fit, *r)
+        })
+        .collect();
+    let pct = |v: f64| format!("{:.1} %", v * 100.0);
+    let row = |label: &str, pairs: Vec<(Option<f64>, f64)>| {
+        let s = summarize_tempo(&pairs);
+        format!(
+            "| {label} | {} | {} | {} | {:.3} |\n",
+            pct(s.acc1),
+            pct(s.acc2),
+            pct(s.exact),
+            s.mae_acc1_hits
+        )
+    };
+    let mut md = format!(
+        "# Beat This! tempo{}\n\nAnnotated tracks: {} · {:.0} s · device {}\n\n| Estimator | Accuracy1 | Accuracy2 | Exact (±0.05) | MAE on Acc1 hits (BPM) |\n|---|---|---|---|---|\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        rows.len(),
+        started.elapsed().as_secs_f64(),
+        model.device
+    );
+    md += &row(
+        &format!("Production ({})", dc_core::analysis::ANALYZER_VERSION),
+        rows.iter().map(|r| (r.0, r.3)).collect(),
+    );
+    md += &row(
+        "Beat This! median interval",
+        rows.iter().map(|r| (r.1, r.3)).collect(),
+    );
+    md += &row(
+        "Beat This! fitted grid",
+        rows.iter().map(|r| (r.2, r.3)).collect(),
+    );
     println!("{md}");
     if let Some(out) = out {
         export::write_atomic(out, md.as_bytes())?;

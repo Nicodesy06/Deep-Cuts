@@ -269,6 +269,19 @@ export interface StylesStatus {
   missing: number;
 }
 
+export interface ClapStatus {
+  downloaded: boolean;
+  license: string;
+  sizeMb: number;
+  missing: number;
+  indexed: number;
+}
+
+export interface ClapHit {
+  track: TrackRow;
+  score: number;
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -783,6 +796,10 @@ export const api = {
   stylesStatus: () => invoke<StylesStatus>("styles_status"),
   stylesDownload: () => invoke<void>("styles_download"),
   stylesReanalyze: () => invoke<number>("styles_reanalyze"),
+  clapStatus: () => invoke<ClapStatus>("clap_status"),
+  clapDownload: () => invoke<void>("clap_download"),
+  clapReanalyze: () => invoke<number>("clap_reanalyze"),
+  clapSearch: (text: string, scope: string, limit = 60) => invoke<ClapHit[]>("clap_search", { text, scope, limit }),
   dnaStyleGenreSuggestions: (minScore: number) => invoke<LabelReport>("dna_style_genre_suggestions", { minScore }),
   modelSuggestTags: () => invoke<number>("model_suggest_tags"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),

@@ -151,7 +151,7 @@ pub const HEADS: &[Head] = &[
     },
 ];
 
-fn models_dir() -> PathBuf {
+pub(crate) fn models_dir() -> PathBuf {
     crate::paths::home().join("models")
 }
 

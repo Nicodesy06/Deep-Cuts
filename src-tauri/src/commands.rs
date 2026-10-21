@@ -698,6 +698,80 @@ pub fn styles_reanalyze(state: State<'_, AppState>) -> Res<usize> {
     })
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClapStatus {
+    downloaded: bool,
+    license: &'static str,
+    size_mb: u32,
+    /// Analysed tracks without an embedding (when downloaded).
+    missing: usize,
+    indexed: usize,
+}
+
+#[tauri::command]
+pub async fn clap_status(state: State<'_, AppState>) -> Res<ClapStatus> {
+    blocking(state.db_path.clone(), move |c| {
+        use dc_core::clap;
+        let downloaded = clap::is_downloaded();
+        Ok(ClapStatus {
+            downloaded,
+            license: clap::LICENSE,
+            size_mb: clap::SIZE_MB,
+            missing: if downloaded {
+                clap::tracks_without(c)?.len()
+            } else {
+                0
+            },
+            indexed: clap::vectors_all(c)?.len(),
+        })
+    })
+    .await
+}
+
+/// Download the CLAP text search model (progress events "clap-download").
+#[tauri::command]
+pub async fn clap_download(app: AppHandle) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        dc_core::clap::download(&mut |done, total| {
+            let _ = app.emit(
+                "clap-download",
+                serde_json::json!({ "done": done, "total": total }),
+            );
+        })
+    })
+    .await
+    .map_err(e)?
+    .map_err(e)
+}
+
+/// Queue analysis of the tracks without a CLAP embedding.
+#[tauri::command]
+pub fn clap_reanalyze(state: State<'_, AppState>) -> Res<usize> {
+    with_conn!(state, |c| {
+        let ids = dc_core::clap::tracks_without(&c)?;
+        jobs::enqueue_analysis(&c, &ids, true).map(|_| ids.len())
+    })
+}
+
+#[tauri::command]
+pub async fn clap_search(
+    state: State<'_, AppState>,
+    text: String,
+    scope: Option<String>,
+    limit: Option<usize>,
+) -> Res<Vec<dc_core::clap::TrackHit>> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::clap::search_tracks(
+            c,
+            &text,
+            scope.as_deref().unwrap_or(""),
+            limit.unwrap_or(60),
+        )
+    })
+    .await
+}
+
 /// Queue re-analysis of the tracks without current model results.
 #[tauri::command]
 pub fn model_reanalyze(state: State<'_, AppState>) -> Res<usize> {

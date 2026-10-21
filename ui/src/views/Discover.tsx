@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, DEFAULT_WEIGHTS, type DiscoveryMap, type Match, type SimilarityWeights, type TrackRow } from "../api";
+import { api, DEFAULT_WEIGHTS, onEvent, type ClapHit, type ClapStatus, type DiscoveryMap, type Match, type SimilarityWeights, type TrackRow } from "../api";
 import { KeyChip } from "../components/TrackTable";
 import { camelotHue, formatBpm, trackLabel } from "../format";
 import type { MsgKey } from "../i18n";
@@ -405,9 +405,147 @@ function MapView() {
   );
 }
 
+function Describe() {
+  const { t, play, toast, dataVersion, bump } = useApp();
+  const [st, setSt] = useState<ClapStatus | null>(null);
+  const [text, setText] = useState("");
+  const [scope, setScope] = useState("-decision:pass");
+  const [results, setResults] = useState<ClapHit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number | null } | null>(null);
+
+  useEffect(() => {
+    api.clapStatus().then(setSt, (e) => setError(String(e)));
+  }, [dataVersion]);
+
+  const search = async () => {
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      setResults(await api.clapSearch(text, scope, 60));
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async () => {
+    setBusy(true);
+    const un = await onEvent<{ done: number; total: number | null }>("clap-download", setProgress);
+    try {
+      await api.clapDownload();
+      toast(t("clap.downloaded"), "ok");
+      bump();
+    } catch (e) {
+      toast(String(e), "error");
+    } finally {
+      un();
+      setBusy(false);
+      setProgress(null);
+    }
+  };
+
+  return (
+    <div className="discover-similar">
+      <section className="panel">
+        <h2>{t("clap.title")}</h2>
+        <p className="muted">{t("clap.intro")}</p>
+        {st && !st.downloaded && (
+          <div className="stack">
+            <p className="hint">{t("clap.license", { license: st.license })}</p>
+            <div className="row">
+              <button className="btn" disabled={busy} onClick={download}>
+                {t("clap.download", { mb: st.sizeMb })}
+              </button>
+              {progress && (
+                <span className="small">
+                  {t("clap.downloading", {
+                    done: Math.round(progress.done / 1048576),
+                    total: progress.total ? Math.round(progress.total / 1048576) : "?",
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        {st?.downloaded && (
+          <>
+            {st.missing > 0 && (
+              <div className="row mt">
+                <span className="hint grow">{t("clap.indexHint", { n: st.missing })}</span>
+                <button
+                  className="btn small ghost"
+                  onClick={() =>
+                    api.clapReanalyze().then(
+                      (n) => {
+                        toast(t("clap.queued", { n }), "ok");
+                        bump();
+                      },
+                      (e) => toast(String(e), "error"),
+                    )
+                  }
+                >
+                  {t("clap.index", { n: st.missing })}
+                </button>
+              </div>
+            )}
+            <form
+              className="row mt"
+              onSubmit={(e) => {
+                e.preventDefault();
+                search();
+              }}
+            >
+              <input className="grow" value={text} onChange={(e) => setText(e.target.value)} placeholder={t("clap.placeholder")} />
+              <button className="btn" type="submit" disabled={busy || !text.trim() || st.indexed === 0}>
+                {t("clap.search")}
+              </button>
+            </form>
+            <div className="row mt">
+              <input className="mono grow" value={scope} onChange={(e) => setScope(e.target.value)} placeholder={t("disc.scope")} spellCheck={false} />
+            </div>
+            {st.indexed === 0 && <p className="hint">{t("clap.none")}</p>}
+          </>
+        )}
+        <p className="hint">{t("clap.honesty")}</p>
+      </section>
+      {error && <div className="query-error">{error}</div>}
+      {results && (
+        <section className="panel">
+          <h2>{t("clap.results", { n: results.length })}</h2>
+          <ul className="match-list">
+            {results.map((m) => (
+              <li key={m.track.id} className="match">
+                <div className="match-score" title={m.score.toFixed(3)}>
+                  <span className="num">{m.score.toFixed(2)}</span>
+                </div>
+                <button className="icon-btn" onClick={() => play(m.track, m.track.previewMs ?? 0)} aria-label={t("player.play")}>
+                  ▶
+                </button>
+                <div className="match-main">
+                  <div className="match-title">
+                    {trackLabel(m.track)} {m.track.decision && <span className={`dec-dot dec-${m.track.decision}`} />}
+                  </div>
+                  <div className="match-notes muted small">
+                    {formatBpm(m.track.bpm)} {m.track.genre ?? ""}
+                  </div>
+                </div>
+                <KeyChip t={m.track} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export function Discover() {
   const { t } = useApp();
-  const [tab, setTab] = useState<"similar" | "map">("similar");
+  const [tab, setTab] = useState<"similar" | "describe" | "map">("similar");
   return (
     <div className="page">
       <header className="page-head">
@@ -416,13 +554,16 @@ export function Discover() {
           <button className={tab === "similar" ? "active-tab" : ""} onClick={() => setTab("similar")}>
             {t("disc.tabSimilar")}
           </button>
+          <button className={tab === "describe" ? "active-tab" : ""} onClick={() => setTab("describe")}>
+            {t("disc.tabDescribe")}
+          </button>
           <button className={tab === "map" ? "active-tab" : ""} onClick={() => setTab("map")}>
             {t("disc.tabMap")}
           </button>
         </div>
         <span className="badge">{t("disc.measuredBadge")}</span>
       </header>
-      {tab === "similar" ? <Similar /> : <MapView />}
+      {tab === "similar" ? <Similar /> : tab === "describe" ? <Describe /> : <MapView />}
     </div>
   );
 }

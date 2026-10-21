@@ -116,6 +116,9 @@ pub struct Analysis {
     pub model: Option<crate::ml::ModelOutput>,
     /// Discogs style model output (crate::discogs), when chosen and present.
     pub styles: Option<crate::discogs::StyleOutput>,
+    /// CLAP audio embedding (crate::clap), when the text search model is
+    /// downloaded.
+    pub clap: Option<Vec<f32>>,
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -150,6 +153,8 @@ pub struct AnalyzeOptions {
     pub tagger: Option<std::sync::Arc<crate::ml::Tagger>>,
     /// Discogs style model (crate::discogs), optional download.
     pub styles: Option<std::sync::Arc<crate::discogs::StyleModel>>,
+    /// CLAP audio encoder (crate::clap), optional download.
+    pub clap: Option<std::sync::Arc<crate::clap::AudioEncoder>>,
 }
 
 impl AnalyzeOptions {
@@ -163,6 +168,7 @@ impl AnalyzeOptions {
             bpm_range,
             tagger: crate::ml::shared(conn),
             styles: crate::discogs::shared(conn),
+            clap: crate::clap::shared_audio(),
         }
     }
 }
@@ -205,6 +211,10 @@ pub fn analyze_file_with(
         .styles
         .as_ref()
         .and_then(|t| t.tag_signal(&mono, info.sample_rate).ok());
+    let clap = opts
+        .clap
+        .as_ref()
+        .and_then(|m| m.embed_signal(&mono, info.sample_rate).ok());
     drop(mono);
 
     // --- onset envelope + spectral statistics ----------------------------
@@ -372,6 +382,7 @@ pub fn analyze_file_with(
         fingerprint,
         model,
         styles,
+        clap,
     })
 }
 
@@ -624,6 +635,9 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
     if let Some(st) = &a.styles {
         crate::discogs::store(tx, track_id, st)?;
         crate::discogs::store_vector(tx, track_id, &st.probs)?;
+    }
+    if let Some(v) = &a.clap {
+        crate::clap::store(tx, track_id, v)?;
     }
     Ok(())
 }
