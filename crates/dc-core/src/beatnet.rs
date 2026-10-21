@@ -194,6 +194,24 @@ impl Beats {
         (m > 0.0).then(|| 60.0 / m)
     }
 
+    /// Tempo from the mean of the inter-beat intervals within 7 % of the
+    /// median (breaks, missed and extra beats left out): the mean of many
+    /// 20 ms-quantised intervals is far finer than any one of them.
+    pub fn steady_bpm(&self) -> Option<f64> {
+        let m = 60.0 / self.bpm()?;
+        let ok: Vec<f64> = self
+            .beats
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .filter(|d| (d / m - 1.0).abs() <= 0.07)
+            .collect();
+        if ok.len() < 8 {
+            return None;
+        }
+        let mean = ok.iter().sum::<f64>() / ok.len() as f64;
+        Some(60.0 / mean)
+    }
+
     /// Tempo from a least-squares line through the beats, which averages out
     /// the 20 ms frame quantisation over the whole track. Beats are numbered
     /// from consecutive gaps (a gap of about two intervals is a missed beat),
@@ -214,6 +232,17 @@ impl Beats {
         let slope = sxy / sxx;
         (sxx > 0.0 && slope > 0.0).then(|| 60.0 / slope)
     }
+}
+
+/// `precise` moved by octaves (×2 / ×½) next to `reference` when they then
+/// agree within `tol` (relative), else None.
+pub fn fold_octave(precise: f64, reference: f64, tol: f64) -> Option<f64> {
+    if precise <= 0.0 || reference <= 0.0 {
+        return None;
+    }
+    let k = (reference / precise).log2().round();
+    let f = precise * 2f64.powf(k);
+    ((f / reference - 1.0).abs() <= tol).then_some(f)
 }
 
 /// Turn whole-piece logits into beat and downbeat times.

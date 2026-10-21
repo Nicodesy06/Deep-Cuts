@@ -286,6 +286,9 @@ enum Cmd {
         tempo: PathBuf,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Per-track results: read when the file exists, else written
+        #[arg(long)]
+        cache: Option<PathBuf>,
         #[arg(long, default_value = "")]
         name: String,
     },
@@ -370,10 +373,11 @@ fn run(cli: Cli) -> dc_core::Result<()> {
         audio,
         tempo,
         out,
+        cache,
         name,
     } = &cli.cmd
     {
-        return beat_eval(audio, tempo, out.as_deref(), name);
+        return beat_eval(audio, tempo, out.as_deref(), cache.as_deref(), name);
     }
     if let Cmd::ClapEval {
         audio,
@@ -1942,48 +1946,99 @@ fn beat_eval(
     audio: &std::path::Path,
     tempo: &std::path::Path,
     out: Option<&std::path::Path>,
+    cache: Option<&std::path::Path>,
     name: &str,
 ) -> dc_core::Result<()> {
     use dc_core::analysis::tempo as tp;
-    use dc_core::beatnet;
+    use dc_core::beatnet::{self, Beats};
     use dc_core::eval::summarize_tempo;
     use dc_core::tempostudy;
     use rayon::prelude::*;
-    let files = library::collect_audio_files(&[audio.to_path_buf()]);
-    let refs = load_tempo_refs(tempo, &files);
-    let model = beatnet::BeatModel::load()?;
+    // (production estimate, Beat This! beats, reference) per track; the
+    // network output is cached so estimator variants are cheap to compare.
+    let mut rows: Vec<(Option<f64>, Beats, f64)> = Vec::new();
     let started = Instant::now();
-    let done = std::sync::atomic::AtomicUsize::new(0);
-    // (production, beat this median, beat this fit, reference)
-    type Row = (Option<f64>, Option<f64>, Option<f64>, f64);
-    let rows: Vec<Row> = refs
-        .par_iter()
-        .map(|(f, r)| {
-            let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-            if n.is_multiple_of(50) {
-                eprintln!("{n}/{}", refs.len());
+    let mut device = "cache".to_string();
+    if let Some(text) = cache.and_then(|c| std::fs::read_to_string(c).ok()) {
+        for l in text.lines() {
+            let c: Vec<&str> = l.split('\t').collect();
+            if c.len() < 4 {
+                continue;
             }
-            let prod = tempostudy::extract(f).ok().flatten().and_then(|t| {
-                tempostudy::fine_estimates(&t, &tp::PRODUCTION, &[tp::FINE_PRODUCTION])[0]
-            });
-            let mut mono: Vec<f32> = Vec::new();
-            let beats = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
-                let ch = info.channels;
-                mono.extend(
-                    frames
-                        .chunks_exact(ch)
-                        .map(|x| x.iter().sum::<f32>() / ch as f32),
-                );
+            let num = |s: &str| {
+                s.split(' ')
+                    .filter_map(|x| x.parse().ok())
+                    .collect::<Vec<f64>>()
+            };
+            rows.push((
+                c[1].parse().ok(),
+                Beats {
+                    beats: num(c[3]),
+                    downbeats: c.get(4).map(|s| num(s)).unwrap_or_default(),
+                },
+                c[2].parse().unwrap_or(0.0),
+            ));
+        }
+    } else {
+        let files = library::collect_audio_files(&[audio.to_path_buf()]);
+        let refs = load_tempo_refs(tempo, &files);
+        let model = beatnet::BeatModel::load()?;
+        device = model.device.clone();
+        let done = std::sync::atomic::AtomicUsize::new(0);
+        let computed: Vec<(String, Option<f64>, Beats, f64)> = refs
+            .par_iter()
+            .map(|(f, r)| {
+                let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                if n.is_multiple_of(50) {
+                    eprintln!("{n}/{}", refs.len());
+                }
+                let prod = tempostudy::extract(f).ok().flatten().and_then(|t| {
+                    tempostudy::fine_estimates(&t, &tp::PRODUCTION, &[tp::FINE_PRODUCTION])[0]
+                });
+                let mut mono: Vec<f32> = Vec::new();
+                let beats = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
+                    let ch = info.channels;
+                    mono.extend(
+                        frames
+                            .chunks_exact(ch)
+                            .map(|x| x.iter().sum::<f32>() / ch as f32),
+                    );
+                })
+                .ok()
+                .and_then(|(info, _)| model.track(&mono, info.sample_rate).ok())
+                .unwrap_or_default();
+                let stem = f
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                (stem, prod, beats, *r)
             })
-            .ok()
-            .and_then(|(info, _)| model.track(&mono, info.sample_rate).ok());
-            let med = beats.as_ref().and_then(|b| b.bpm());
-            let fit = beats.as_ref().and_then(|b| b.fitted_bpm());
-            (prod, med, fit, *r)
-        })
-        .collect();
+            .collect();
+        if let Some(c) = cache {
+            let join = |v: &[f64]| {
+                v.iter()
+                    .map(|x| format!("{x:.2}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
+            let text: String = computed
+                .iter()
+                .map(|(s, p, b, r)| {
+                    format!(
+                        "{s}\t{}\t{r}\t{}\t{}\n",
+                        p.map(|p| p.to_string()).unwrap_or_default(),
+                        join(&b.beats),
+                        join(&b.downbeats)
+                    )
+                })
+                .collect();
+            export::write_atomic(c, text.as_bytes())?;
+        }
+        rows = computed.into_iter().map(|(_, p, b, r)| (p, b, r)).collect();
+    }
     let pct = |v: f64| format!("{:.1} %", v * 100.0);
-    let row = |label: &str, pairs: Vec<(Option<f64>, f64)>| {
+    let row = |label: &str, f: &dyn Fn(&(Option<f64>, Beats, f64)) -> Option<f64>| {
+        let pairs: Vec<(Option<f64>, f64)> = rows.iter().map(|r| (f(r), r.2)).collect();
         let s = summarize_tempo(&pairs);
         format!(
             "| {label} | {} | {} | {} | {:.3} |\n",
@@ -2002,19 +2057,39 @@ fn beat_eval(
         },
         rows.len(),
         started.elapsed().as_secs_f64(),
-        model.device
+        device
     );
     md += &row(
         &format!("Production ({})", dc_core::analysis::ANALYZER_VERSION),
-        rows.iter().map(|r| (r.0, r.3)).collect(),
+        &|r| r.0,
     );
+    md += &row("Beat This! median interval", &|r| r.1.bpm());
+    md += &row("Beat This! fitted grid", &|r| r.1.fitted_bpm());
+    md += &row("Beat This! steady intervals", &|r| r.1.steady_bpm());
+    for tol in [0.02, 0.04] {
+        md += &row(
+            &format!(
+                "Production folded to Beat This! octave (±{:.0} %), else steady",
+                tol * 100.0
+            ),
+            &|r| {
+                let s = r.1.steady_bpm();
+                r.0.zip(s)
+                    .and_then(|(p, s)| beatnet::fold_octave(p, s, tol))
+                    .or(s)
+                    .or(r.0)
+            },
+        );
+    }
     md += &row(
-        "Beat This! median interval",
-        rows.iter().map(|r| (r.1, r.3)).collect(),
-    );
-    md += &row(
-        "Beat This! fitted grid",
-        rows.iter().map(|r| (r.2, r.3)).collect(),
+        "Production folded to Beat This! octave (±4 %), else production",
+        &|r| {
+            r.0.and_then(|p| {
+                r.1.steady_bpm()
+                    .and_then(|s| beatnet::fold_octave(p, s, 0.04))
+                    .or(Some(p))
+            })
+        },
     );
     println!("{md}");
     if let Some(out) = out {
