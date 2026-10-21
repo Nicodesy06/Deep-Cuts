@@ -226,6 +226,7 @@ pub async fn import_paths(
         if analyze && !rep.added_track_ids.is_empty() {
             jobs::enqueue_analysis(conn, &rep.added_track_ids, false)?;
         }
+        dc_core::recipes::run_on_import(conn, &rep.added_track_ids)?;
         Ok(rep)
     })
     .await
@@ -682,6 +683,57 @@ pub fn dna_apply_genres(state: State<'_, AppState>, proposals: Vec<bulk::Proposa
     ))
 }
 
+/// Build a set from a seed track (graph walk) and save it as a new set.
+#[tauri::command]
+pub async fn build_set_from_seed(
+    state: State<'_, AppState>,
+    seed: String,
+    len: usize,
+    scope: String,
+    mode: String,
+    name: String,
+) -> Res<String> {
+    blocking(state.db_path.clone(), move |c| {
+        let path = sets::build_path(c, &seed, len, &scope, &mode)?;
+        let id = library::create_playlist(c, &name, None, "set", None)?;
+        library::set_playlist_tracks(c, &id, &path)?;
+        Ok(id)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn list_recipes(state: State<'_, AppState>) -> Res<Vec<dc_core::recipes::Recipe>> {
+    with_conn!(state, |c| dc_core::recipes::list(&c))
+}
+
+#[tauri::command]
+pub fn save_recipe(state: State<'_, AppState>, recipe: dc_core::recipes::Recipe) -> Res<String> {
+    with_conn!(state, |c| dc_core::recipes::save(&c, &recipe))
+}
+
+#[tauri::command]
+pub fn delete_recipe(state: State<'_, AppState>, id: String) -> Res<()> {
+    with_conn!(state, |c| dc_core::recipes::delete(&c, &id))
+}
+
+#[tauri::command]
+pub fn recipe_count(state: State<'_, AppState>, recipe: dc_core::recipes::Recipe) -> Res<usize> {
+    with_conn!(state, |c| dc_core::recipes::matching(&c, &recipe, None)
+        .map(|v| v.len()))
+}
+
+#[tauri::command]
+pub async fn run_recipe(
+    state: State<'_, AppState>,
+    id: String,
+) -> Res<dc_core::recipes::RunReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::recipes::run(c, &id, None)
+    })
+    .await
+}
+
 #[tauri::command]
 pub fn suggest_keep(state: State<'_, AppState>, ids: Vec<String>) -> Res<Option<String>> {
     with_conn!(state, |c| dedupe::suggest_keep(&c, &ids))
@@ -1037,6 +1089,38 @@ pub async fn write_tags(
     let dir = state.backups_dir.join("audio-originals");
     blocking(state.db_path.clone(), move |c| {
         tagwrite::write(c, &ids, keep_backup.then_some(dir.as_path()))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_cover(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    image: String,
+    keep_backup: bool,
+) -> Res<tagwrite::WriteReport> {
+    let dir = state.backups_dir.join("audio-originals");
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::artwork::set_cover(
+            c,
+            &ids,
+            std::path::Path::new(&image),
+            keep_backup.then_some(dir.as_path()),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn remove_covers(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    keep_backup: bool,
+) -> Res<tagwrite::WriteReport> {
+    let dir = state.backups_dir.join("audio-originals");
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::artwork::remove_covers(c, &ids, keep_backup.then_some(dir.as_path()))
     })
     .await
 }

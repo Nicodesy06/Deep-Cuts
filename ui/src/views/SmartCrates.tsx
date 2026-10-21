@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Playlist } from "../api";
 import { formatNumber } from "../format";
+import { RecipesPanel } from "../components/RecipesPanel";
 import { useAction, useApp } from "../store";
 
 const TEMPLATES = [
@@ -137,6 +138,7 @@ export function SmartCrates() {
           </table>
         )}
       </section>
+      <RecipesPanel />
     </div>
   );
 }

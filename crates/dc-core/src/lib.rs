@@ -3,6 +3,7 @@
 //! desktop app (Tauri) and the `deepcuts` CLI.
 
 pub mod analysis;
+pub mod artwork;
 pub mod audio;
 pub mod backup;
 pub mod bulk;
@@ -29,6 +30,7 @@ pub mod metadata;
 pub mod paths;
 pub mod playlist_tools;
 pub mod query;
+pub mod recipes;
 pub mod rekordbox;
 pub mod relocate;
 pub mod serato;

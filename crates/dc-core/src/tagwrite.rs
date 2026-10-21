@@ -282,74 +282,99 @@ pub fn write(
         rep.backup_dir = Some(b.to_string_lossy().into_owned());
     }
     for p in plans {
-        let path = PathBuf::from(&p.path);
-        let fail = |e: String| WriteFailure {
-            track_id: p.track_id.clone(),
-            path: p.path.clone(),
-            error: e,
-        };
-        let known: Option<(String, i64, Option<i64>)> = conn
-            .query_row(
-                "SELECT id, size, mtime_ms FROM files WHERE path = ?1",
-                [&p.path],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .optional()?;
-        let Some((file_id, size, mtime)) = known else {
-            rep.failed.push(fail("file is not in the library".into()));
-            continue;
-        };
-        let meta = match std::fs::metadata(&path) {
-            Ok(m) => m,
-            Err(e) => {
-                rep.failed.push(fail(format!("cannot access file: {e}")));
-                continue;
-            }
-        };
-        let disk_mtime = meta
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64);
-        if meta.len() as i64 != size || disk_mtime != mtime {
-            rep.failed.push(fail(
-                "file changed on disk since it was scanned: re-import it first".into(),
-            ));
-            continue;
+        let changes = p.changes.clone();
+        let res = rewrite_file(
+            conn,
+            &p.track_id,
+            &p.path,
+            backup_root.as_deref(),
+            &|tag| {
+                apply_to_tag(tag, &changes);
+                Ok(())
+            },
+            &|path| verify(path, &changes),
+            "write-tags",
+            serde_json::json!({ "changes": p.changes }),
+        );
+        match res {
+            Ok(()) => rep.written += 1,
+            Err(error) => rep.failed.push(WriteFailure {
+                track_id: p.track_id.clone(),
+                path: p.path.clone(),
+                error,
+            }),
         }
-        if meta.permissions().readonly() {
-            rep.failed.push(fail("file is read-only".into()));
-            continue;
+    }
+    Ok(rep)
+}
+
+/// Rewrite one file's tags safely: refuse files changed on disk since the
+/// scan or read-only files, copy the original into `backup_root` first,
+/// apply `edit` to the primary tag, verify with `check`, restore the copy on
+/// any failure, then refresh the library from the file. Returns a
+/// human-readable error on failure.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rewrite_file(
+    conn: &mut Connection,
+    track_id: &str,
+    path_str: &str,
+    backup_root: Option<&Path>,
+    edit: &dyn Fn(&mut Tag) -> Result<()>,
+    check: &dyn Fn(&Path) -> Result<()>,
+    audit_action: &str,
+    audit_detail: serde_json::Value,
+) -> std::result::Result<(), String> {
+    let path = PathBuf::from(path_str);
+    let known: Option<(String, i64, Option<i64>)> = conn
+        .query_row(
+            "SELECT id, size, mtime_ms FROM files WHERE path = ?1",
+            [path_str],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    let Some((file_id, size, mtime)) = known else {
+        return Err("file is not in the library".into());
+    };
+    let meta = std::fs::metadata(&path).map_err(|e| format!("cannot access file: {e}"))?;
+    let disk_mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64);
+    if meta.len() as i64 != size || disk_mtime != mtime {
+        return Err("file changed on disk since it was scanned: re-import it first".into());
+    }
+    if meta.permissions().readonly() {
+        return Err("file is read-only".into());
+    }
+    let copy = match backup_root {
+        Some(root) => {
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("bin");
+            let dst = root.join(format!("{track_id}.{ext}"));
+            std::fs::copy(&path, &dst)
+                .map_err(|e| format!("backup copy failed, nothing written: {e}"))?;
+            Some(dst)
         }
-        let copy = match &backup_root {
-            Some(root) => {
-                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("bin");
-                let dst = root.join(format!("{}.{ext}", p.track_id));
-                if let Err(e) = std::fs::copy(&path, &dst) {
-                    rep.failed
-                        .push(fail(format!("backup copy failed, nothing written: {e}")));
-                    continue;
-                }
-                Some(dst)
-            }
-            None => None,
-        };
-        let result = (|| -> Result<()> {
-            let mut tagged =
-                lofty::read_from_path(&path).map_err(|e| Error::Metadata(e.to_string()))?;
-            let tag_type = tagged.primary_tag_type();
-            if tagged.tag_mut(tag_type).is_none() {
-                tagged.insert_tag(Tag::new(tag_type));
-            }
-            let tag = tagged.tag_mut(tag_type).expect("tag inserted above");
-            apply_to_tag(tag, &p.changes);
-            tagged
-                .save_to_path(&path, WriteOptions::default())
-                .map_err(|e| Error::Metadata(e.to_string()))?;
-            verify(&path, &p.changes)
-        })();
-        match result {
-            Ok(()) => {
+        None => None,
+    };
+    let result = (|| -> Result<()> {
+        let mut tagged =
+            lofty::read_from_path(&path).map_err(|e| Error::Metadata(e.to_string()))?;
+        let tag_type = tagged.primary_tag_type();
+        if tagged.tag_mut(tag_type).is_none() {
+            tagged.insert_tag(Tag::new(tag_type));
+        }
+        let tag = tagged.tag_mut(tag_type).expect("tag inserted above");
+        edit(tag)?;
+        tagged
+            .save_to_path(&path, WriteOptions::default())
+            .map_err(|e| Error::Metadata(e.to_string()))?;
+        check(&path)
+    })();
+    match result {
+        Ok(()) => {
+            let refresh = (|| -> Result<()> {
                 // The file now carries these values: refresh the file source.
                 let m = metadata::read(&path)?;
                 let new_meta = std::fs::metadata(&path)?;
@@ -364,32 +389,30 @@ pub fn write(
                         "UPDATE files SET size = ?1, mtime_ms = ?2, quick_hash = ?3 WHERE id = ?4",
                         params![new_meta.len() as i64, mtime, hash, file_id],
                     )?;
-                    library::apply_file_metadata(tx, &p.track_id, &m)?;
-                    library::refresh_fts(tx, &p.track_id)?;
-                    library::audit(
-                        tx,
-                        "write-tags",
-                        "file",
-                        Some(&file_id),
-                        serde_json::json!({ "path": p.path, "changes": p.changes, "backup": copy }),
-                    )
-                })?;
-                rep.written += 1;
-            }
-            Err(e) => {
-                let mut msg = e.to_string();
-                if let Some(c) = &copy {
-                    match std::fs::copy(c, &path) {
-                        Ok(_) => msg.push_str(" (original restored)"),
-                        Err(re) => msg.push_str(&format!(
-                            " (RESTORE FAILED: {re}; original kept at {})",
-                            c.display()
-                        )),
+                    library::apply_file_metadata(tx, track_id, &m)?;
+                    library::refresh_fts(tx, track_id)?;
+                    let mut detail = audit_detail.clone();
+                    if let Some(o) = detail.as_object_mut() {
+                        o.insert("path".into(), serde_json::json!(path_str));
+                        o.insert("backup".into(), serde_json::json!(copy));
                     }
+                    library::audit(tx, audit_action, "file", Some(&file_id), detail)
+                })
+            })();
+            refresh.map_err(|e| format!("written, but the library could not be refreshed: {e}"))
+        }
+        Err(e) => {
+            let mut msg = e.to_string();
+            if let Some(c) = &copy {
+                match std::fs::copy(c, &path) {
+                    Ok(_) => msg.push_str(" (original restored)"),
+                    Err(re) => msg.push_str(&format!(
+                        " (RESTORE FAILED: {re}; original kept at {})",
+                        c.display()
+                    )),
                 }
-                rep.failed.push(fail(msg));
             }
+            Err(msg)
         }
     }
-    Ok(rep)
 }

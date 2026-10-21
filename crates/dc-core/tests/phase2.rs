@@ -493,7 +493,7 @@ fn user_beatgrid_edit_loop_and_undo() {
         },
     );
     let mut conn = dc_core::db::open(&tmp.path().join("lib.db")).unwrap();
-    dc_core::library::import_paths(&mut conn, &[p.clone()], None, &mut |_| {}).unwrap();
+    dc_core::library::import_paths(&mut conn, std::slice::from_ref(&p), None, &mut |_| {}).unwrap();
     let id = dc_core::query::query_tracks(&conn, &Default::default())
         .unwrap()
         .tracks[0]
@@ -550,4 +550,94 @@ fn user_beatgrid_edit_loop_and_undo() {
         .max_by(|a, b| env[*a].1.total_cmp(&env[*b].1))
         .unwrap();
     assert!((24..=30).contains(&peak), "low-band peak at {peak}0 ms");
+}
+
+#[test]
+fn album_art_add_and_remove_safely() {
+    use dc_core::{artwork, library};
+    if !has_ffmpeg() {
+        eprintln!("ffmpeg not found: skipping");
+        return;
+    }
+    // A valid 1×1 PNG.
+    const PNG: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+        0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8,
+        0xCF, 0xC0, 0xF0, 0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
+        0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    let tmp = tempfile::tempdir().unwrap();
+    let music = tmp.path().join("m");
+    std::fs::create_dir_all(&music).unwrap();
+    let wav = make_track(
+        tmp.path(),
+        "src.wav",
+        &Spec {
+            bpm: 120.0,
+            tonic: 0,
+            minor: false,
+            seconds: 3.0,
+            first_beat_s: 0.0,
+        },
+    );
+    assert!(ffmpeg_encode(
+        &wav,
+        &music.join("a.flac"),
+        &["-c:a", "flac"],
+        &[("title", "A")]
+    ));
+    assert!(ffmpeg_encode(
+        &wav,
+        &music.join("b.mp3"),
+        &["-c:a", "libmp3lame", "-b:a", "192k"],
+        &[("title", "B")]
+    ));
+    let img = tmp.path().join("cover.png");
+    std::fs::write(&img, PNG).unwrap();
+    let mut conn = dc_core::db::open(&tmp.path().join("lib.db")).unwrap();
+    library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();
+    let ids: Vec<String> = dc_core::query::query_tracks(&conn, &Default::default())
+        .unwrap()
+        .tracks
+        .iter()
+        .map(|t| t.id.clone())
+        .collect();
+    let q = |conn: &rusqlite::Connection, s: &str| {
+        dc_core::query::query_tracks(
+            conn,
+            &dc_core::query::TrackQuery {
+                query: s.into(),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .total
+    };
+    assert_eq!(q(&conn, "artwork:yes"), 0);
+
+    let backups = tmp.path().join("bk");
+    let rep = artwork::set_cover(&mut conn, &ids, &img, Some(&backups)).unwrap();
+    assert_eq!((rep.written, rep.failed.len()), (2, 0), "{rep:?}");
+    assert_eq!(q(&conn, "artwork:yes"), 2);
+    // Originals were copied first; audio still decodes; re-import sees no change.
+    assert_eq!(
+        std::fs::read_dir(rep.backup_dir.as_ref().unwrap())
+            .unwrap()
+            .count(),
+        2
+    );
+    for f in ["a.flac", "b.mp3"] {
+        dc_core::analysis::analyze_file(&music.join(f), &|| false).unwrap();
+    }
+    let r =
+        library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();
+    assert_eq!(r.unchanged, 2);
+
+    let rep = artwork::remove_covers(&mut conn, &ids, None).unwrap();
+    assert_eq!(rep.written, 2);
+    assert_eq!(q(&conn, "artwork:yes"), 0);
+    // Not an image: refused before touching any file.
+    std::fs::write(&img, b"not an image").unwrap();
+    assert!(artwork::set_cover(&mut conn, &ids, &img, None).is_err());
 }

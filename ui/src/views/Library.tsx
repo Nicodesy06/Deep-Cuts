@@ -4,6 +4,7 @@ import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
+import { CoverDialog } from "../components/CoverDialog";
 import { FindReplaceDialog } from "../components/FindReplaceDialog";
 import { PlaylistPickDialog, type CombineOp } from "../components/PlaylistPickDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
@@ -47,6 +48,7 @@ export function Library() {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
+  const [cover, setCover] = useState<{ ids: string[]; mode: "set" | "remove" } | null>(null);
   const [renameIds, setRenameIds] = useState<string[] | null>(null);
   const [frIds, setFrIds] = useState<string[] | null>(null);
   const [plMenu, setPlMenu] = useState<{ x: number; y: number; p: Playlist } | null>(null);
@@ -438,6 +440,7 @@ export function Library() {
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
+      {cover && <CoverDialog ids={cover.ids} mode={cover.mode} onClose={() => setCover(null)} />}
       {renameIds && <RenameDialog ids={renameIds} onClose={() => setRenameIds(null)} />}
       {frIds && <FindReplaceDialog ids={frIds} onClose={() => setFrIds(null)} />}
       {pick && (
@@ -546,6 +549,26 @@ export function Library() {
           >
             {t("sets.newFromSel")}
           </button>
+          {selectedRows.length === 1 && (
+            <button
+              onClick={async () => {
+                const r = selectedRows[0];
+                const n = await prompt(t("sets.pathLenQ"), "12");
+                const len = Number(n);
+                if (!n || !(len >= 2)) return;
+                const id = await act(
+                  () => api.buildSetFromSeed(r.id, Math.min(200, Math.round(len)), "", "smooth", t("sets.pathName", { title: r.title ?? "?" })),
+                  t("sets.pathDone"),
+                );
+                if (id) {
+                  bump();
+                  openSet(id);
+                }
+              }}
+            >
+              {t("sets.pathFromSeed")}
+            </button>
+          )}
           {manualPlaylists.slice(0, 12).map((p) => (
             <button key={p.id} onClick={() => act(() => api.addToPlaylist(p.id, orderedSelection()), t("library.addedTo", { n: selectedIds.length, name: p.name })).then(bump)}>
               + {p.name}
@@ -591,6 +614,8 @@ export function Library() {
             + {t("tags.newForSelection")}
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
+          <button onClick={() => setCover({ ids: selectedIds, mode: "set" })}>{t("cover.setMenu")}</button>
+          <button onClick={() => setCover({ ids: selectedIds, mode: "remove" })}>{t("cover.removeMenu")}</button>
           <button onClick={() => setFrIds(selectedIds)}>{t("fr.menu")}</button>
           <button onClick={() => setRenameIds(selectedIds)}>{t("rename.menu")}</button>
           {/archived:/i.test(query) ? (

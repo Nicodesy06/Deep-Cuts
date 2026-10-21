@@ -320,6 +320,9 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             for f in &rep.failed {
                 println!("  failed: {} ({})", f.path, f.error);
             }
+            for (name, r) in dc_core::recipes::run_on_import(&conn, &rep.added_track_ids)? {
+                println!("recipe {name}: {} tracks, {} changes", r.tracks, r.changes);
+            }
         }
         Cmd::Search {
             query,

@@ -90,6 +90,7 @@ pub fn scan_now(app: &AppHandle, paths: Vec<PathBuf>) {
             if auto && !rep.added_track_ids.is_empty() {
                 jobs::enqueue_analysis(&conn, &rep.added_track_ids, false)?;
             }
+            dc_core::recipes::run_on_import(&conn, &rep.added_track_ids)?;
             for f in library::watch_folders(&conn)? {
                 library::mark_watch_scanned(&conn, &f.path)?;
             }

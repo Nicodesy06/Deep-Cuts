@@ -532,6 +532,76 @@ pub fn suggest_next(
         .collect())
 }
 
+/// Build a set of `len` tracks starting from `seed` by walking the
+/// transition graph (beam search over the same fit used by `suggest_next`:
+/// transition score, energy target for `mode`, timbre continuity).
+/// Candidates: analysed tracks matching `scope`, never passed ones.
+pub fn build_path(
+    conn: &Connection,
+    seed: &str,
+    len: usize,
+    scope: &str,
+    mode: &str,
+) -> Result<Vec<String>> {
+    let len = len.clamp(2, 200);
+    let ctx = Context::load(conn)?;
+    if !ctx.vecs.contains_key(seed) {
+        return Err(crate::Error::Invalid(
+            "the seed track is not analysed yet".into(),
+        ));
+    }
+    let q = if scope.trim().is_empty() {
+        "-decision:pass".to_string()
+    } else {
+        format!("({scope}) -decision:pass")
+    };
+    let pool: Vec<String> = crate::query::query_track_ids(
+        conn,
+        &crate::query::TrackQuery {
+            query: q,
+            ..Default::default()
+        },
+    )?
+    .into_iter()
+    .filter(|id| id != seed && ctx.vecs.contains_key(id))
+    .collect();
+    let target = targets(len, &[], mode);
+    const BEAM: usize = 4;
+    const BRANCH: usize = 6;
+    // (total fit, path)
+    let mut beam: Vec<(f32, Vec<String>)> = vec![(0.0, vec![seed.to_string()])];
+    for &want in &target[1..] {
+        let mut next: Vec<(f32, Vec<String>)> = Vec::new();
+        for (score, path) in &beam {
+            let last = path.last().unwrap();
+            let used: HashSet<&String> = path.iter().collect();
+            let mut cands: Vec<(f32, &String)> = pool
+                .iter()
+                .filter(|id| !used.contains(id))
+                .map(|id| {
+                    let tr = ctx.transition(last, id);
+                    let fit = 0.75 * tr.score + 0.25 * (1.0 - ctx.target_cost(id, want) / 2.5)
+                        - 0.1 * (1.0 - ctx.timbre_sim(last, id));
+                    (fit, id)
+                })
+                .collect();
+            cands.sort_by(|a, b| b.0.total_cmp(&a.0));
+            for (fit, id) in cands.into_iter().take(BRANCH) {
+                let mut p = path.clone();
+                p.push(id.clone());
+                next.push((score + fit, p));
+            }
+        }
+        if next.is_empty() {
+            break; // pool exhausted
+        }
+        next.sort_by(|a, b| b.0.total_cmp(&a.0));
+        next.truncate(BEAM);
+        beam = next;
+    }
+    Ok(beam.into_iter().next().map(|b| b.1).unwrap_or_default())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

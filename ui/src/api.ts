@@ -466,6 +466,23 @@ export interface DnaGroup {
   topGenres: [string, number][];
 }
 
+export type RecipeAction =
+  | { type: "setField"; field: string; value: string | null }
+  | { type: "addTag"; tag: string }
+  | { type: "removeTag"; tag: string }
+  | { type: "decision"; value: string | null }
+  | { type: "addToPlaylist"; playlist: string }
+  | { type: "analyze" };
+
+export interface Recipe {
+  id: string;
+  name: string;
+  query: string;
+  actions: RecipeAction[];
+  onImport: boolean;
+  lastRun: number | null;
+}
+
 export interface MergeReport {
   merged: number;
   playlistsUpdated: number;
@@ -593,6 +610,13 @@ export const api = {
   gridClear: (trackId: string) => invoke<void>("grid_clear", { trackId }),
   gridLoop: (trackId: string, ms: number, beats: number) => invoke<string>("grid_loop", { trackId, ms, beats }),
   gridWindow: (trackId: string, startMs: number, lenMs: number, points: number) => invoke<[number, number][]>("grid_window", { trackId, startMs, lenMs, points }),
+  buildSetFromSeed: (seed: string, len: number, scope: string, mode: string, name: string) =>
+    invoke<string>("build_set_from_seed", { seed, len, scope, mode, name }),
+  listRecipes: () => invoke<Recipe[]>("list_recipes"),
+  saveRecipe: (recipe: Recipe) => invoke<string>("save_recipe", { recipe }),
+  deleteRecipe: (id: string) => invoke<void>("delete_recipe", { id }),
+  recipeCount: (recipe: Recipe) => invoke<number>("recipe_count", { recipe }),
+  runRecipe: (id: string) => invoke<{ tracks: number; changes: number; queuedForAnalysis: number }>("run_recipe", { id }),
   suggestKeep: (ids: string[]) => invoke<string | null>("suggest_keep", { ids }),
   mergeDuplicates: (keep: string, others: string[]) => invoke<MergeReport>("merge_duplicates", { keep, others }),
   brokenPlaylists: () => invoke<BrokenPlaylist[]>("broken_playlists"),
@@ -642,6 +666,8 @@ export const api = {
   renameCue: (id: string, name: string | null, color: string | null) => invoke<void>("rename_cue", { id, name, color }),
   planTagWrite: (ids: string[]) => invoke<WritePlan[]>("plan_tag_write", { ids }),
   writeTags: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("write_tags", { ids, keepBackup }),
+  setCover: (ids: string[], image: string, keepBackup: boolean) => invoke<WriteReport>("set_cover", { ids, image, keepBackup }),
+  removeCovers: (ids: string[], keepBackup: boolean) => invoke<WriteReport>("remove_covers", { ids, keepBackup }),
   planRename: (ids: string[], pattern: string, targetDir: string | null) =>
     invoke<MovePlan[]>("plan_rename", { ids, pattern, targetDir }),
   applyRename: (plans: MovePlan[]) => invoke<RenameReport>("apply_rename", { plans }),

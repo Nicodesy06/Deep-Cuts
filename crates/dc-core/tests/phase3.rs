@@ -186,3 +186,24 @@ fn set_builder_chapters_locks_sort_suggest_and_undo() {
     );
     assert!(next[0].fit > 0.4);
 }
+
+#[test]
+fn graph_path_from_seed_prefers_smooth_transitions() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conn = analysed_library(tmp.path());
+    let a = id_of(&conn, "A");
+    let path = sets::build_path(&conn, &a, 3, "", "smooth").unwrap();
+    assert_eq!(path.len(), 3);
+    assert_eq!(path[0], a);
+    let names: Vec<String> = path
+        .iter()
+        .map(|i| library::get_track(&conn, i).unwrap().artist.unwrap())
+        .collect();
+    // From A (124 BPM, A minor) the close tracks B and C come before the
+    // far-away D (140) and E (100).
+    assert!(names[1..].iter().all(|n| n == "B" || n == "C"), "{names:?}");
+    // Scope restricts the candidates; the pool may run out.
+    let short = sets::build_path(&conn, &a, 5, "bpm:>130", "smooth").unwrap();
+    assert_eq!(short.len(), 2);
+    assert!(sets::build_path(&conn, "nope", 3, "", "smooth").is_err());
+}
