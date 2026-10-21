@@ -1,0 +1,68 @@
+name: Release
+
+# Push a tag like v0.1.0 to build the Windows and macOS installers and attach
+# them to a GitHub pre-release of the same name.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ""
+          - os: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - os: macos-latest
+            args: "--target x86_64-apple-darwin"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install JS dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm --prefix ui ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Deep Cuts ${{ github.ref_name }}
+          prerelease: true
+          args: ${{ matrix.args }}
+          releaseBody: |
+            Unsigned test build of Deep Cuts (free, local, offline DJ library manager).
+
+            **Windows 10/11 (x64)** — download `Deep.Cuts_*_x64-setup.exe` (or the `.msi`). The installer is not code-signed, so SmartScreen shows "Windows protected your PC": click *More info* › *Run anyway*.
+
+            **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`)** — open the DMG and drag Deep Cuts to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"`).
+
+            Your music files are never modified unless you explicitly write tags; the library lives in your user data folder. Checklist for testing on real hardware and DJ software: `docs/TEST_PLAN.md`.
+
+            ---
+
+            **Windows** — scarica `Deep.Cuts_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
+
+            **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel. Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
