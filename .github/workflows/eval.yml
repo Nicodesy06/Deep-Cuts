@@ -109,10 +109,22 @@ jobs:
 
       - name: Tempo study (development → test)
         run: |
-          ./target/release/deepcuts tempo-study dev --tempo gs-mtg/annotations/beatport_metadata.txt --choose eval-out/tempo-choice.json --out eval-out/tempo-study-dev.md --name "GiantSteps-MTG-Keys Beatport BPM (development)"
+          # GiantSteps Tempo labels are perceptual and only accurate to a few
+          # BPM, so the precision stage is chosen on one half of the
+          # Beatport-labelled development set and measured once on the other
+          # (track-disjoint); GiantSteps Tempo checks Accuracy1/2.
+          mkdir -p dev-a dev-b
+          i=0
+          for f in $(ls dev | sort); do
+            if [ $((i % 2)) -eq 0 ]; then ln "dev/$f" "dev-a/$f"; else ln "dev/$f" "dev-b/$f"; fi
+            i=$((i + 1))
+          done
+          BP=gs-mtg/annotations/beatport_metadata.txt
+          ./target/release/deepcuts tempo-study dev-a --tempo $BP --choose eval-out/tempo-choice.json --out eval-out/tempo-study-dev.md --name "Beatport BPM, half A (development)"
+          ./target/release/deepcuts tempo-study dev-b --tempo $BP --use eval-out/tempo-choice.json --out eval-out/tempo-study-holdout.md --name "Beatport BPM, half B (hold-out test)"
           ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations_v2/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v2.md --name "GiantSteps Tempo v2 (test)"
           ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v1.md --name "GiantSteps Tempo original (test)"
-          cat eval-out/tempo-study-test-v2.md eval-out/tempo-study-test-v1.md eval-out/tempo-study-dev.md >> "$GITHUB_STEP_SUMMARY"
+          cat eval-out/tempo-study-holdout.md eval-out/tempo-study-test-v2.md eval-out/tempo-study-test-v1.md eval-out/tempo-study-dev.md >> "$GITHUB_STEP_SUMMARY"
           cat eval-out/tempo-choice.json
 
       - uses: actions/upload-artifact@v4
