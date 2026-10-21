@@ -29,13 +29,13 @@ pub fn restart(app: &AppHandle) {
     let mut watcher = match notify::recommended_watcher(tx) {
         Ok(w) => w,
         Err(e) => {
-            eprintln!("watch: cannot start watcher: {e}");
+            report(app, "", &format!("cannot start the folder watcher: {e}"));
             return;
         }
     };
     for f in &folders {
         if let Err(e) = watcher.watch(std::path::Path::new(f), RecursiveMode::Recursive) {
-            eprintln!("watch: cannot watch {f}: {e}");
+            report(app, f, &format!("cannot watch this folder: {e}"));
         }
     }
     *state.watcher.lock().unwrap() = Some(watcher);
@@ -54,7 +54,7 @@ pub fn restart(app: &AppHandle) {
                             pending.extend(ev.paths);
                         }
                     }
-                    Ok(Err(e)) => eprintln!("watch: {e}"),
+                    Ok(Err(e)) => report(&app, "", &e.to_string()),
                     Err(mpsc::RecvTimeoutError::Timeout) => {
                         if !pending.is_empty() {
                             scan_now(&app, std::mem::take(&mut pending).into_iter().collect());
@@ -67,6 +67,26 @@ pub fn restart(app: &AppHandle) {
         .ok();
 }
 
+/// Show a watch-folder problem in the app (event "watch-error") and keep it
+/// in the library's audit log, instead of printing it where nobody sees it.
+fn report(app: &AppHandle, path: &str, message: &str) {
+    eprintln!("watch: {path} {message}");
+    let _ = app.emit(
+        "watch-error",
+        serde_json::json!({ "path": path, "message": message }),
+    );
+    let state = app.state::<AppState>();
+    if let Ok(c) = state.conn.lock() {
+        let _ = library::audit(
+            &c,
+            "watch-error",
+            "folder",
+            (!path.is_empty()).then_some(path),
+            serde_json::json!({ "message": message }),
+        );
+    }
+}
+
 /// Import `paths` (files or folders) in the background.
 pub fn scan_now(app: &AppHandle, paths: Vec<PathBuf>) {
     let app = app.clone();
@@ -74,12 +94,10 @@ pub fn scan_now(app: &AppHandle, paths: Vec<PathBuf>) {
         let state = app.state::<AppState>();
         let result = (|| -> dc_core::Result<library::ImportReport> {
             let mut conn = db::open(&state.db_path)?;
-            // Paths that vanished: mark their files missing (enables relinking).
+            // Paths that vanished (files or whole folders): mark their files
+            // missing (enables relinking when they come back).
             for p in paths.iter().filter(|p| !p.exists()) {
-                conn.execute(
-                    "UPDATE files SET missing = 1 WHERE path = ?1",
-                    [p.to_string_lossy()],
-                )?;
+                library::mark_missing_under(&conn, p)?;
             }
             let existing: Vec<PathBuf> = paths
                 .into_iter()
@@ -101,7 +119,7 @@ pub fn scan_now(app: &AppHandle, paths: Vec<PathBuf>) {
                 let _ = app.emit("library-changed", rep);
             }
             Ok(_) => {}
-            Err(e) => eprintln!("watch: import failed: {e}"),
+            Err(e) => report(&app, "", &format!("automatic import failed: {e}")),
         }
     });
 }

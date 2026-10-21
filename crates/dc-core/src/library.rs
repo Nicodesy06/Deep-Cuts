@@ -366,6 +366,35 @@ pub fn path_key(p: &Path) -> String {
         .into_owned()
 }
 
+/// A watched path disappeared (file or folder): mark the file at that path
+/// and every file under it (whole path components only, so `/music/a` does
+/// not match `/music/ab`) as missing, if it is really gone from disk.
+/// Decisions and tags stay; a file that comes back is relinked on import.
+pub fn mark_missing_under(conn: &Connection, gone: &Path) -> Result<usize> {
+    let key = path_key(gone);
+    let sep = std::path::MAIN_SEPARATOR;
+    let prefix = if key.ends_with(sep) {
+        key.clone()
+    } else {
+        format!("{key}{sep}")
+    };
+    let rows: Vec<(String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, path FROM files WHERE missing = 0
+               AND (path = ?1 OR substr(path, 1, length(?2)) = ?2)",
+        )?;
+        stmt.query_map(params![key, prefix], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<std::result::Result<_, _>>()?
+    };
+    let mut n = 0;
+    for (id, path) in rows {
+        if !Path::new(&path).exists() {
+            n += conn.execute("UPDATE files SET missing = 1 WHERE id = ?1", [&id])?;
+        }
+    }
+    Ok(n)
+}
+
 struct Scanned {
     path: String,
     size: i64,

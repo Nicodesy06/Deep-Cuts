@@ -23,7 +23,13 @@ pub const AUDIO_EXTENSIONS: &[&str] = &[
 ];
 
 pub fn is_audio_file(path: &std::path::Path) -> bool {
-    extension(path).is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.as_str()))
+    // Deep Cuts' own temporary files (staged tag writes, partial copies)
+    // are never imported.
+    let ours = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.starts_with(".deepcuts-"));
+    !ours && extension(path).is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.as_str()))
 }
 
 /// Begin a write transaction. IMMEDIATE takes the write lock up front, so

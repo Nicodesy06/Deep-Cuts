@@ -33,6 +33,11 @@ pub fn open(path: &Path) -> Result<Connection> {
     for m in crate::fileops::recover(&conn)? {
         eprintln!("{m}");
     }
+    // Refresh files whose tags were written but not yet read back into the
+    // library.
+    for m in crate::tagwrite::recover(&conn)? {
+        eprintln!("{m}");
+    }
     Ok(conn)
 }
 

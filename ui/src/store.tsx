@@ -125,8 +125,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setToasts((ts) => [...ts.slice(-3), { id, text, kind: "info" }]);
       setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), 5000);
     });
+    // Watch-folder problems (permission denied, drive gone…) are shown, not
+    // only logged; they also stay in the library's audit log.
+    const unErr = onEvent<{ path: string; message: string }>("watch-error", (r) => {
+      const id = ++toastId.current;
+      const text = translate(lang, "watch.error", { path: r.path || "—", message: r.message });
+      setToasts((ts) => [...ts.slice(-3), { id, text, kind: "error" }]);
+      setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), 12000);
+    });
     return () => {
       un.then((f) => f());
+      unErr.then((f) => f());
     };
   }, [lang]);
 

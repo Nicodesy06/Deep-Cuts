@@ -494,7 +494,8 @@ pub mod fault {
         static POINT: RefCell<Option<(String, String)>> = const { RefCell::new(None) };
     }
 
-    /// Fail at `point` ("move" or "crash-after-move") for source paths
+    /// Fail at `point` ("move", "crash-after-move", "tag-write",
+    /// "tag-refresh") for paths
     /// containing `path_part`.
     pub fn set(point: &str, path_part: &str) {
         POINT.with(|p| *p.borrow_mut() = Some((point.into(), path_part.into())));

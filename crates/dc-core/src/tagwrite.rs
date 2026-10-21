@@ -436,6 +436,7 @@ pub(crate) fn rewrite_file(
     if meta.permissions().readonly() {
         return Err("file is read-only".into());
     }
+    // The user's backup copy (optional, recommended).
     let copy = match backup_root {
         Some(root) => {
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("bin");
@@ -446,9 +447,19 @@ pub(crate) fn rewrite_file(
         }
         None => None,
     };
+    // Tags are written to a staged copy next to the file; the original is
+    // only replaced (atomic rename) after the copy was read back and
+    // verified, so a failed write never touches the original bytes.
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("bin");
+    let dir = path.parent().unwrap_or(Path::new("."));
+    let staged = dir.join(format!(
+        ".deepcuts-tagwrite.{}.{ext}",
+        crate::util::new_id()
+    ));
     let result = (|| -> Result<()> {
+        std::fs::copy(&path, &staged)?;
         let mut tagged =
-            lofty::read_from_path(&path).map_err(|e| Error::Metadata(e.to_string()))?;
+            lofty::read_from_path(&staged).map_err(|e| Error::Metadata(e.to_string()))?;
         let tag_type = tagged.primary_tag_type();
         if tagged.tag_mut(tag_type).is_none() {
             tagged.insert_tag(Tag::new(tag_type));
@@ -456,51 +467,155 @@ pub(crate) fn rewrite_file(
         let tag = tagged.tag_mut(tag_type).expect("tag inserted above");
         edit(tag)?;
         tagged
-            .save_to_path(&path, LoftyWriteOptions::default())
+            .save_to_path(&staged, LoftyWriteOptions::default())
             .map_err(|e| Error::Metadata(e.to_string()))?;
-        check(&path)
-    })();
-    match result {
-        Ok(()) => {
-            let refresh = (|| -> Result<()> {
-                // The file now carries these values: refresh the file source.
-                let m = metadata::read(&path)?;
-                let new_meta = std::fs::metadata(&path)?;
-                let hash = library::quick_hash(&path)?;
-                let mtime = new_meta
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_millis() as i64);
-                crate::util::atomic(conn, |tx| {
-                    tx.execute(
-                        "UPDATE files SET size = ?1, mtime_ms = ?2, quick_hash = ?3 WHERE id = ?4",
-                        params![new_meta.len() as i64, mtime, hash, file_id],
-                    )?;
-                    library::apply_file_metadata(tx, track_id, &m)?;
-                    library::refresh_fts(tx, track_id)?;
-                    let mut detail = audit_detail.clone();
-                    if let Some(o) = detail.as_object_mut() {
-                        o.insert("path".into(), serde_json::json!(path_str));
-                        o.insert("backup".into(), serde_json::json!(copy));
-                    }
-                    library::audit(tx, audit_action, "file", Some(&file_id), detail)
-                })
-            })();
-            refresh.map_err(|e| format!("written, but the library could not be refreshed: {e}"))
+        check(&staged)?;
+        if crate::fileops::fault::hit("tag-write", &path) {
+            return Err(Error::Metadata(
+                "injected failure before replacing the file".into(),
+            ));
         }
-        Err(e) => {
-            let mut msg = e.to_string();
-            if let Some(c) = &copy {
-                match std::fs::copy(c, &path) {
-                    Ok(_) => msg.push_str(" (original restored)"),
-                    Err(re) => msg.push_str(&format!(
-                        " (RESTORE FAILED: {re}; original kept at {})",
-                        c.display()
-                    )),
+        std::fs::File::open(&staged)?.sync_all()?;
+        // From here the database must follow the file: note it first, so a
+        // failed refresh or a crash is reconciled at the next start.
+        mark_pending_refresh(conn, &file_id, track_id, path_str)?;
+        std::fs::rename(&staged, &path)?;
+        Ok(())
+    })();
+    if let Err(e) = result {
+        let _ = std::fs::remove_file(&staged);
+        clear_pending_refresh(conn, &file_id);
+        return Err(format!("{e} (original file unchanged)"));
+    }
+    let refresh = if crate::fileops::fault::hit("tag-refresh", &path) {
+        Err(Error::Invalid("injected refresh failure".into()))
+    } else {
+        refresh_file(conn, &file_id, track_id, &path)
+    }
+    .and_then(|_| {
+        let mut detail = audit_detail.clone();
+        if let Some(o) = detail.as_object_mut() {
+            o.insert("path".into(), serde_json::json!(path_str));
+            o.insert("backup".into(), serde_json::json!(copy));
+        }
+        library::audit(conn, audit_action, "file", Some(&file_id), detail)
+    });
+    match refresh {
+        Ok(()) => {
+            clear_pending_refresh(conn, &file_id);
+            Ok(())
+        }
+        Err(e) => Err(format!(
+            "tags written and verified, but the library could not be refreshed ({e}); \
+             it will be refreshed from the file at the next start"
+        )),
+    }
+}
+
+/// Re-read a file's tags into the library (size, mtime, hash, metadata).
+fn refresh_file(conn: &Connection, file_id: &str, track_id: &str, path: &Path) -> Result<()> {
+    let m = metadata::read(path)?;
+    let new_meta = std::fs::metadata(path)?;
+    let hash = library::quick_hash(path)?;
+    let mtime = new_meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64);
+    crate::util::atomic(conn, |tx| {
+        tx.execute(
+            "UPDATE files SET size = ?1, mtime_ms = ?2, quick_hash = ?3 WHERE id = ?4",
+            params![new_meta.len() as i64, mtime, hash, file_id],
+        )?;
+        library::apply_file_metadata(tx, track_id, &m)?;
+        library::refresh_fts(tx, track_id)
+    })
+}
+
+/// Journal of files written whose library refresh has not completed
+/// (`<db>.tagwrite/<file id>.json`).
+fn pending_dir(conn: &Connection) -> Option<PathBuf> {
+    conn.path()
+        .filter(|p| !p.is_empty())
+        .map(|p| PathBuf::from(format!("{p}.tagwrite")))
+}
+
+fn mark_pending_refresh(
+    conn: &Connection,
+    file_id: &str,
+    track_id: &str,
+    path: &str,
+) -> Result<()> {
+    let Some(dir) = pending_dir(conn) else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(&dir)?;
+    let body = serde_json::json!({ "fileId": file_id, "trackId": track_id, "path": path });
+    let p = dir.join(format!("{file_id}.json"));
+    std::fs::write(&p, serde_json::to_vec(&body)?)?;
+    std::fs::File::open(&p)?.sync_all()?;
+    Ok(())
+}
+
+fn clear_pending_refresh(conn: &Connection, file_id: &str) {
+    if let Some(dir) = pending_dir(conn) {
+        let _ = std::fs::remove_file(dir.join(format!("{file_id}.json")));
+    }
+}
+
+/// Refresh files whose tags were written but whose library refresh did not
+/// complete (failed refresh or crash), and remove abandoned staged copies.
+pub fn recover(conn: &Connection) -> Result<Vec<String>> {
+    let Some(dir) = pending_dir(conn) else {
+        return Ok(Vec::new());
+    };
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return Ok(Vec::new());
+    };
+    let mut msgs = Vec::new();
+    for ent in rd.flatten() {
+        let Ok(v) = serde_json::from_slice::<serde_json::Value>(
+            &std::fs::read(ent.path()).unwrap_or_default(),
+        ) else {
+            let _ = std::fs::remove_file(ent.path());
+            continue;
+        };
+        let get = |k: &str| {
+            v.get(k)
+                .and_then(|x| x.as_str())
+                .unwrap_or_default()
+                .to_string()
+        };
+        let (file_id, track_id, path) = (get("fileId"), get("trackId"), get("path"));
+        let p = Path::new(&path);
+        if let Some(d) = p.parent()
+            && let Ok(rd) = std::fs::read_dir(d)
+        {
+            for f in rd.flatten() {
+                if f.file_name()
+                    .to_string_lossy()
+                    .starts_with(".deepcuts-tagwrite.")
+                {
+                    let _ = std::fs::remove_file(f.path());
                 }
             }
-            Err(msg)
         }
+        if p.exists() {
+            match refresh_file(conn, &file_id, &track_id, p) {
+                Ok(()) => msgs.push(format!(
+                    "library refreshed from {path} after an interrupted tag write"
+                )),
+                Err(e) => {
+                    msgs.push(format!("could not refresh {path}: {e}"));
+                    continue;
+                }
+            }
+        } else {
+            msgs.push(format!(
+                "{path} is missing; tag-write journal entry dropped"
+            ));
+        }
+        let _ = std::fs::remove_file(ent.path());
     }
+    Ok(msgs)
 }
