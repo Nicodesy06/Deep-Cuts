@@ -74,7 +74,7 @@ fn external_playlist_matches_library_and_lists_missing() {
     let m3u = tmp.path().join("x.m3u8");
     std::fs::write(
         &m3u,
-        format!("#EXTM3U\n{d_path}\n#EXTINF:200,ROYKSOPP - eple\n/other/pc/eple.mp3\n"),
+        format!("#EXTM3U\n{d_path}\n#EXTINF:2,ROYKSOPP - eple\n/other/pc/eple.mp3\n"),
     )
     .unwrap();
     let rep = playlist_match::read_and_match(&conn, &m3u).unwrap();

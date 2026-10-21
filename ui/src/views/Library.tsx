@@ -6,6 +6,7 @@ import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
 import { CoverDialog } from "../components/CoverDialog";
 import { CueTemplateDialog } from "../components/CueTemplateDialog";
+import { AutoTagDialog } from "../components/AutoTagDialog";
 import { FindReplaceDialog } from "../components/FindReplaceDialog";
 import { PlaylistPickDialog, type CombineOp } from "../components/PlaylistPickDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
@@ -53,6 +54,7 @@ export function Library() {
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
   const [keyWriteIds, setKeyWriteIds] = useState<string[] | null>(null);
   const [cueTplIds, setCueTplIds] = useState<string[] | null>(null);
+  const [autotagIds, setAutotagIds] = useState<string[] | null>(null);
   const [cover, setCover] = useState<{ ids: string[]; mode: "set" | "remove" } | null>(null);
   const [renameIds, setRenameIds] = useState<string[] | null>(null);
   const [frIds, setFrIds] = useState<string[] | null>(null);
@@ -445,6 +447,7 @@ export function Library() {
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
+      {autotagIds && <AutoTagDialog ids={autotagIds} onClose={() => setAutotagIds(null)} />}
       {cueTplIds && <CueTemplateDialog ids={cueTplIds} onClose={() => setCueTplIds(null)} />}
       {keyWriteIds && <WriteTagsDialog ids={keyWriteIds} fields={KEY_ONLY} onClose={() => setKeyWriteIds(null)} />}
       {cover && <CoverDialog ids={cover.ids} mode={cover.mode} onClose={() => setCover(null)} />}
@@ -620,6 +623,7 @@ export function Library() {
           >
             + {t("tags.newForSelection")}
           </button>
+          <button onClick={() => setAutotagIds(selectedIds)}>{t("autotag.menu")}</button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
           <button onClick={() => setKeyWriteIds(selectedIds)}>{t("keyNotation.menu")}</button>
           <button onClick={() => setCueTplIds(selectedIds)}>{t("cueTpl.menu")}</button>

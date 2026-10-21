@@ -232,6 +232,83 @@ pub async fn import_paths(
     .await
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AutotagProgress {
+    done: usize,
+    total: usize,
+    current: String,
+}
+
+/// Look the tracks up online (only when the user starts it). Returns the
+/// proposals; nothing is written.
+#[tauri::command]
+pub async fn autotag_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    options: dc_core::autotag::Options,
+) -> Res<Vec<dc_core::autotag::TrackResult>> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    *state.autotag_cancel.lock().map_err(e)? = Some(cancel.clone());
+    blocking(state.db_path.clone(), move |conn| {
+        let http = dc_core::autotag::Http::new(options.discogs_token.clone());
+        let mut out = Vec::new();
+        for (i, id) in ids.iter().enumerate() {
+            if cancel.load(Ordering::Relaxed) {
+                break;
+            }
+            let r = dc_core::autotag::tag_track(conn, &http, id, &options)?;
+            let _ = app.emit(
+                "autotag-progress",
+                AutotagProgress {
+                    done: i + 1,
+                    total: ids.len(),
+                    current: format!("{} – {}", r.artist, r.title),
+                },
+            );
+            out.push(r);
+        }
+        Ok(out)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn autotag_cancel(state: State<'_, AppState>) -> Res<()> {
+    if let Some(c) = state.autotag_cancel.lock().map_err(e)?.as_ref() {
+        c.store(true, Ordering::Relaxed);
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutotagApplied {
+    fields: usize,
+    artwork: tagwrite::WriteReport,
+}
+
+#[tauri::command]
+pub async fn autotag_apply(
+    state: State<'_, AppState>,
+    proposals: Vec<dc_core::autotag::SourcedProposal>,
+    keep_backup: bool,
+) -> Res<AutotagApplied> {
+    let dir = state.backups_dir.join("audio-originals");
+    blocking(state.db_path.clone(), move |conn| {
+        let http = dc_core::autotag::Http::new(None);
+        let (fields, artwork) = dc_core::autotag::apply(
+            conn,
+            &http,
+            &proposals,
+            keep_backup.then_some(dir.as_path()),
+        )?;
+        Ok(AutotagApplied { fields, artwork })
+    })
+    .await
+}
+
 #[tauri::command]
 pub fn cancel_import(state: State<'_, AppState>) -> Res<()> {
     if let Some(c) = state.import_cancel.lock().map_err(e)?.as_ref() {

@@ -5,6 +5,7 @@
 pub mod analysis;
 pub mod artwork;
 pub mod audio;
+pub mod autotag;
 pub mod backup;
 pub mod bulk;
 pub mod compare;

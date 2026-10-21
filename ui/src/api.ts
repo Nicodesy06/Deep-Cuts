@@ -215,6 +215,41 @@ export interface CueTemplate {
   replaceHot: boolean;
 }
 
+export interface AutotagOptions {
+  providers: string[];
+  fields: string[];
+  overwrite: boolean;
+  minScore: number;
+  discogsToken: string | null;
+}
+
+export interface AutotagProposal {
+  trackId: string;
+  field: string;
+  old: string;
+  new: string;
+  provider: string;
+  score: number;
+}
+
+export interface AutotagCandidate {
+  provider: string;
+  url: string | null;
+  artist: string;
+  title: string;
+  version: string | null;
+  album: string | null;
+}
+
+export interface AutotagTrack {
+  trackId: string;
+  artist: string;
+  title: string;
+  matches: [AutotagCandidate, number][];
+  proposals: AutotagProposal[];
+  errors: string[];
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -690,6 +725,9 @@ export const api = {
   deleteCueTemplate: (id: string) => invoke<void>("delete_cue_template", { id }),
   applyCueTemplate: (template: CueTemplate, ids: string[]) => invoke<{ tracks: number; created: number; skipped: [string, string][] }>("apply_cue_template", { template, ids }),
   virtualdjFilter: (query: string) => invoke<{ filter: string | null; unsupported: string[] }>("virtualdj_filter", { query }),
+  autotagRun: (ids: string[], options: AutotagOptions) => invoke<AutotagTrack[]>("autotag_run", { ids, options }),
+  autotagCancel: () => invoke<void>("autotag_cancel"),
+  autotagApply: (proposals: AutotagProposal[], keepBackup: boolean) => invoke<{ fields: number; artwork: WriteReport }>("autotag_apply", { proposals, keepBackup }),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   undo: () => invoke<BatchInfo | null>("undo"),

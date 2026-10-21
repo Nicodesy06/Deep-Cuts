@@ -375,6 +375,12 @@ impl Key {
     }
 }
 
+/// 0–1 similarity of two tracks described by artist, title, version and
+/// duration (versions must agree for a score above `MATCH_SCORE`).
+pub fn similarity(a: (&str, &str, &str, Option<f64>), b: (&str, &str, &str, Option<f64>)) -> f32 {
+    score(&Key::new(a.0, a.1, a.2, a.3), &Key::new(b.0, b.1, b.2, b.3))
+}
+
 /// 0–1 similarity between a wanted line and a library track.
 fn score(w: &Key, t: &Key) -> f32 {
     let title = text_sim(&w.base, &t.base);
@@ -399,7 +405,13 @@ fn score(w: &Key, t: &Key) -> f32 {
     if let (Some(a), Some(b)) = (w.duration_s, t.duration_s)
         && (a - b).abs() > 15.0
     {
-        s *= 0.85; // likely another edit of the song
+        // Likely another edit; far apart (> 20 %) = another version or a
+        // mix, never accepted on its own.
+        s *= if (a - b).abs() / a.max(b) > 0.2 {
+            0.7
+        } else {
+            0.85
+        };
     }
     s
 }

@@ -19,6 +19,7 @@ pub struct AppState {
     pub conn: Mutex<Connection>,
     pub pool: Mutex<Option<jobs::WorkerPool>>,
     pub import_cancel: Mutex<Option<Arc<AtomicBool>>>,
+    pub autotag_cancel: Mutex<Option<Arc<AtomicBool>>>,
     pub audio: audio_protocol::AudioCache,
     pub watcher: Mutex<Option<notify::RecommendedWatcher>>,
 }
@@ -90,6 +91,7 @@ pub fn run() {
         conn: Mutex::new(conn),
         pool: Mutex::new(None),
         import_cancel: Mutex::new(None),
+        autotag_cancel: Mutex::new(None),
         audio: audio_protocol::AudioCache::new(&db_path),
         watcher: Mutex::new(None),
     };
@@ -136,6 +138,9 @@ pub fn run() {
             commands::set_playlist_order,
             commands::enqueue_analysis,
             commands::queue_summary,
+            commands::autotag_run,
+            commands::autotag_cancel,
+            commands::autotag_apply,
             commands::virtualdj_filter,
             commands::list_cue_templates,
             commands::save_cue_template,

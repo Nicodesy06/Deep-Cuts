@@ -26,7 +26,7 @@
 1. **One core, many shells.** All behaviour lives in `dc-core`, which has no UI dependency and is tested
    directly. The desktop app and the CLI are thin shells. A future mobile companion or sync daemon
    reuses the same crate.
-2. **Local and offline.** No network code in the app. Audio decoding (Symphonia), tag reading (lofty),
+2. **Local and offline.** The only network code is the optional online auto-tagger (`dc-core::autotag`), which runs only when the user starts it and sends artist/title/version/duration of the selected tracks to the chosen catalogues. Audio decoding (Symphonia), tag reading (lofty),
    DSP (rustfft) and storage (bundled SQLite) are all in-process.
 3. **Every value has an origin.** See *Metadata provenance* below.
 4. **Measured ≠ inferred.** The first analyser (`dc-dsp 1.0.0`) only produces signal measurements. Model
