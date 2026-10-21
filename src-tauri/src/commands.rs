@@ -636,6 +636,8 @@ pub struct StylesStatus {
     /// "discogs" | "labels" | "both", or None before the user chose.
     source: Option<String>,
     downloaded: bool,
+    /// Mood/feel classifiers present too (downloaded with the model).
+    heads_downloaded: bool,
     license: &'static str,
     url: &'static str,
     size_mb: u32,
@@ -659,6 +661,7 @@ pub async fn styles_status(state: State<'_, AppState>) -> Res<StylesStatus> {
         Ok(StylesStatus {
             source,
             downloaded,
+            heads_downloaded: discogs::heads_downloaded(),
             license: discogs::LICENSE,
             url: discogs::URL,
             size_mb: discogs::SIZE_MB,

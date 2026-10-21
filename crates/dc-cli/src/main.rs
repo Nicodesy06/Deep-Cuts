@@ -557,6 +557,14 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                     .map(|i| format!("{} {:.2}", dc_core::discogs::STYLES[*i], o.probs[*i]))
                     .collect();
                 println!("{}: {}", f.display(), top.join(", "));
+                if !o.descriptors.is_empty() {
+                    let d: Vec<String> = o
+                        .descriptors
+                        .iter()
+                        .map(|(l, v)| format!("{l} {v:.2}"))
+                        .collect();
+                    println!("    {}", d.join(", "));
+                }
                 out.push_str(&format!(
                     "{}\t{}\n",
                     f.display(),

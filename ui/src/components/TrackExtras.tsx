@@ -240,13 +240,27 @@ export function CharacterSection({ trackId }: { trackId: string }) {
           <div className="char-group">
             <span className="muted small">{t("character.g.style")}</span>
             <span className="chips">
-              {c.styles.slice(0, 4).map((m) => (
+              {c.styles.filter((m) => m.group === "style").slice(0, 4).map((m) => (
                 <span key={m.label} className="chip" title={`${Math.round(m.score * 100)} %`}>
                   {m.label} <span className="muted">{Math.round(m.score * 100)}%</span>
                 </span>
               ))}
             </span>
           </div>
+          {c.styles.some((m) => m.group === "feel") && (
+            <div className="char-group">
+              <span className="muted small">{t("character.g.feel")}</span>
+              <span className="chips">
+                {c.styles
+                  .filter((m) => m.group === "feel")
+                  .map((m) => (
+                    <span key={m.label} className="chip" title={`${Math.round(m.score * 100)} %`}>
+                      {t(`feel.${m.label}` as MsgKey)} <span className="muted">{Math.round(m.score * 100)}%</span>
+                    </span>
+                  ))}
+              </span>
+            </div>
+          )}
           <div className="hint">{t("character.styleHint")}</div>
         </div>
       )}

@@ -261,6 +261,7 @@ export interface TrackCharacter {
 export interface StylesStatus {
   source: "discogs" | "labels" | "both" | null;
   downloaded: boolean;
+  headsDownloaded: boolean;
   license: string;
   url: string;
   sizeMb: number;

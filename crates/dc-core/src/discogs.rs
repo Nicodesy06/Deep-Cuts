@@ -24,7 +24,7 @@ pub const URL: &str = "https://essentia.upf.edu/models/feature-extractors/discog
 pub const BLAKE3: &str = "eac28b8c8e665ef2bd0952871d2383c314f44e25137fbfe1031ce3fdd49cdfcc";
 pub const LICENSE: &str = "CC BY-NC-SA 4.0 — Music Technology Group, Universitat Pompeu Fabra \
 (Alonso-Jiménez, Serra, Bogdanov, ISMIR 2022). Non-commercial use only.";
-pub const SIZE_MB: u32 = 18;
+pub const SIZE_MB: u32 = 23;
 
 const SR: u32 = 16_000;
 const FRAME: usize = 512;
@@ -48,25 +48,116 @@ pub fn style_name(s: &str) -> &str {
     s.rsplit("---").next().unwrap_or(s)
 }
 
+/// Small classifiers (MTG, same licence) that read the model's embedding:
+/// file, BLAKE3, label shown, class index of the positive answer.
+pub struct Head {
+    pub file: &'static str,
+    pub dir: &'static str,
+    pub blake3: &'static str,
+    pub label: &'static str,
+    pub index: usize,
+}
+
+const HEAD_BASE: &str = "https://essentia.upf.edu/models/classification-heads";
+
+pub const HEADS: &[Head] = &[
+    Head {
+        file: "danceability-discogs-effnet-1.onnx",
+        dir: "danceability",
+        blake3: "3dce0079ef00f6001a46b29e03fc456406ea923081494777783c5ef68d3f292d",
+        label: "Danceable",
+        index: 0,
+    },
+    Head {
+        file: "mood_party-discogs-effnet-1.onnx",
+        dir: "mood_party",
+        blake3: "10d92deac8d4e80b25287a2fe3830ef7e89e658cc30e2e6b5b3d554623a94da2",
+        label: "Party",
+        index: 1,
+    },
+    Head {
+        file: "mood_happy-discogs-effnet-1.onnx",
+        dir: "mood_happy",
+        blake3: "9441a49d65b65d59feaa4dd40550b5e95d24274e69b91efc06b1a221d55db4d7",
+        label: "Happy",
+        index: 0,
+    },
+    Head {
+        file: "mood_sad-discogs-effnet-1.onnx",
+        dir: "mood_sad",
+        blake3: "873988fdc85bb6c8ec6795f80f666331c5b5218a8e060729a87d282fe7d5229c",
+        label: "Sad",
+        index: 1,
+    },
+    Head {
+        file: "mood_aggressive-discogs-effnet-1.onnx",
+        dir: "mood_aggressive",
+        blake3: "72c300d39bf1aa80c372b94db5bc877a84878725f1b261f1defdec3ed203ae21",
+        label: "Aggressive",
+        index: 0,
+    },
+    Head {
+        file: "mood_relaxed-discogs-effnet-1.onnx",
+        dir: "mood_relaxed",
+        blake3: "6c90cdb3b6282a307c3af9639fde72ca6d326a271553d96b333f68f348e1ac97",
+        label: "Relaxed",
+        index: 1,
+    },
+    Head {
+        file: "voice_instrumental-discogs-effnet-1.onnx",
+        dir: "voice_instrumental",
+        blake3: "e9e70bf4d47bdeb6f2469920a371e60f1750f572bee2eed6ea720ddad9457517",
+        label: "Vocals",
+        index: 1,
+    },
+    Head {
+        file: "engagement_regression-discogs-effnet-1.onnx",
+        dir: "engagement",
+        blake3: "fb3fb3e7aaf29840052808e58900229d6925de9d35cd42757f2e18bf652f54d9",
+        label: "Engagement",
+        index: 0,
+    },
+    Head {
+        file: "approachability_regression-discogs-effnet-1.onnx",
+        dir: "approachability",
+        blake3: "a0b8f8c5a21b1454ee67dfde7e93a3154a14db7fc29275bde395f29fdd6f0c2e",
+        label: "Approachability",
+        index: 0,
+    },
+];
+
+fn models_dir() -> PathBuf {
+    crate::paths::home().join("models")
+}
+
 /// Where the downloaded model lives.
 pub fn model_path() -> PathBuf {
-    crate::paths::home().join("models").join(FILE)
+    models_dir().join(FILE)
 }
 
 pub fn is_downloaded() -> bool {
     model_path().is_file()
 }
 
-/// Download the model from the MTG server and verify it.
-pub fn download(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<PathBuf> {
+/// Whether the mood/descriptor classifiers are downloaded too.
+pub fn heads_downloaded() -> bool {
+    HEADS.iter().all(|h| models_dir().join(h.file).is_file())
+}
+
+/// Download a file to `out`, retrying 503/429, and check its BLAKE3 hash.
+pub(crate) fn download_file(
+    url: &str,
+    out: &std::path::Path,
+    hash: &str,
+    progress: &mut dyn FnMut(u64, Option<u64>),
+) -> Result<()> {
     use std::io::{Read, Write};
-    let out = model_path();
-    std::fs::create_dir_all(out.parent().unwrap_or(&out))?;
+    std::fs::create_dir_all(out.parent().unwrap_or(out))?;
     let tmp = out.with_extension("part");
-    // The server sometimes answers 503/429 under load: retry with back-off.
+    // Servers sometimes answer 503/429 under load: retry with back-off.
     let mut attempt = 0;
     let resp = loop {
-        match ureq::get(URL).call() {
+        match ureq::get(url).call() {
             Ok(r) => break r,
             Err(ureq::Error::Status(code, _)) if (code == 503 || code == 429) && attempt < 4 => {
                 attempt += 1;
@@ -96,13 +187,33 @@ pub fn download(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<PathBuf> {
     file.sync_all()?;
     drop(file);
     let got = hasher.finalize().to_hex().to_string();
-    if got != BLAKE3 {
+    if got != hash {
         let _ = std::fs::remove_file(&tmp);
         return Err(Error::Invalid(format!(
             "downloaded file does not match the expected model (hash {got})"
         )));
     }
-    std::fs::rename(&tmp, &out)?;
+    std::fs::rename(&tmp, out)?;
+    Ok(())
+}
+
+/// Download the style model and its classifiers from the MTG server.
+pub fn download(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<PathBuf> {
+    let out = model_path();
+    if !out.is_file() {
+        download_file(URL, &out, BLAKE3, progress)?;
+    }
+    for h in HEADS {
+        let p = models_dir().join(h.file);
+        if !p.is_file() {
+            download_file(
+                &format!("{HEAD_BASE}/{}/{}", h.dir, h.file),
+                &p,
+                h.blake3,
+                &mut |_, _| {},
+            )?;
+        }
+    }
     Ok(out)
 }
 
@@ -195,16 +306,20 @@ pub fn patch_starts(n_frames: usize) -> Vec<usize> {
         .collect()
 }
 
-/// Mean style probabilities (400) and embedding (1280) of a track.
+/// Mean style probabilities (400), embedding (1280) and classifier outputs
+/// (label, 0..1) of a track.
 #[derive(Debug, Clone)]
 pub struct StyleOutput {
     pub probs: Vec<f32>,
     pub embedding: Vec<f32>,
+    pub descriptors: Vec<(&'static str, f32)>,
 }
 
 pub struct StyleModel {
     #[cfg(feature = "ml")]
     session: std::sync::Mutex<ort::session::Session>,
+    #[cfg(feature = "ml")]
+    heads: Vec<(&'static Head, std::sync::Mutex<ort::session::Session>)>,
     pub device: String,
 }
 
@@ -216,8 +331,18 @@ impl StyleModel {
             return Err(Error::NotFound("Discogs style model not downloaded".into()));
         }
         let (session, device) = crate::ml::open_session(&p)?;
+        // Classifiers are optional (older downloads did not include them).
+        let heads = HEADS
+            .iter()
+            .filter_map(|h| {
+                let hp = models_dir().join(h.file);
+                let (s, _) = crate::ml::open_session(&hp).ok()?;
+                Some((h, std::sync::Mutex::new(s)))
+            })
+            .collect();
         Ok(StyleModel {
             session: std::sync::Mutex::new(session),
+            heads,
             device,
         })
     }
@@ -257,9 +382,43 @@ impl StyleModel {
             let n = (v.len() / width).max(1) as f32;
             Ok(m.into_iter().map(|x| x / n).collect())
         };
+        let probs = mean("activations", STYLES.len())?;
+        let embedding = mean("embeddings", 1280)?;
+        // The classifiers read each patch's embedding; their outputs are averaged.
+        let (_, emb) = outputs["embeddings"]
+            .try_extract_tensor::<f32>()
+            .map_err(ort_err)?;
+        let n = emb.len() / 1280;
+        let emb = emb.to_vec();
+        drop(outputs);
+        drop(session);
+        let mut descriptors = Vec::new();
+        for (h, sess) in &self.heads {
+            let input =
+                ort::value::Tensor::from_array(([n, 1280usize], emb.clone().into_boxed_slice()))
+                    .map_err(ort_err)?;
+            let mut s = sess
+                .lock()
+                .map_err(|_| Error::Invalid("model lock".into()))?;
+            let out = s
+                .run(ort::inputs!["embeddings" => input])
+                .map_err(ort_err)?;
+            let (shape, v) = out["activations"]
+                .try_extract_tensor::<f32>()
+                .map_err(ort_err)?;
+            let width = shape.last().copied().unwrap_or(1).max(1) as usize;
+            let rows = (v.len() / width).max(1) as f32;
+            let val: f32 = v
+                .chunks_exact(width)
+                .map(|r| r[h.index.min(width - 1)])
+                .sum::<f32>()
+                / rows;
+            descriptors.push((h.label, val.clamp(0.0, 1.0)));
+        }
         Ok(StyleOutput {
-            probs: mean("activations", STYLES.len())?,
-            embedding: mean("embeddings", 1280)?,
+            probs,
+            embedding,
+            descriptors,
         })
     }
 }
@@ -311,8 +470,10 @@ pub fn shared(conn: &rusqlite::Connection) -> Option<std::sync::Arc<StyleModel>>
 /// Styles kept per track (best first).
 const KEEP: usize = 10;
 
-/// Store the best styles of a track (as model_tags, group "style").
-pub fn store(conn: &rusqlite::Connection, track_id: &str, probs: &[f32]) -> Result<()> {
+/// Store the best styles (group "style") and the classifier outputs (group
+/// "feel") of a track as model_tags.
+pub fn store(conn: &rusqlite::Connection, track_id: &str, out: &StyleOutput) -> Result<()> {
+    let probs = &out.probs;
     conn.execute(
         "DELETE FROM model_tags WHERE track_id = ?1 AND model = ?2",
         rusqlite::params![track_id, MODEL],
@@ -337,6 +498,20 @@ pub fn store(conn: &rusqlite::Connection, track_id: &str, probs: &[f32]) -> Resu
                 name,
                 (p * 1000.0).round() / 1000.0,
                 rank as i64 + 1
+            ],
+        )?;
+    }
+    for (i, (label, v)) in out.descriptors.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO model_tags (track_id, model, model_version, grp, label, score, rank)
+             VALUES (?1, ?2, ?3, 'feel', ?4, ?5, ?6)",
+            rusqlite::params![
+                track_id,
+                MODEL,
+                MODEL_VERSION,
+                label,
+                (v * 1000.0).round() / 1000.0,
+                i as i64 + 1
             ],
         )?;
     }

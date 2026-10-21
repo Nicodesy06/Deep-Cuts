@@ -622,7 +622,7 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
         crate::ml::store_sound(tx, track_id, &crate::ml::sound_vector(&m.embedding))?;
     }
     if let Some(st) = &a.styles {
-        crate::discogs::store(tx, track_id, &st.probs)?;
+        crate::discogs::store(tx, track_id, st)?;
         crate::discogs::store_vector(tx, track_id, &st.probs)?;
     }
     Ok(())

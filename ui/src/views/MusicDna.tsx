@@ -150,6 +150,20 @@ function StylesLine() {
           {t("styles.change")}
         </button>
       </div>
+      {using && st.downloaded && !st.headsDownloaded && (
+        <div className="row">
+          <span className="small">{t("styles.headsMissing")}</span>
+          <button
+            className="btn small"
+            onClick={async () => {
+              const r = await act(() => api.stylesDownload(), t("styles.downloaded"));
+              if (r !== undefined) bump();
+            }}
+          >
+            {t("styles.downloadHeads")}
+          </button>
+        </div>
+      )}
       {st.missing > 0 && (
         <div className="row">
           <span className="small">{t("styles.missingTracks", { n: st.missing })}</span>
