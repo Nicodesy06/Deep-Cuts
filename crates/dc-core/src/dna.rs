@@ -117,7 +117,14 @@ fn learning_vectors(conn: &Connection, vecs: &[(String, Vector)]) -> Result<(Lea
                 .collect()
         })
         .collect();
-    let sound = crate::ml::sound_all(conn)?;
+    // Discogs style vectors when most tracks have them (better on the
+    // Beatport test set: AI_VALIDATION.md), else the audio model's sound.
+    let styles = crate::discogs::vectors_all(conn)?;
+    let sound = if styles.len() * 2 >= vecs.len() && styles.len() >= 2 {
+        styles
+    } else {
+        crate::ml::sound_all(conn)?
+    };
     let have: Vec<&[f32]> = vecs
         .iter()
         .filter_map(|(id, _)| sound.get(id).map(|v| v.as_slice()))
@@ -296,6 +303,50 @@ fn suggest_labels(
 }
 
 /// Genre suggestions for analysed tracks without a genre.
+/// Genre suggestions from the Discogs style model: the best style of each
+/// analysed track without a genre, when its probability reaches
+/// `min_score`. The evaluation compares the best style with the genre the
+/// user already gave (same name, any case) on labelled tracks.
+pub fn style_genre_suggestions(conn: &Connection, min_score: f32) -> Result<LabelReport> {
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.genre, m.label, m.score FROM live_tracks t
+         JOIN model_tags m ON m.track_id = t.id AND m.model = ?1 AND m.rank = 1",
+    )?;
+    let rows: Vec<(String, Option<String>, String, f64)> = stmt
+        .query_map([crate::discogs::MODEL], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+        .collect::<std::result::Result<_, _>>()?;
+    let mut rep = LabelReport::default();
+    let mut ev = LabelEval::default();
+    for (id, genre, style, score) in rows {
+        match genre.filter(|g| !g.trim().is_empty()) {
+            Some(g) => {
+                ev.labelled += 1;
+                if score as f32 >= min_score {
+                    ev.suggested += 1;
+                    if g.trim().eq_ignore_ascii_case(&style) {
+                        ev.correct += 1;
+                    }
+                }
+            }
+            None if score as f32 >= min_score => rep.suggestions.push(LabelSuggestion {
+                track_id: id,
+                label: style,
+                share: score as f32,
+            }),
+            None => {}
+        }
+    }
+    rep.suggestions.sort_by(|a, b| {
+        b.share
+            .total_cmp(&a.share)
+            .then(a.track_id.cmp(&b.track_id))
+    });
+    rep.eval.insert("all".into(), ev);
+    Ok(rep)
+}
+
 pub fn genre_suggestions(conn: &Connection, min_share: f32) -> Result<LabelReport> {
     let (zs, _) = learning_vectors(conn, &vectors(conn)?)?;
     // Most common spelling per case-insensitive genre.
@@ -556,6 +607,8 @@ pub struct Character {
     pub steadiness: Option<i64>,
     /// Audio model outputs (genre, mood, vocals, instruments).
     pub model: Vec<crate::ml::ModelTag>,
+    /// Discogs styles (optional style model), best first.
+    pub styles: Vec<crate::ml::ModelTag>,
     pub model_device: Option<String>,
 }
 
@@ -581,6 +634,7 @@ pub fn character(conn: &Connection, track_id: &str) -> Result<Character> {
         drive: rank(10),
         steadiness: rank(12),
         model: crate::ml::for_track(conn, track_id)?,
+        styles: crate::discogs::for_track(conn, track_id)?,
         model_device: None,
     })
 }

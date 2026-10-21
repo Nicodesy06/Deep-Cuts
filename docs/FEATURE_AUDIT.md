@@ -52,7 +52,7 @@ software · **NO** not implemented (reason given).
 | Scatter Map | OK | 2-D projection of all analysed tracks |
 | Magic Sorting | OK | Hand-designed cost (not learned); build mode ρ > 0.9 in tests |
 | Auto Group | OK | k-means on measured features + model sound vector |
-| Genre Detection | WEAK | From the user's own labels: 42 % top-1 on Beatport genres (34 % before the sound vector), confident suggestions on 22 % of tracks at 66 %. Model alone gives broad AudioSet genres (34–41 % agreement); Beatport sub-genres (Tech/Progressive/Deep House…) are **not** reliably recognised |
+| Genre Detection | WEAK (better with the optional Discogs model) | Optional Discogs-EffNet styles (user download, non-commercial licence): 42 % top-1 / 75 % top-3 on Beatport genres, weak on Tech/Progressive House. | From the user's own labels: 42 % top-1 on Beatport genres (34 % before the sound vector), confident suggestions on 22 % of tracks at 66 %. Model alone gives broad AudioSet genres (34–41 % agreement); Beatport sub-genres (Tech/Progressive/Deep House…) are **not** reliably recognised |
 | Matching Tracks | OK | Measured features + sound vector; same-genre share in the top 10 from 30 % to 36 % on a test set |
 | Migration incl. Rekordbox tags | WEAK | Rekordbox XML, Traktor, Serato, VirtualDJ. My Tags written as `/* a / b */` in comments are read from the XML, from file tags on every import (MP3, FLAC/OGG, M4A, AIFF; FLAC comments were not read before this fix) and by a full-library scan; M3U/M3U8 playlists import as playlists. Exports carry one playlist per My Tag (Rekordbox cannot import My Tag values). Reading My Tags from Rekordbox 6/7's encrypted `master.db` is not done (needs the owner's decision) |
 

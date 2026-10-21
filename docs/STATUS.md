@@ -12,6 +12,13 @@
 | **Online auto-tagger** (One Tagger-like): MusicBrainz, Deezer, iTunes, Discogs (personal token); fuzzy match with duration check, originals preferred over compilations, per-field selection, review before writing, undoable | `autotag`, Auto-tag dialog | `tests/autotag_apply.rs`, `tests/autotag_live.rs` (network, ignored by default, passing) |
 | **Local audio model** (PANNs MobileNetV1, AudioSet): genre, mood, vocals, instruments per track; **character** (bass weight, rhythmic drive, groove steadiness); GPU through CUDA / DirectML / CoreML, CPU fallback; can be switched off | `ml`, `dna::character`, Music DNA, track details | `tests/ml.rs`, CI `genre-eval`, GUI check |
 
+After v0.1.1: optional **Discogs style model** (Discogs-EffNet, 400 Discogs styles; CC BY-NC-SA,
+downloaded only after the user accepts the licence; asked once before the first analysis). Measured
+on Beatport genres: 42 % top-1 / 75 % top-3 (vs 34–36 % before). Its styles are shown per track,
+can be applied as genres, and replace the sound vector for similarity and label suggestions.
+Fixed: most UI settings (BPM range, export mapping, model toggle, key notation, auto-tagger options)
+were rejected by the backend and silently not saved; a test now checks every key the UI writes.
+
 After v0.1.1: Rekordbox My Tags in comments (`/* a / b */`) are read automatically when files are
 imported or change, and by "Scan all comments"; M3U/M3U8 playlists (e.g. from Rekordbox) import as
 playlists, adding missing files; every DJ export gets a "My Tag" folder with one playlist per tag,

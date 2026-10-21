@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ensureGenreSource } from "../components/GenreSourceDialog";
 import { api, type Decision, type Playlist, type Tag, type TrackRow } from "../api";
 import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
@@ -137,6 +138,7 @@ export function Library() {
 
   const analyze = useCallback(
     async (ids = selectedIds, force = false) => {
+      await ensureGenreSource();
       const r = await act(() => api.enqueueAnalysis(ids, force));
       if (r) toast(t("library.analyzeQueued", { queued: r.queued, skipped: r.skippedUpToDate }), "ok");
       bump();

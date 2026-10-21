@@ -3,6 +3,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { api, inDesktopApp, onEvent, type ImportProgress } from "./api";
 import { importFolders } from "./actions";
 import { Player } from "./components/Player";
+import { GenreSourceHost } from "./components/GenreSourceDialog";
 import type { MsgKey } from "./i18n";
 import { AppProvider, useApp, type View } from "./store";
 import { AnalysisQueue } from "./views/AnalysisQueue";
@@ -251,6 +252,7 @@ function Main() {
         </div>
       )}
       <Dialogs />
+      <GenreSourceHost />
       <Toasts />
     </div>
   );

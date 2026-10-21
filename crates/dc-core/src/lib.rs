@@ -13,6 +13,7 @@ pub mod csvimport;
 pub mod cues;
 pub mod db;
 pub mod dedupe;
+pub mod discogs;
 pub mod djlib;
 pub mod dna;
 pub mod error;

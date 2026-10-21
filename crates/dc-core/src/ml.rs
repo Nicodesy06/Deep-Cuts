@@ -199,44 +199,52 @@ impl Tagger {
     }
 }
 
+/// ONNX Runtime session on the best available device ("CUDA", "DirectML",
+/// "CoreML" or "CPU"). Shared by every model Deep Cuts runs.
+// On a CPU-only build `builder`/`device` are never changed.
 #[cfg(feature = "ml")]
-fn ort_err(e: impl std::fmt::Display) -> Error {
+#[allow(unused_mut)]
+pub(crate) fn open_session(path: &Path) -> Result<(Session, String)> {
+    let mut builder = Session::builder().map_err(ort_err)?;
+    let mut device = "CPU".to_string();
+    // First device that registers wins; the CPU is always there.
+    #[allow(dead_code)]
+    fn try_ep(
+        builder: &mut ort::session::builder::SessionBuilder,
+        ep: impl ExecutionProvider,
+    ) -> bool {
+        ep.is_available().unwrap_or(false) && ep.register(builder).is_ok()
+    }
+    #[cfg(feature = "gpu-cuda")]
+    if device == "CPU" && try_ep(&mut builder, ort::ep::CUDA::default()) {
+        device = "CUDA".into();
+    }
+    #[cfg(windows)]
+    if device == "CPU" && try_ep(&mut builder, ort::ep::DirectML::default()) {
+        device = "DirectML".into();
+    }
+    #[cfg(target_os = "macos")]
+    if device == "CPU" && try_ep(&mut builder, ort::ep::CoreML::default()) {
+        device = "CoreML".into();
+    }
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(2)
+        .clamp(1, 4);
+    let mut builder = builder.with_intra_threads(threads).map_err(ort_err)?;
+    let session = builder.commit_from_file(path).map_err(ort_err)?;
+    Ok((session, device))
+}
+
+#[cfg(feature = "ml")]
+pub(crate) fn ort_err(e: impl std::fmt::Display) -> Error {
     Error::Invalid(format!("model: {e}"))
 }
 
 #[cfg(feature = "ml")]
 impl Tagger {
-    // On a CPU-only build `builder`/`device` are never changed.
-    #[allow(unused_mut)]
     pub fn load(path: &Path) -> Result<Tagger> {
-        let mut builder = Session::builder().map_err(ort_err)?;
-        let mut device = "CPU".to_string();
-        // First device that registers wins; the CPU is always there.
-        #[allow(dead_code)]
-        fn try_ep(
-            builder: &mut ort::session::builder::SessionBuilder,
-            ep: impl ExecutionProvider,
-        ) -> bool {
-            ep.is_available().unwrap_or(false) && ep.register(builder).is_ok()
-        }
-        #[cfg(feature = "gpu-cuda")]
-        if device == "CPU" && try_ep(&mut builder, ort::ep::CUDA::default()) {
-            device = "CUDA".into();
-        }
-        #[cfg(windows)]
-        if device == "CPU" && try_ep(&mut builder, ort::ep::DirectML::default()) {
-            device = "DirectML".into();
-        }
-        #[cfg(target_os = "macos")]
-        if device == "CPU" && try_ep(&mut builder, ort::ep::CoreML::default()) {
-            device = "CoreML".into();
-        }
-        let threads = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(2)
-            .clamp(1, 4);
-        let mut builder = builder.with_intra_threads(threads).map_err(ort_err)?;
-        let session = builder.commit_from_file(path).map_err(ort_err)?;
+        let (session, device) = open_session(path)?;
         Ok(Tagger {
             session: Mutex::new(session),
             device,
@@ -422,6 +430,7 @@ pub fn tracks_without_model(conn: &rusqlite::Connection) -> Result<Vec<String>> 
     let mut stmt = conn.prepare(
         "SELECT t.id FROM live_tracks t
          WHERE EXISTS (SELECT 1 FROM analysis_results a WHERE a.track_id = t.id)
+           AND EXISTS (SELECT 1 FROM files f WHERE f.track_id = t.id AND f.missing = 0)
            AND NOT EXISTS (SELECT 1 FROM track_sound s WHERE s.track_id = t.id
                            AND s.model = ?1 AND s.model_version = ?2)",
     )?;

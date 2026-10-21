@@ -36,6 +36,15 @@ third-party notices with the installers. This is listed under Phase 9.
   CUDA/cuDNN only when the user builds with `gpu-cuda` and has NVIDIA's runtime installed (not
   redistributed by us).
 
+## Optional model downloaded by the user (not distributed with Deep Cuts)
+
+* Discogs-EffNet (`discogs-effnet-bsdynamic-1.onnx`, Music Technology Group, Universitat Pompeu
+  Fabra): **CC BY-NC-SA 4.0** — non-commercial. It is not part of the GPL distribution: the app
+  shows the licence and downloads it from the MTG server only when the user chooses it, then
+  checks a fixed BLAKE3 hash. Its use for paid work may count as commercial; the MTG offers
+  other licences on request. Style names (`models/discogs_styles.txt`) are the Discogs taxonomy
+  labels from the model's metadata.
+
 ## Evaluation corpora and learned parameters
 
 Audio of GiantSteps Key, GiantSteps Tempo and GiantSteps-MTG-Keys is downloaded only on CI

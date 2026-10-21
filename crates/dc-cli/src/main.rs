@@ -78,6 +78,15 @@ enum Cmd {
         #[arg(long)]
         create: bool,
     },
+    /// Discogs styles of audio files (needs the downloaded style model);
+    /// `--dump` writes the 400 mean probabilities per file
+    Styles {
+        files: Vec<PathBuf>,
+        #[arg(long)]
+        dump: Option<PathBuf>,
+    },
+    /// Download the Discogs style model (CC BY-NC-SA 4.0: non-commercial)
+    DownloadStyles,
     /// Import an M3U/M3U8 file as a playlist (files not in the library are
     /// imported first; My Tags in their comments are read)
     ImportM3u { file: PathBuf },
@@ -525,6 +534,52 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             println!("backup: {}", b.path);
             let rep = dc_core::djlib::import_from(&mut conn, &app, &path)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Cmd::Styles { files, dump } => {
+            let model = dc_core::discogs::StyleModel::load()?;
+            let mut out = String::new();
+            for f in &files {
+                let mut mono: Vec<f32> = Vec::new();
+                let (info, _) = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
+                    let ch = info.channels;
+                    mono.extend(
+                        frames
+                            .chunks_exact(ch)
+                            .map(|x| x.iter().sum::<f32>() / ch as f32),
+                    );
+                })?;
+                let o = model.tag_signal(&mono, info.sample_rate)?;
+                let mut idx: Vec<usize> = (0..o.probs.len()).collect();
+                idx.sort_by(|a, b| o.probs[*b].total_cmp(&o.probs[*a]));
+                let top: Vec<String> = idx
+                    .iter()
+                    .take(5)
+                    .map(|i| format!("{} {:.2}", dc_core::discogs::STYLES[*i], o.probs[*i]))
+                    .collect();
+                println!("{}: {}", f.display(), top.join(", "));
+                out.push_str(&format!(
+                    "{}\t{}\n",
+                    f.display(),
+                    o.probs
+                        .iter()
+                        .map(|v| format!("{v:.6}"))
+                        .collect::<Vec<_>>()
+                        .join("\t")
+                ));
+            }
+            if let Some(p) = dump {
+                std::fs::write(p, out)?;
+            }
+        }
+        Cmd::DownloadStyles => {
+            println!("{}", dc_core::discogs::LICENSE);
+            let p = dc_core::discogs::download(&mut |done, total| {
+                if let Some(t) = total {
+                    eprint!("\r{} / {} MB", done >> 20, t >> 20);
+                }
+            })?;
+            eprintln!();
+            println!("saved {}", p.display());
         }
         Cmd::ImportM3u { file } => {
             let r = dc_core::m3uimport::import(&mut conn, &file)?;

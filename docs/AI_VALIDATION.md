@@ -1,5 +1,31 @@
 # Analysis & AI validation protocol
 
+## Optional Discogs style model: Discogs-EffNet (added 2026-10-21)
+
+Discogs-EffNet (MTG, UPF; CC BY-NC-SA 4.0, downloaded by the user, not shipped) predicts 400
+Discogs styles. Deep Cuts' front-end (`discogs.rs`) reproduces Essentia's input: checked against
+Essentia 2.1 `TensorflowPredictEffnetDiscogs`, the mel values differ by at most 5e-7 and the model
+outputs by 8e-6 (the ONNX and TensorFlow graphs agree to 6e-6 on the same input). The app analyses
+at most 32 patches per track (≈ 65 s of audio) to stay near 0.5 s per track on a CPU.
+
+Measured once on GiantSteps Key (565 tracks whose Beatport genre maps to Discogs styles; mapping
+fixed beforehand, e.g. tech-house → Tech House, trance → Trance / Progressive Trance):
+
+| Method (same tracks) | Top-1 | Top-3 |
+|---|---|---|
+| Discogs-EffNet, Essentia reference (all patches) | 43.7 % | 75.4 % |
+| **Discogs-EffNet as run by Deep Cuts (32 patches)** | **42.1 %** | **75.2 %** |
+| Beatport head on PANNs embedding (not shipped) | 36.1 % | 56.8 % |
+| PANNs AudioSet genre (broad classes) | 34.2 % | — |
+
+Strong on Drum & Bass (89 %), Dubstep (82 %), House (72 %), Trance (66 %), Electro House (61 %);
+weak on Progressive House (11 %) and Tech House (17 %), which it mostly calls House or Electro
+House, and Nu-Disco (7 %).
+
+As the "sound" part of the learning space for suggestions from the user's own labels (same
+weight 0.7 as chosen for PANNs, not re-tuned): top-1 44.4 % vs 42.2 % with PANNs and 34.3 % with
+measured features only; confident suggestions on 22 % of tracks at 67.2 %.
+
 ## Audio model: PANNs MobileNetV1 (added 2026-10-21)
 
 Runs during analysis on three 10 s windows (from 25 %, 50 %, 75 % of the track), mean of the

@@ -1,4 +1,5 @@
 // Shared user actions (dialogs + IPC) used from several views.
+import { ensureGenreSource } from "./components/GenreSourceDialog";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, type TrackQuery } from "./api";
 import type { MsgKey } from "./i18n";
@@ -14,6 +15,7 @@ export async function importFolders(t: T, toast: Toast, bump: () => void, paths?
     chosen = Array.isArray(r) ? r : [r];
   }
   if (chosen.length === 0) return;
+  if ((await api.getSettings().catch(() => ({}) as Record<string, string>)).autoAnalyze !== "false") await ensureGenreSource();
   const settings = await api.getSettings().catch(() => ({}) as Record<string, string>);
   try {
     const rep = await api.importPaths(chosen, settings.autoAnalyze !== "false");

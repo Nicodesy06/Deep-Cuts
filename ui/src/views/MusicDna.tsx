@@ -2,9 +2,10 @@
 // labels (with measured accuracy), auto groups, and the local audio model
 // (AudioSet tagger) whose outputs become reviewable tag suggestions.
 import { useEffect, useState } from "react";
-import { api, type DnaGroup, type LabelReport, type TrackRow } from "../api";
+import { api, type DnaGroup, type LabelReport, type StylesStatus, type TrackRow } from "../api";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
+import { GenreSourceDialog } from "../components/GenreSourceDialog";
 import { formatBpm } from "../format";
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
@@ -110,6 +111,7 @@ function ModelPanel() {
           </button>
         </div>
       )}
+      <StylesLine />
       <div className="row wrap">
         {["ai:techno", "ai:house", "ai:\"female singing\"", "ai:rapping", "ai:\"happy music\"", "ai:synthesizer"].map((q) => (
           <button key={q} className="chip mono" onClick={() => openLibrary({ query: q })}>
@@ -121,17 +123,66 @@ function ModelPanel() {
   );
 }
 
+function StylesLine() {
+  const { t, dataVersion, bump, toast } = useApp();
+  const act = useAction();
+  const [st, setSt] = useState<StylesStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    api.stylesStatus().then(setSt, () => setSt(null));
+  }, [dataVersion]);
+  if (!st) return null;
+  const using = st.source === "discogs" || st.source === "both";
+  return (
+    <div className="stack">
+      {open && <GenreSourceDialog onClose={() => setOpen(false)} />}
+      <div className="row wrap">
+        <span className="small">
+          {!using
+            ? t("styles.statusOff")
+            : !st.downloaded
+              ? t("styles.statusMissing")
+              : st.device
+                ? t("styles.statusOn", { device: st.device })
+                : t("styles.statusError")}
+        </span>
+        <button className="btn small ghost" onClick={() => setOpen(true)}>
+          {t("styles.change")}
+        </button>
+      </div>
+      {st.missing > 0 && (
+        <div className="row">
+          <span className="small">{t("styles.missingTracks", { n: st.missing })}</span>
+          <button
+            className="btn small"
+            onClick={async () => {
+              const n = await act(() => api.stylesReanalyze());
+              if (n != null) {
+                bump();
+                toast(t("model.queued", { n }), "ok");
+              }
+            }}
+          >
+            {t("model.reanalyze")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GenrePanel() {
   const { t, bump, play } = useApp();
   const act = useAction();
   const [minShare, setMinShare] = useState(0.6);
+  const [source, setSource] = useState<"labels" | "styles">("labels");
   const [rep, setRep] = useState<LabelReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const rows = useRows(rep?.suggestions.map((s) => s.trackId) ?? []);
   const run = async () => {
     setBusy(true);
-    const r = await act(() => api.dnaGenreSuggestions(minShare));
+    const r = await act(() => (source === "styles" ? api.dnaStyleGenreSuggestions(minShare - 0.2) : api.dnaGenreSuggestions(minShare)));
     setBusy(false);
     if (r) {
       setRep(r);
@@ -153,6 +204,13 @@ function GenrePanel() {
       <h2>{t("dna.genreTitle")}</h2>
       <p className="hint">{t("dna.genreHint")}</p>
       <div className="row">
+        <label className="field">
+          <span>{t("styles.sourceLabel")}</span>
+          <select value={source} onChange={(e) => setSource(e.target.value as "labels" | "styles")}>
+            <option value="labels">{t("styles.fromLabels")}</option>
+            <option value="styles">{t("styles.fromDiscogs")}</option>
+          </select>
+        </label>
         <label className="field">
           <span>{t("dna.minShare")}</span>
           <select value={minShare} onChange={(e) => setMinShare(Number(e.target.value))}>

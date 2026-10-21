@@ -630,6 +630,71 @@ pub async fn model_status(state: State<'_, AppState>) -> Res<ModelStatus> {
     .await
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StylesStatus {
+    /// "discogs" | "labels" | "both", or None before the user chose.
+    source: Option<String>,
+    downloaded: bool,
+    license: &'static str,
+    url: &'static str,
+    size_mb: u32,
+    device: Option<String>,
+    /// Analysed tracks without style results (when the model is in use).
+    missing: usize,
+}
+
+#[tauri::command]
+pub async fn styles_status(state: State<'_, AppState>) -> Res<StylesStatus> {
+    blocking(state.db_path.clone(), move |c| {
+        use dc_core::discogs;
+        let source = discogs::genre_source(c);
+        let downloaded = discogs::is_downloaded();
+        let device = discogs::shared(c).map(|m| m.device.clone());
+        let missing = if device.is_some() {
+            discogs::tracks_without_styles(c)?.len()
+        } else {
+            0
+        };
+        Ok(StylesStatus {
+            source,
+            downloaded,
+            license: discogs::LICENSE,
+            url: discogs::URL,
+            size_mb: discogs::SIZE_MB,
+            device,
+            missing,
+        })
+    })
+    .await
+}
+
+/// Download the Discogs style model (progress events "styles-download").
+#[tauri::command]
+pub async fn styles_download(app: AppHandle) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        dc_core::discogs::download(&mut |done, total| {
+            let _ = app.emit(
+                "styles-download",
+                serde_json::json!({ "done": done, "total": total }),
+            );
+        })
+        .map(|_| ())
+    })
+    .await
+    .map_err(e)?
+    .map_err(e)
+}
+
+/// Queue analysis of the tracks without style results.
+#[tauri::command]
+pub fn styles_reanalyze(state: State<'_, AppState>) -> Res<usize> {
+    with_conn!(state, |c| {
+        let ids = dc_core::discogs::tracks_without_styles(&c)?;
+        jobs::enqueue_analysis(&c, &ids, true).map(|_| ids.len())
+    })
+}
+
 /// Queue re-analysis of the tracks without current model results.
 #[tauri::command]
 pub fn model_reanalyze(state: State<'_, AppState>) -> Res<usize> {
@@ -915,6 +980,17 @@ pub async fn dna_genre_suggestions(
     .await
 }
 
+#[tauri::command]
+pub async fn dna_style_genre_suggestions(
+    state: State<'_, AppState>,
+    min_score: f32,
+) -> Res<dna::LabelReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dna::style_genre_suggestions(c, min_score)
+    })
+    .await
+}
+
 /// Compute tag suggestions and put them in the review queue.
 #[tauri::command]
 pub async fn dna_tag_suggestions(
@@ -1078,10 +1154,21 @@ pub fn integrity_check(state: State<'_, AppState>) -> Res<Vec<String>> {
     with_conn!(state, |c| db::integrity_check(&c))
 }
 
+/// Settings the UI may read and write, with their defaults ("" = unset).
 const SETTINGS: &[(&str, &str)] = &[
     ("language", "en"),
     ("analysisProfile", "balanced"),
     ("autoAnalyze", "true"),
+    ("aiModel", "on"),
+    ("bpmRange", "auto"),
+    ("tagKeyNotation", "original"),
+    ("exportMapping", ""),
+    ("exportChapters", "true"),
+    ("exportMyTagPlaylists", "true"),
+    ("myTagsFromComments", "true"),
+    ("autotagOptions", ""),
+    ("discogsToken", ""),
+    ("genreSource", ""),
 ];
 
 #[tauri::command]
@@ -1620,4 +1707,33 @@ pub async fn suggest_next(
         )
     })
     .await
+}
+
+#[cfg(test)]
+mod settings_tests {
+    /// Every setting the UI writes must be accepted by `set_setting`
+    /// (keys missing here failed silently in v0.1.1).
+    #[test]
+    fn ui_settings_are_allowed() {
+        let ui = [
+            include_str!("../../ui/src/views/Settings.tsx"),
+            include_str!("../../ui/src/views/SyncExport.tsx"),
+            include_str!("../../ui/src/components/ExportMappingPanel.tsx"),
+            include_str!("../../ui/src/components/AutoTagDialog.tsx"),
+            include_str!("../../ui/src/components/GenreSourceDialog.tsx"),
+            include_str!("../../ui/src/views/MusicDna.tsx"),
+        ];
+        for src in ui {
+            for part in src.split("setSetting(\"").skip(1) {
+                let key = part.split('"').next().unwrap();
+                assert!(
+                    super::SETTINGS.iter().any(|(k, _)| *k == key),
+                    "setting '{key}' is written by the UI but not allowed"
+                );
+            }
+        }
+        for key in ["myTagsFromComments", "exportMyTagPlaylists"] {
+            assert!(super::SETTINGS.iter().any(|(k, _)| *k == key));
+        }
+    }
 }

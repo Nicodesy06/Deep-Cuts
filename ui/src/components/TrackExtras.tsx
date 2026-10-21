@@ -216,7 +216,7 @@ export function CharacterSection({ trackId }: { trackId: string }) {
   useEffect(() => {
     api.trackCharacter(trackId).then(setC, () => setC(null));
   }, [trackId, dataVersion]);
-  if (!c || (c.bass == null && c.model.length === 0)) return null;
+  if (!c || (c.bass == null && c.model.length === 0 && c.styles.length === 0)) return null;
   const groups = ["genre", "mood", "vocals", "instrument"];
   return (
     <>
@@ -233,6 +233,21 @@ export function CharacterSection({ trackId }: { trackId: string }) {
             </div>
           ))}
           <div className="hint">{t("character.measuredHint")}</div>
+        </div>
+      )}
+      {c.styles.length > 0 && (
+        <div className="character-model">
+          <div className="char-group">
+            <span className="muted small">{t("character.g.style")}</span>
+            <span className="chips">
+              {c.styles.slice(0, 4).map((m) => (
+                <span key={m.label} className="chip" title={`${Math.round(m.score * 100)} %`}>
+                  {m.label} <span className="muted">{Math.round(m.score * 100)}%</span>
+                </span>
+              ))}
+            </span>
+          </div>
+          <div className="hint">{t("character.styleHint")}</div>
         </div>
       )}
       {c.model.length > 0 && (

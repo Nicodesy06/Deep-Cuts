@@ -32,3 +32,10 @@ used for similarity (per-dimension mean and scale, then 32 principal
 components), computed by `scripts/sound_projection.py` from embeddings of the
 GiantSteps-MTG-Keys audio. It contains statistics of the embeddings only, no
 audio and no annotations.
+
+## discogs_styles.txt (Discogs style model, optional)
+
+The 400 Discogs style names (from the metadata of Discogs-EffNet, Music
+Technology Group, UPF). The model itself is **not** included: it is licensed
+CC BY-NC-SA 4.0 (non-commercial) and the app downloads it from
+essentia.upf.edu only after the user accepts that licence (BLAKE3-checked).

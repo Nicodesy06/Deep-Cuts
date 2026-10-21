@@ -114,6 +114,8 @@ pub struct Analysis {
     pub fingerprint: Option<Vec<u16>>,
     /// Audio tagging model probabilities (crate::ml), when the model ran.
     pub model: Option<crate::ml::ModelOutput>,
+    /// Discogs style model output (crate::discogs), when chosen and present.
+    pub styles: Option<crate::discogs::StyleOutput>,
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -146,6 +148,8 @@ pub struct AnalyzeOptions {
     pub bpm_range: Option<(f64, f64)>,
     /// Audio tagging model (crate::ml) run on the decoded audio.
     pub tagger: Option<std::sync::Arc<crate::ml::Tagger>>,
+    /// Discogs style model (crate::discogs), optional download.
+    pub styles: Option<std::sync::Arc<crate::discogs::StyleModel>>,
 }
 
 impl AnalyzeOptions {
@@ -158,6 +162,7 @@ impl AnalyzeOptions {
         AnalyzeOptions {
             bpm_range,
             tagger: crate::ml::shared(conn),
+            styles: crate::discogs::shared(conn),
         }
     }
 }
@@ -194,6 +199,10 @@ pub fn analyze_file_with(
     // The model failing never fails the analysis (it is optional).
     let model = opts
         .tagger
+        .as_ref()
+        .and_then(|t| t.tag_signal(&mono, info.sample_rate).ok());
+    let styles = opts
+        .styles
         .as_ref()
         .and_then(|t| t.tag_signal(&mono, info.sample_rate).ok());
     drop(mono);
@@ -362,6 +371,7 @@ pub fn analyze_file_with(
         waveform,
         fingerprint,
         model,
+        styles,
     })
 }
 
@@ -610,6 +620,10 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
     if let Some(m) = &a.model {
         crate::ml::store(tx, track_id, &m.probs)?;
         crate::ml::store_sound(tx, track_id, &crate::ml::sound_vector(&m.embedding))?;
+    }
+    if let Some(st) = &a.styles {
+        crate::discogs::store(tx, track_id, &st.probs)?;
+        crate::discogs::store_vector(tx, track_id, &st.probs)?;
     }
     Ok(())
 }

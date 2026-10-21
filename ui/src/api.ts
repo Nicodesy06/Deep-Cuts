@@ -255,6 +255,17 @@ export interface TrackCharacter {
   drive: number | null;
   steadiness: number | null;
   model: { group: string; label: string; score: number; rank: number }[];
+  styles: { group: string; label: string; score: number; rank: number }[];
+}
+
+export interface StylesStatus {
+  source: "discogs" | "labels" | "both" | null;
+  downloaded: boolean;
+  license: string;
+  url: string;
+  sizeMb: number;
+  device: string | null;
+  missing: number;
 }
 
 export interface WriteReport {
@@ -768,6 +779,10 @@ export const api = {
   modelStatus: () =>
     invoke<{ file: string | null; enabled: boolean; device: string | null; error: string | null; missing: number }>("model_status"),
   modelReanalyze: () => invoke<number>("model_reanalyze"),
+  stylesStatus: () => invoke<StylesStatus>("styles_status"),
+  stylesDownload: () => invoke<void>("styles_download"),
+  stylesReanalyze: () => invoke<number>("styles_reanalyze"),
+  dnaStyleGenreSuggestions: (minScore: number) => invoke<LabelReport>("dna_style_genre_suggestions", { minScore }),
   modelSuggestTags: () => invoke<number>("model_suggest_tags"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),

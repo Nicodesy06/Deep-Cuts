@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, type AppInfo, type BackupInfo, type RelocatePreview, type WatchFolder } from "../api";
 import { formatBytes } from "../format";
-import type { Lang } from "../i18n";
+import type { Lang, MsgKey } from "../i18n";
+import { GenreSourceDialog } from "../components/GenreSourceDialog";
 import { useAction, useApp } from "../store";
 
 export function Settings() {
@@ -10,6 +11,7 @@ export function Settings() {
   const act = useAction();
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [stylesOpen, setStylesOpen] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [integrity, setIntegrity] = useState<string | null>(null);
   const [watch, setWatch] = useState<WatchFolder[]>([]);
@@ -71,6 +73,22 @@ export function Settings() {
               <input type="checkbox" checked={settings.aiModel !== "off"} onChange={(e) => setSetting("aiModel", e.target.checked ? "on" : "off")} />
               {t("model.setting")}
             </label>
+            <div className="row">
+              <span className="small">
+                {t("styles.settingLabel")}: <strong>{t(`styles.opt.${settings.genreSource || "labels"}` as MsgKey)}</strong>
+              </span>
+              <button className="btn small ghost" onClick={() => setStylesOpen(true)}>
+                {t("styles.change")}
+              </button>
+            </div>
+            {stylesOpen && (
+              <GenreSourceDialog
+                onClose={() => {
+                  setStylesOpen(false);
+                  api.getSettings().then(setSettings, () => {});
+                }}
+              />
+            )}
             <p className="hint">{t("settings.hardware")}</p>
             <label className="field col">
               <span className="field-label">{t("bpmRange.label")}</span>

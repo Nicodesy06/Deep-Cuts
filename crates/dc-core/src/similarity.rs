@@ -295,7 +295,9 @@ pub fn similar(
     let stats = features::stats(vecs.values());
     let keys = keys_of(conn)?;
     let sound = crate::ml::sound_all(conn)?;
+    let styles = crate::discogs::vectors_all(conn)?;
     let my_sound = sound.get(track_id);
+    let my_styles = styles.get(track_id);
     let candidates: Option<std::collections::HashSet<String>> = if scope.trim().is_empty() {
         None
     } else {
@@ -318,7 +320,10 @@ pub fn similar(
             id.as_str() != track_id && candidates.as_ref().is_none_or(|c| c.contains(*id))
         })
         .map(|(id, v)| {
-            let snd = my_sound.zip(sound.get(id.as_str()));
+            // Discogs styles when both tracks have them, else the model sound.
+            let snd = my_styles
+                .zip(styles.get(id.as_str()))
+                .or_else(|| my_sound.zip(sound.get(id.as_str())));
             let snd = snd.map(|(a, b)| (a.as_slice(), b.as_slice()));
             let kb = keys.get(id).map(String::as_str);
             let (sc, g) = score_with_sound(me, v, &stats, ka, kb, snd, weights);
