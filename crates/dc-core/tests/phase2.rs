@@ -476,3 +476,78 @@ fn watch_folder_registry() {
     library::remove_watch_folder(&conn, &key).unwrap();
     assert!(library::watch_folders(&conn).unwrap().is_empty());
 }
+
+#[test]
+fn user_beatgrid_edit_loop_and_undo() {
+    use dc_core::{grid, history, rekordbox};
+    let tmp = tempfile::tempdir().unwrap();
+    let p = make_track(
+        tmp.path(),
+        "g.wav",
+        &Spec {
+            bpm: 120.0,
+            tonic: 0,
+            minor: false,
+            seconds: 12.0,
+            first_beat_s: 0.25,
+        },
+    );
+    let mut conn = dc_core::db::open(&tmp.path().join("lib.db")).unwrap();
+    dc_core::library::import_paths(&mut conn, &[p.clone()], None, &mut |_| {}).unwrap();
+    let id = dc_core::query::query_tracks(&conn, &Default::default())
+        .unwrap()
+        .tracks[0]
+        .id
+        .clone();
+    dc_core::jobs::enqueue_analysis(&conn, std::slice::from_ref(&id), false).unwrap();
+    while dc_core::jobs::run_one(&conn, &|| false).unwrap().is_some() {}
+    let (g, src) = grid::effective(&conn, &id).unwrap().unwrap();
+    assert_eq!(src, "analysis");
+    assert!((g.bpm - 120.0).abs() < 0.1);
+
+    // Halve the tempo and put the downbeat at 2.25 s.
+    let user = grid::Grid {
+        bpm: 60.0,
+        first_beat_ms: 0.0,
+    }
+    .with_downbeat_at(2250.0);
+    grid::set_user(&conn, &id, user).unwrap();
+    let (g2, src) = grid::effective(&conn, &id).unwrap().unwrap();
+    assert_eq!(
+        (src.as_str(), g2.bpm, g2.first_beat_ms),
+        ("user", 60.0, 2250.0)
+    );
+    assert_eq!(
+        dc_core::library::get_track(&conn, &id).unwrap().bpm,
+        Some(60.0)
+    );
+    // A 4-beat loop near 3.4 s snaps to the beat at 3.25 s.
+    grid::add_loop(&conn, &id, 3400.0, 4.0).unwrap();
+    let lp = rekordbox::cues(&conn, &id)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.kind == "loop")
+        .unwrap();
+    assert_eq!((lp.start_ms, lp.end_ms), (3250.0, Some(7250.0)));
+    // The user grid is what exports use.
+    let lib = dc_core::djlib::for_ids(&conn, std::slice::from_ref(&id), "x").unwrap();
+    assert_eq!(lib.tracks[0].grid, Some((60.0, 2250.0)));
+    // Undo restores the analysed grid and BPM.
+    assert_eq!(history::undo(&conn).unwrap().unwrap().action, "beatgrid");
+    assert_eq!(grid::effective(&conn, &id).unwrap().unwrap().1, "analysis");
+    assert!(
+        (dc_core::library::get_track(&conn, &id)
+            .unwrap()
+            .bpm
+            .unwrap()
+            - 120.0)
+            .abs()
+            < 0.1
+    );
+    // Zoomed envelope: the kick at 0.25 s is the loudest low-band point.
+    let env = grid::envelope_window(&p, 0.0, 1000.0, 100).unwrap();
+    let peak = (0..100)
+        .max_by(|a, b| env[*a].1.total_cmp(&env[*b].1))
+        .unwrap();
+    assert!((24..=30).contains(&peak), "low-band peak at {peak}0 ms");
+}

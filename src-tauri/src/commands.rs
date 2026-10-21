@@ -4,8 +4,8 @@
 use crate::AppState;
 use dc_core::query::{TrackPage, TrackQuery};
 use dc_core::{
-    analysis, backup, cues, db, export, fixes, history, jobs, library, rekordbox, stats, tags,
-    tagwrite,
+    analysis, backup, cues, db, export, fixes, grid, history, jobs, library, rekordbox, stats,
+    tags, tagwrite,
 };
 use dc_core::{
     bulk, csvimport, dedupe, djlib, dna, fileops, map, playlist_tools, relocate, sets, similarity,
@@ -656,9 +656,7 @@ type PendingSuggestion = (String, String, String, Option<f64>);
 
 /// Tag suggestions waiting for review (all tracks).
 #[tauri::command]
-pub fn pending_tag_suggestions(
-    state: State<'_, AppState>,
-) -> Res<Vec<PendingSuggestion>> {
+pub fn pending_tag_suggestions(state: State<'_, AppState>) -> Res<Vec<PendingSuggestion>> {
     with_conn!(state, |c| {
         let mut stmt = c.prepare(
             "SELECT tt.track_id, tt.tag_id, t.name, tt.confidence FROM track_tags tt JOIN tags t ON t.id = tt.tag_id
@@ -926,6 +924,46 @@ pub fn apply_fixes(state: State<'_, AppState>, fixes: Vec<fixes::AcceptedFix>) -
 // ---------------------------------------------------------------------------
 // Cues
 // ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn grid_set(
+    state: State<'_, AppState>,
+    track_id: String,
+    bpm: f64,
+    first_beat_ms: f64,
+) -> Res<()> {
+    with_conn!(state, |c| grid::set_user(
+        &c,
+        &track_id,
+        grid::Grid { bpm, first_beat_ms }
+    ))
+}
+
+#[tauri::command]
+pub fn grid_clear(state: State<'_, AppState>, track_id: String) -> Res<()> {
+    with_conn!(state, |c| grid::clear_user(&c, &track_id))
+}
+
+#[tauri::command]
+pub fn grid_loop(state: State<'_, AppState>, track_id: String, ms: f64, beats: f64) -> Res<String> {
+    with_conn!(state, |c| grid::add_loop(&c, &track_id, ms, beats))
+}
+
+/// Audio envelope (full band, low band) of a window of the track.
+#[tauri::command]
+pub async fn grid_window(
+    state: State<'_, AppState>,
+    track_id: String,
+    start_ms: f64,
+    len_ms: f64,
+    points: usize,
+) -> Res<Vec<(f32, f32)>> {
+    blocking(state.db_path.clone(), move |c| {
+        let path = library::track_path(c, &track_id)?;
+        grid::envelope_window(&path, start_ms, len_ms, points)
+    })
+    .await
+}
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]

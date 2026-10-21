@@ -6,6 +6,7 @@ import { formatBpm, formatDuration, sourceLabel } from "../format";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
 import { CueEditor, HistorySection, PlaylistsSection, TagsSection } from "./TrackExtras";
+import { GridEditor } from "./GridEditor";
 import { KeyChip } from "./TrackTable";
 
 const EDITABLE: { field: string; label: MsgKey }[] = [
@@ -300,18 +301,7 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
       )}
 
       {d && <CueEditor track={tr} cues={d.cues} onChanged={onChanged} />}
-      {d && d.playlists.length > 0 && (
-        <>
-          <div className="section-title">{t("details.playlists")}</div>
-          <div className="chips">
-            {d.playlists.map((p) => (
-              <span key={p.id} className="chip">
-                {p.name}
-              </span>
-            ))}
-          </div>
-        </>
-      )}
+      {d && <GridEditor track={tr} grids={d.beatgrids} onChanged={onChanged} />}
       <div className="section-title">{t("details.file")}</div>
       <div className="path small muted" title={tr.path ?? ""}>
         {tr.path}

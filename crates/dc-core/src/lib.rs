@@ -18,6 +18,7 @@ pub mod export;
 pub mod features;
 pub mod fileops;
 pub mod fixes;
+pub mod grid;
 pub mod history;
 pub mod jobs;
 pub mod keys;

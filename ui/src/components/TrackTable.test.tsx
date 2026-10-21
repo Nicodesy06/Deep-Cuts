@@ -38,3 +38,23 @@ describe("TrackTable", () => {
     expect(getByText("empty!")).toBeTruthy();
   });
 });
+
+import { effectiveGrid, tapBpm } from "./GridEditor";
+
+describe("grid helpers", () => {
+  it("prefers the user grid, then imported, then analysis", () => {
+    const g = effectiveGrid([
+      { source: "analysis", bpm: 120, firstBeatMs: 0 },
+      { source: "import:rekordbox", bpm: 121, firstBeatMs: 0 },
+      { source: "user", bpm: 122, firstBeatMs: 0 },
+    ]);
+    expect(g?.bpm).toBe(122);
+    expect(effectiveGrid([{ source: "analysis", bpm: 120, firstBeatMs: 0 }, { source: "import:traktor", bpm: 121, firstBeatMs: 0 }])?.bpm).toBe(121);
+    expect(effectiveGrid([])).toBeNull();
+  });
+  it("tap tempo uses the median interval", () => {
+    expect(tapBpm([0, 500, 1000])).toBeNull();
+    expect(tapBpm([0, 500, 1000, 1500, 2000])).toBe(120);
+    expect(tapBpm([0, 469, 938, 1500, 1875, 2344])).toBe(127.9);
+  });
+});

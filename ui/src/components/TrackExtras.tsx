@@ -101,7 +101,7 @@ export function TagsSection({ d, onChanged }: { d: TrackDetail; onChanged: () =>
 const KIND_LABEL: Record<string, string> = { hotcue: "Hot", memory: "Mem", cue: "Cue", loop: "Loop", suggestion: "?" };
 
 export function CueEditor({ track, cues, onChanged }: { track: TrackRow; cues: Cue[]; onChanged: () => void }) {
-  const { t, play, playerPosRef, prompt } = useApp();
+  const { t, play, playerPosRef, prompt, nowPlaying } = useApp();
   const act = useAction();
   const real = cues.filter((c) => c.kind !== "suggestion");
   const sugg = cues.filter((c) => c.kind === "suggestion");
@@ -110,7 +110,7 @@ export function CueEditor({ track, cues, onChanged }: { track: TrackRow; cues: C
     for (let s = 0; s < 8; s++) if (!used.has(s)) return s;
     return 0;
   };
-  const atPlayhead = playerPosRef.current.trackId === track.id;
+  const atPlayhead = nowPlaying?.id === track.id;
 
   return (
     <>

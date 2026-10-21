@@ -32,6 +32,8 @@ pub enum Kind {
     /// Stored path of a file row only (key = file id); the file is not
     /// moved. Used when the library is relocated.
     FileRecord,
+    /// The user beatgrid (key "user"; value = JSON {bpm, firstBeatMs}).
+    Beatgrid,
 }
 
 impl Kind {
@@ -46,6 +48,7 @@ impl Kind {
             Kind::FilePath => "file",
             Kind::Archived => "archived",
             Kind::FileRecord => "file-record",
+            Kind::Beatgrid => "beatgrid",
         }
     }
 
@@ -60,6 +63,7 @@ impl Kind {
             "file" => Kind::FilePath,
             "archived" => Kind::Archived,
             "file-record" => Kind::FileRecord,
+            "beatgrid" => Kind::Beatgrid,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -137,6 +141,10 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
         Kind::FilePath | Kind::FileRecord => {
             State::set(Some(&crate::fileops::file_path(conn, key)?))
         }
+        Kind::Beatgrid => match crate::grid::read_user(conn, track)? {
+            Some(v) => State::set(Some(&v)),
+            None => State::absent(),
+        },
         Kind::Archived => {
             let a: bool =
                 conn.query_row("SELECT archived FROM tracks WHERE id = ?1", [track], |r| {
@@ -202,6 +210,13 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
             if let Some(p) = &s.value {
                 crate::fileops::set_file_path(conn, key, p)?;
             }
+        }
+        Kind::Beatgrid => {
+            crate::grid::write_user(
+                conn,
+                track,
+                if s.present { s.value.as_deref() } else { None },
+            )?;
         }
         Kind::FileRecord => {
             if let Some(p) = &s.value {
