@@ -644,6 +644,10 @@ pub struct StylesStatus {
     device: Option<String>,
     /// Analysed tracks without style results (when the model is in use).
     missing: usize,
+    /// MAEST ("accurate styles") downloaded / in use.
+    maest_downloaded: bool,
+    accurate: bool,
+    maest_size_mb: u32,
 }
 
 #[tauri::command]
@@ -667,9 +671,28 @@ pub async fn styles_status(state: State<'_, AppState>) -> Res<StylesStatus> {
             size_mb: discogs::SIZE_MB,
             device,
             missing,
+            maest_downloaded: discogs::maest_downloaded(),
+            accurate: discogs::accurate(c),
+            maest_size_mb: discogs::MAEST_SIZE_MB,
         })
     })
     .await
+}
+
+/// Download MAEST (progress events "styles-download").
+#[tauri::command]
+pub async fn styles_download_accurate(app: AppHandle) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        dc_core::discogs::download_maest(&mut |done, total| {
+            let _ = app.emit(
+                "styles-download",
+                serde_json::json!({ "done": done, "total": total }),
+            );
+        })
+    })
+    .await
+    .map_err(e)?
+    .map_err(e)
 }
 
 /// Download the Discogs style model (progress events "styles-download").
@@ -1246,6 +1269,7 @@ const SETTINGS: &[(&str, &str)] = &[
     ("autotagOptions", ""),
     ("discogsToken", ""),
     ("genreSource", ""),
+    ("stylesAccurate", "off"),
 ];
 
 #[tauri::command]

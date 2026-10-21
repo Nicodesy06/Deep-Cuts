@@ -26,6 +26,29 @@ pub const LICENSE: &str = "CC BY-NC-SA 4.0 — Music Technology Group, Universit
 (Alonso-Jiménez, Serra, Bogdanov, ISMIR 2022). Non-commercial use only.";
 pub const SIZE_MB: u32 = 26;
 
+/// MAEST (Alonso-Jiménez, Serra, Bogdanov, ISMIR 2023; MTG, CC BY-NC-SA
+/// 4.0): an audio transformer predicting the same 400 Discogs styles from
+/// 30 s patches (1876 frames of the same mel front-end, standardised with
+/// the model's mean/std). Optional "accurate styles" download: much more
+/// accurate than EffNet on GiantSteps but ~10x slower, so at most
+/// `MAEST_MAX_PATCHES` patches per track. EffNet still runs for the
+/// embedding and the feel classifiers.
+pub const MAEST_MODEL: &str = "discogs-maest-30s-pw-2";
+pub const MAEST_VERSION: &str = "maest-1";
+pub const MAEST_FILE: &str = "discogs-maest-30s-pw-2.onnx";
+pub const MAEST_URL: &str =
+    "https://essentia.upf.edu/models/feature-extractors/maest/discogs-maest-30s-pw-2.onnx";
+pub const MAEST_BLAKE3: &str = "85cc42ca62f6c0971e635998871703fbe2e247d67cd7ebf2f79cef5bcc41f676";
+pub const MAEST_SIZE_MB: u32 = 332;
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MAEST_PATCH: usize = 1876;
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MAEST_MAX_PATCHES: usize = 3;
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MAEST_MEAN: f32 = 2.067_556_9;
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MAEST_STD: f32 = 1.268_292_8;
+
 const SR: u32 = 16_000;
 const FRAME: usize = 512;
 const HOP: usize = 256;
@@ -162,6 +185,55 @@ pub fn model_path() -> PathBuf {
 
 pub fn is_downloaded() -> bool {
     model_path().is_file()
+}
+
+pub fn maest_downloaded() -> bool {
+    models_dir().join(MAEST_FILE).is_file()
+}
+
+/// Download the MAEST "accurate styles" model.
+pub fn download_maest(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<()> {
+    let p = models_dir().join(MAEST_FILE);
+    if !p.is_file() {
+        download_file(MAEST_URL, &p, MAEST_BLAKE3, progress)?;
+    }
+    Ok(())
+}
+
+/// Whether styles come from MAEST (setting "stylesAccurate" and the model
+/// downloaded).
+pub fn accurate(conn: &rusqlite::Connection) -> bool {
+    maest_downloaded()
+        && crate::library::get_setting(conn, "stylesAccurate")
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("on")
+}
+
+/// Version stored with the style vectors in use (EffNet or MAEST).
+pub fn active_version(conn: &rusqlite::Connection) -> &'static str {
+    if accurate(conn) {
+        MAEST_VERSION
+    } else {
+        MODEL_VERSION
+    }
+}
+
+/// MAEST patch starts: the patches every `MAEST_PATCH - 1` frames, the
+/// `MAEST_MAX_PATCHES` closest to the middle of the track.
+pub fn maest_starts(n_frames: usize) -> Vec<usize> {
+    if n_frames < MAEST_PATCH {
+        return if n_frames > 0 { vec![0] } else { vec![] };
+    }
+    let all: Vec<usize> = (0..=n_frames - MAEST_PATCH)
+        .step_by(MAEST_PATCH - 1)
+        .collect();
+    if all.len() <= MAEST_MAX_PATCHES {
+        return all;
+    }
+    let first = (all.len() - MAEST_MAX_PATCHES) / 2;
+    all[first..first + MAEST_MAX_PATCHES].to_vec()
 }
 
 /// Whether the mood/descriptor classifiers are downloaded too.
@@ -358,6 +430,8 @@ pub struct StyleOutput {
     pub tags: Option<Vec<f32>>,
     /// emoMusic (arousal, valence) on its 1–9 scale, when present.
     pub emotion: Option<(f32, f32)>,
+    /// Style vector version (`MODEL_VERSION` EffNet, `MAEST_VERSION`).
+    pub version: &'static str,
 }
 
 pub struct StyleModel {
@@ -369,12 +443,19 @@ pub struct StyleModel {
     musicnn: Option<std::sync::Mutex<ort::session::Session>>,
     #[cfg(feature = "ml")]
     emotion: Option<std::sync::Mutex<ort::session::Session>>,
+    #[cfg(feature = "ml")]
+    maest: Option<std::sync::Mutex<ort::session::Session>>,
     pub device: String,
 }
 
 #[cfg(feature = "ml")]
 impl StyleModel {
     pub fn load() -> Result<StyleModel> {
+        Self::load_with(false)
+    }
+
+    /// `accurate`: styles from MAEST (when downloaded).
+    pub fn load_with(accurate: bool) -> Result<StyleModel> {
         let p = model_path();
         if !p.is_file() {
             return Err(Error::NotFound("Discogs style model not downloaded".into()));
@@ -399,6 +480,7 @@ impl StyleModel {
             heads,
             musicnn: open(MUSICNN_FILE),
             emotion: open(EMOTION_FILE),
+            maest: if accurate { open(MAEST_FILE) } else { None },
             device,
         })
     }
@@ -438,7 +520,7 @@ impl StyleModel {
             let n = (v.len() / width).max(1) as f32;
             Ok(m.into_iter().map(|x| x / n).collect())
         };
-        let probs = mean("activations", STYLES.len())?;
+        let mut probs = mean("activations", STYLES.len())?;
         let embedding = mean("embeddings", 1280)?;
         // The classifiers read each patch's embedding; their outputs are averaged.
         let (_, emb) = outputs["embeddings"]
@@ -472,13 +554,52 @@ impl StyleModel {
             descriptors.push((h.label, val.clamp(0.0, 1.0)));
         }
         let (tags, emotion) = self.musicnn_outputs(&mel).unwrap_or((None, None));
+        let mut version = MODEL_VERSION;
+        if let Some(p) = self.maest_probs(&mel)? {
+            probs = p;
+            version = MAEST_VERSION;
+        }
         Ok(StyleOutput {
             probs,
             embedding,
             descriptors,
             tags,
             emotion,
+            version,
         })
+    }
+
+    /// MAEST style probabilities (mean over patches), when loaded.
+    fn maest_probs(&self, mel: &[[f32; BANDS]]) -> Result<Option<Vec<f32>>> {
+        use crate::ml::ort_err;
+        let Some(m) = &self.maest else {
+            return Ok(None);
+        };
+        let starts = maest_starts(mel.len());
+        let mut probs = vec![0f32; STYLES.len()];
+        for &s in &starts {
+            let mut data = Vec::with_capacity(MAEST_PATCH * BANDS);
+            for f in s..s + MAEST_PATCH {
+                let row = mel.get(f).unwrap_or(&[0.0; BANDS]);
+                data.extend(row.iter().map(|x| (x - MAEST_MEAN) / (2.0 * MAEST_STD)));
+            }
+            let input = ort::value::Tensor::from_array((
+                [1usize, MAEST_PATCH, BANDS],
+                data.into_boxed_slice(),
+            ))
+            .map_err(ort_err)?;
+            let mut sess = m.lock().map_err(|_| Error::Invalid("model lock".into()))?;
+            let out = sess
+                .run(ort::inputs!["melspectrogram" => input])
+                .map_err(ort_err)?;
+            let (_, v) = out["activations"]
+                .try_extract_tensor::<f32>()
+                .map_err(ort_err)?;
+            for (a, b) in probs.iter_mut().zip(v.iter()) {
+                *a += b / starts.len() as f32;
+            }
+        }
+        Ok((!starts.is_empty()).then_some(probs))
     }
 
     /// MSD tags and emoMusic arousal/valence from the same mel frames.
@@ -555,6 +676,10 @@ impl StyleModel {
 #[cfg(not(feature = "ml"))]
 impl StyleModel {
     pub fn load() -> Result<StyleModel> {
+        Self::load_with(false)
+    }
+
+    pub fn load_with(_accurate: bool) -> Result<StyleModel> {
         Err(Error::Invalid(
             "this build does not include the model runtime".into(),
         ))
@@ -577,8 +702,8 @@ pub fn genre_source(conn: &rusqlite::Connection) -> Option<String> {
 
 /// The style model when the user chose it and downloaded it (loaded once).
 pub fn shared(conn: &rusqlite::Connection) -> Option<std::sync::Arc<StyleModel>> {
-    static CELL: std::sync::OnceLock<Option<std::sync::Arc<StyleModel>>> =
-        std::sync::OnceLock::new();
+    type Cached = Option<(bool, Option<std::sync::Arc<StyleModel>>)>;
+    static CELL: std::sync::Mutex<Cached> = std::sync::Mutex::new(None);
     let wanted = matches!(
         genre_source(conn).as_deref(),
         Some("discogs") | Some("both")
@@ -586,14 +711,22 @@ pub fn shared(conn: &rusqlite::Connection) -> Option<std::sync::Arc<StyleModel>>
     if !wanted || !is_downloaded() {
         return None;
     }
-    CELL.get_or_init(|| match StyleModel::load() {
+    let acc = accurate(conn);
+    let mut cell = CELL.lock().ok()?;
+    if let Some((a, m)) = cell.as_ref()
+        && *a == acc
+    {
+        return m.clone();
+    }
+    let m = match StyleModel::load_with(acc) {
         Ok(m) => Some(std::sync::Arc::new(m)),
         Err(e) => {
             eprintln!("style model: {e}");
             None
         }
-    })
-    .clone()
+    };
+    *cell = Some((acc, m.clone()));
+    m
 }
 
 /// Styles kept per track (best first).
@@ -623,7 +756,7 @@ pub fn store(conn: &rusqlite::Connection, track_id: &str, out: &StyleOutput) -> 
             rusqlite::params![
                 track_id,
                 MODEL,
-                MODEL_VERSION,
+                out.version,
                 name,
                 (p * 1000.0).round() / 1000.0,
                 rank as i64 + 1
@@ -679,7 +812,7 @@ pub fn store(conn: &rusqlite::Connection, track_id: &str, out: &StyleOutput) -> 
             rusqlite::params![
                 track_id,
                 MODEL,
-                MODEL_VERSION,
+                out.version,
                 label,
                 (v * 1000.0).round() / 1000.0,
                 i as i64 + 1
@@ -690,7 +823,12 @@ pub fn store(conn: &rusqlite::Connection, track_id: &str, out: &StyleOutput) -> 
 }
 
 /// Store the style logits (i16, value / 1000) used to compare tracks.
-pub fn store_vector(conn: &rusqlite::Connection, track_id: &str, probs: &[f32]) -> Result<()> {
+pub fn store_vector(
+    conn: &rusqlite::Connection,
+    track_id: &str,
+    probs: &[f32],
+    version: &str,
+) -> Result<()> {
     let blob: Vec<u8> = probs
         .iter()
         .flat_map(|p| {
@@ -701,7 +839,7 @@ pub fn store_vector(conn: &rusqlite::Connection, track_id: &str, probs: &[f32]) 
         .collect();
     conn.execute(
         "INSERT OR REPLACE INTO track_styles (track_id, model_version, data) VALUES (?1, ?2, ?3)",
-        rusqlite::params![track_id, MODEL_VERSION, blob],
+        rusqlite::params![track_id, version, blob],
     )?;
     Ok(())
 }
@@ -716,7 +854,7 @@ pub fn vectors_all(
          WHERE s.model_version = ?1",
     )?;
     let rows: Vec<(String, Vec<f32>)> = stmt
-        .query_map([MODEL_VERSION], |r| {
+        .query_map([active_version(conn)], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))
         })?
         .filter_map(|r| r.ok())
@@ -769,7 +907,7 @@ pub fn tracks_without_styles(conn: &rusqlite::Connection) -> Result<Vec<String>>
                            AND s.model_version = ?1)",
     )?;
     let ids = stmt
-        .query_map([MODEL_VERSION], |r| r.get(0))?
+        .query_map([active_version(conn)], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     Ok(ids)
 }

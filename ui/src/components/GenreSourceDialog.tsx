@@ -44,11 +44,13 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
   const [choice, setChoice] = useState<Source>("both");
   const [progress, setProgress] = useState<{ done: number; total: number | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [accurate, setAccurate] = useState(false);
 
   useEffect(() => {
     api.stylesStatus().then(
       (s) => {
         setSt(s);
+        setAccurate(s.accurate);
         if (s.source === "discogs" || s.source === "labels" || s.source === "both") setChoice(s.source);
       },
       () => {},
@@ -59,15 +61,18 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       await api.setSetting("genreSource", source);
-      if (source !== "labels" && !st?.downloaded) {
+      const wantAccurate = source !== "labels" && accurate;
+      if (source !== "labels" && (!st?.downloaded || (wantAccurate && !st?.maestDownloaded))) {
         const un = await onEvent<{ done: number; total: number | null }>("styles-download", setProgress);
         try {
-          await api.stylesDownload();
+          if (!st?.downloaded) await api.stylesDownload();
+          if (wantAccurate && !st?.maestDownloaded) await api.stylesDownloadAccurate();
         } finally {
           un();
         }
         toast(t("styles.downloaded"), "ok");
       }
+      await api.setSetting("stylesAccurate", wantAccurate ? "on" : "off");
       bump();
       onClose();
     } catch (e) {
@@ -102,6 +107,14 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
               <strong>{t("styles.licenseTitle")}</strong> {st?.license}
             </p>
             <p className="hint">{t("styles.licenseHint", { mb: st?.sizeMb ?? 18 })}</p>
+            <label className="toggle choice">
+              <input type="checkbox" checked={accurate} onChange={(e) => setAccurate(e.target.checked)} disabled={busy} />
+              <span>
+                <strong>{t("styles.accurate")}</strong>
+                <br />
+                <span className="hint">{t("styles.accurateHint", { mb: st?.maestSizeMb ?? 332 })}</span>
+              </span>
+            </label>
           </div>
         )}
         {progress && (
@@ -125,7 +138,7 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
             {t("styles.later")}
           </button>
           <button className="btn" disabled={busy} onClick={() => save(choice)}>
-            {choice === "labels" || st?.downloaded ? t("action.ok") : t("styles.acceptDownload")}
+            {choice === "labels" || (st?.downloaded && (!accurate || st?.maestDownloaded)) ? t("action.ok") : t("styles.acceptDownload")}
           </button>
         </div>
       </div>

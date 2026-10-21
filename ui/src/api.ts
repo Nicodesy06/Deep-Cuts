@@ -267,6 +267,9 @@ export interface StylesStatus {
   sizeMb: number;
   device: string | null;
   missing: number;
+  maestDownloaded: boolean;
+  accurate: boolean;
+  maestSizeMb: number;
 }
 
 export interface ClapStatus {
@@ -795,6 +798,7 @@ export const api = {
   modelReanalyze: () => invoke<number>("model_reanalyze"),
   stylesStatus: () => invoke<StylesStatus>("styles_status"),
   stylesDownload: () => invoke<void>("styles_download"),
+  stylesDownloadAccurate: () => invoke<void>("styles_download_accurate"),
   stylesReanalyze: () => invoke<number>("styles_reanalyze"),
   clapStatus: () => invoke<ClapStatus>("clap_status"),
   clapDownload: () => invoke<void>("clap_download"),

@@ -150,6 +150,7 @@ pub fn run() {
             commands::model_reanalyze,
             commands::styles_status,
             commands::styles_download,
+            commands::styles_download_accurate,
             commands::styles_reanalyze,
             commands::clap_status,
             commands::clap_download,

@@ -84,9 +84,16 @@ enum Cmd {
         files: Vec<PathBuf>,
         #[arg(long)]
         dump: Option<PathBuf>,
+        /// Styles from MAEST (must be downloaded: download-styles --accurate)
+        #[arg(long)]
+        accurate: bool,
     },
     /// Download the Discogs style model (CC BY-NC-SA 4.0: non-commercial)
-    DownloadStyles,
+    DownloadStyles {
+        /// Also download MAEST (accurate styles, 332 MB)
+        #[arg(long)]
+        accurate: bool,
+    },
     /// Import an M3U/M3U8 file as a playlist (files not in the library are
     /// imported first; My Tags in their comments are read)
     ImportM3u { file: PathBuf },
@@ -582,8 +589,12 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             let rep = dc_core::djlib::import_from(&mut conn, &app, &path)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
         }
-        Cmd::Styles { files, dump } => {
-            let model = dc_core::discogs::StyleModel::load()?;
+        Cmd::Styles {
+            files,
+            dump,
+            accurate,
+        } => {
+            let model = dc_core::discogs::StyleModel::load_with(accurate)?;
             let mut out = String::new();
             for f in &files {
                 let mut mono: Vec<f32> = Vec::new();
@@ -639,13 +650,17 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 std::fs::write(p, out)?;
             }
         }
-        Cmd::DownloadStyles => {
+        Cmd::DownloadStyles { accurate } => {
             println!("{}", dc_core::discogs::LICENSE);
-            let p = dc_core::discogs::download(&mut |done, total| {
+            let mut show = |done: u64, total: Option<u64>| {
                 if let Some(t) = total {
                     eprint!("\r{} / {} MB", done >> 20, t >> 20);
                 }
-            })?;
+            };
+            let p = dc_core::discogs::download(&mut show)?;
+            if accurate {
+                dc_core::discogs::download_maest(&mut show)?;
+            }
             eprintln!();
             println!("saved {}", p.display());
         }
@@ -2037,7 +2052,8 @@ fn beat_eval(
         rows = computed.into_iter().map(|(_, p, b, r)| (p, b, r)).collect();
     }
     let pct = |v: f64| format!("{:.1} %", v * 100.0);
-    let row = |label: &str, f: &dyn Fn(&(Option<f64>, Beats, f64)) -> Option<f64>| {
+    type Track = (Option<f64>, Beats, f64);
+    let row = |label: &str, f: &dyn Fn(&Track) -> Option<f64>| {
         let pairs: Vec<(Option<f64>, f64)> = rows.iter().map(|r| (f(r), r.2)).collect();
         let s = summarize_tempo(&pairs);
         format!(

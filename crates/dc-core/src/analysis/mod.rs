@@ -634,7 +634,7 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
     }
     if let Some(st) = &a.styles {
         crate::discogs::store(tx, track_id, st)?;
-        crate::discogs::store_vector(tx, track_id, &st.probs)?;
+        crate::discogs::store_vector(tx, track_id, &st.probs, st.version)?;
     }
     if let Some(v) = &a.clap {
         crate::clap::store(tx, track_id, v)?;
