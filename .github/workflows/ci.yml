@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -54,6 +54,37 @@ jobs:
 
       - name: Build installers (unsigned)
         run: npx tauri build
+
+      # Install the real package and run it in smoke mode: import, analysis with
+      # the bundled model, and playback in the platform webview (scripts/installer_smoke.py).
+      - name: Installer smoke test (Linux .deb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y xvfb pulseaudio gstreamer1.0-plugins-good gstreamer1.0-libav
+          sudo apt-get install -y ./target/release/bundle/deb/*.deb
+          pulseaudio --start --exit-idle-time=-1 -n --load=module-null-sink --load=module-native-protocol-unix
+          xvfb-run -a python3 scripts/installer_smoke.py /usr/bin/deep-cuts "$RUNNER_TEMP/smoke"
+
+      - name: Installer smoke test (Windows NSIS)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          $setup = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/S'
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Deep Cuts" -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch 'uninstall' } | Select-Object -First 1
+          Write-Host "installed: $($exe.FullName)"
+          python scripts/installer_smoke.py $exe.FullName "$env:RUNNER_TEMP\smoke"
+
+      - name: Installer smoke test (macOS .dmg)
+        if: runner.os == 'macOS'
+        run: |
+          dmg=$(ls target/release/bundle/dmg/*.dmg | head -1)
+          hdiutil attach "$dmg" -mountpoint /Volumes/deepcuts -nobrowse
+          cp -R "/Volumes/deepcuts/Deep Cuts.app" "$RUNNER_TEMP/"
+          hdiutil detach /Volumes/deepcuts
+          exe=$(ls "$RUNNER_TEMP/Deep Cuts.app/Contents/MacOS/"* | head -1)
+          python3 scripts/installer_smoke.py "$exe" "$RUNNER_TEMP/smoke"
 
       - uses: actions/upload-artifact@v4
         with:

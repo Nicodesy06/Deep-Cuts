@@ -12,9 +12,15 @@
 | **Online auto-tagger** (One Tagger-like): MusicBrainz, Deezer, iTunes, Discogs (personal token); fuzzy match with duration check, originals preferred over compilations, per-field selection, review before writing, undoable | `autotag`, Auto-tag dialog | `tests/autotag_apply.rs`, `tests/autotag_live.rs` (network, ignored by default, passing) |
 | **Local audio model** (PANNs MobileNetV1, AudioSet): genre, mood, vocals, instruments per track; **character** (bass weight, rhythmic drive, groove steadiness); GPU through CUDA / DirectML / CoreML, CPU fallback; can be switched off | `ml`, `dna::character`, Music DNA, track details | `tests/ml.rs`, CI `genre-eval`, GUI check |
 
+Platform verification: CI now installs the real NSIS (Windows), DMG (macOS) and deb (Linux)
+packages and runs them in smoke mode (import, analysis with the bundled model, playback in the
+platform webview); see `TEST_PLAN.md`. Fixed while doing it: on Linux, WebKitGTK refused to play
+media from the `dcaudio` scheme, so the player now loads it as a blob there. The bundled ONNX
+Runtime needs glibc ≥ 2.38 on Linux (Ubuntu 24.04+, Debian 13+, Fedora 39+); CI builds on 24.04.
+
 Not done: reading My Tag directly from Rekordbox 6/7's encrypted `master.db` (needs the database
-key; left to the owner's decision), and checks on real Windows/macOS hardware and in real DJ apps
-(see the checklist in `TEST_PLAN.md`).
+key; left to the owner's decision), and checks with real speakers and in real DJ apps (checklist in
+`TEST_PLAN.md`).
 
 ## Increment 5 — Library tools, DJ software interop, Music DNA, automation (2026-10-21)
 

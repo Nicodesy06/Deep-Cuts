@@ -811,6 +811,23 @@ export function audioUrl(trackId: string, transcode = false): string {
   return transcode ? `${base}?transcode=1` : base;
 }
 
+// WebKitGTK (Linux) requests media from custom URI schemes but refuses to
+// play it; fetching the same URL and playing a blob works there.
+const blobOnly = typeof navigator !== "undefined" && /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+let lastBlob: string | null = null;
+
+/** Source for an <audio> element: the dcaudio URL, or a blob of it on Linux. */
+export async function audioSrc(trackId: string, transcode = false): Promise<string> {
+  const url = audioUrl(trackId, transcode);
+  if (!blobOnly) return url;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  const blob = await r.blob();
+  if (lastBlob) URL.revokeObjectURL(lastBlob);
+  lastBlob = URL.createObjectURL(blob);
+  return lastBlob;
+}
+
 export function onEvent<T>(name: string, handler: (payload: T) => void): Promise<UnlistenFn> {
   return listen<T>(name, (e) => handler(e.payload));
 }

@@ -18,7 +18,7 @@ on:
 
 jobs:
   giantsteps:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5
@@ -62,7 +62,7 @@ jobs:
   # (development corpus; keys + Beatport BPMs) and only the single chosen
   # variant is measured on GiantSteps Key / GiantSteps Tempo (test corpora).
   key-study:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5

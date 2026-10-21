@@ -51,11 +51,33 @@ Run everything: `npm install && npm test` (UI unit tests + `cargo test --workspa
 |---|---|
 | Cross-platform build + tests | GitHub Actions matrix (`.github/workflows/ci.yml`): Ubuntu, Windows, macOS. **Passing** since run #2. |
 | Watch folders (OS events) | Manual: add a folder, copy/rename/delete files while the app runs, check import/relink. Automated test pending. |
-| Packaging (MSI/NSIS, DMG) | `npm run build` on each OS in CI. Signing/notarisation in Phase 9. |
-| Audible playback per platform | Manual check on Windows (WebView2) and macOS (WKWebView): MP3, WAV, FLAC, AIFF, M4A. The headless Linux container has no audio device. |
+| Packaging (NSIS, DMG, deb) | Built on each OS in CI, then **installed and run** in smoke mode (`scripts/installer_smoke.py`, `DEEPCUTS_SMOKE`): import of MP3/M4A/FLAC/WAV/AIFF, analysis with the bundled model (BPM must be 120, model device reported), playback of every file in the platform webview through `dcaudio` (direct or transcoded) plus an in-memory WAV control. Results in the CI job summary. Signing/notarisation in Phase 9. |
+| Audible playback per platform | CI proves decoding and the media clock advancing on WebView2, WKWebView and WebKitGTK (null audio sink). Hearing it through real speakers/headphones stays manual — see the checklist below. |
 | DJ software fidelity | Load exported Rekordbox XML, Traktor NML, Serato crates and VirtualDJ playlists into the real applications; compare fields, cues, grids. Then round-trip a real collection. |
 | Large libraries (real files) | Import 100k real files from a network or USB drive; measure time and memory. |
 | UI end-to-end | WebDriver (tauri-driver) suite in Phase 9. |
+
+## Manual checklist on real hardware and DJ software
+
+Run on a real Windows 10/11 PC and a real Mac (Apple silicon), with the installers from the CI
+artifacts. Record OS version, app version and result for each line.
+
+1. **Install**: NSIS installer (Windows), DMG drag-to-Applications (macOS; unsigned: right-click › Open).
+2. **Playback**: import a folder with MP3, M4A/AAC, ALAC, FLAC, WAV, AIFF; double-click each, hear
+   it, seek, hot/intro/outro keys, volume; unplug headphones while playing.
+3. **Model device**: Music DNA page shows "DirectML" (Windows with a DirectX 12 GPU), "CoreML"
+   (macOS) or "CPU"; analyse 50 tracks and note the time; Settings › turn the model off and on.
+4. **Rekordbox 6/7**: Preferences › Advanced › rekordbox xml › point to the exported XML; import
+   playlists; check title/artist/BPM/key/comment (My Tag block), hot cues (colours, names), memory
+   cues, loops, beatgrid alignment on 3 tracks with tempo-matched downbeats.
+5. **Traktor Pro 3/4**: Import Collection from the exported NML; check cues, loops, grid, key,
+   playlists and folder structure.
+6. **Serato DJ**: open with the exported `_Serato_` crates on the music drive; check crates and
+   track order (cues are written as Serato markers only where documented).
+7. **VirtualDJ**: copy the `.vdjfolder` playlists into the VirtualDJ folder; paste the smart-crate
+   filter text into a new filter folder and compare the track count with Deep Cuts.
+8. **Round trip**: import a real Rekordbox XML / Traktor NML / Serato library read-only; compare
+   counts and a sample of 20 tracks field by field; the source files must be unchanged (hash).
 
 ## AI / analysis evaluation
 

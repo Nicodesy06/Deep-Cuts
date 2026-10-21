@@ -3,6 +3,7 @@
 
 mod audio_protocol;
 mod commands;
+mod smoke;
 mod watch;
 
 use dc_core::rusqlite::Connection;
@@ -116,6 +117,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            smoke::smoke_plan,
+            smoke::smoke_finish,
             commands::app_info,
             commands::library_stats,
             commands::query_tracks,

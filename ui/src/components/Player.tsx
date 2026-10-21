@@ -1,7 +1,7 @@
 // Preview player: streams via the dcaudio protocol, hot/intro/outro preview,
 // quick decisions and rating. No mixing, no decks — preview only.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, audioUrl, type Cue, type Decision, type TrackRow } from "../api";
+import { api, audioSrc, type Cue, type Decision, type TrackRow } from "../api";
 import { formatBpm, formatDuration, trackLabel } from "../format";
 import { useAction, useApp } from "../store";
 import { KeyChip } from "./TrackTable";
@@ -37,8 +37,16 @@ export function Player() {
     triedTranscode.current = false;
     setTranscoding(false);
     pendingSeek.current = playRequest.startMs;
-    a.src = audioUrl(playRequest.track.id);
-    a.play().catch(() => {});
+    const id = playRequest.track.id;
+    audioSrc(id).then(
+      (src) => {
+        if (audio.current !== a || a.dataset.track !== id) return;
+        a.src = src;
+        a.play().catch(() => {});
+      },
+      (e) => toast(String(e), "error"),
+    );
+    a.dataset.track = id;
     api.waveform(playRequest.track.id).then(setWave, () => setWave(null));
   }, [playRequest]);
 
@@ -189,8 +197,13 @@ export function Player() {
           setTranscoding(true);
           const a = e.currentTarget;
           pendingSeek.current = pendingSeek.current || pos;
-          a.src = audioUrl(track.id, true);
-          a.play().catch(() => {});
+          audioSrc(track.id, true).then(
+            (src) => {
+              a.src = src;
+              a.play().catch(() => {});
+            },
+            (err) => toast(String(err), "error"),
+          );
         }}
       />
       {!track ? (
