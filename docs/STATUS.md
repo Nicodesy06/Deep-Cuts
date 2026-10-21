@@ -32,10 +32,22 @@ network requests; the CLI covers scripting). Rekordbox `master.db` (encrypted) i
 - Playlist matcher: another version/edit of a song is never auto-accepted (offered for review).
 - Smart-crate hint promised a natural-language generator that does not exist; text corrected.
 
+### Analysis improvements (dc-dsp 1.3.0)
+
+| Change | Measured |
+|---|---|
+| **Key**: reference-tuning estimate + new front-end and learned profiles (chosen on GiantSteps-MTG-Keys) | GiantSteps Key MIREX **64.8 % → 67.5 %**, exact **55.5 % → 59.3 %** |
+| **BPM precision**: 16-beat comb + snap to whole BPM when the signal supports it (chosen on half of the Beatport-labelled set) | Study: exact BPM on the other half **84.0 % → 89.1 %** (together with an octave change that was not adopted); the adopted combination is re-measured in CI |
+| Tempo octave prior | Not adopted again: +2.6 Acc1 on Beatport labels but −4 Acc2 on GiantSteps |
+
+GiantSteps Tempo labels turned out to be perceptual and imprecise (the two published versions differ
+by > 0.5 BPM on 379 of 541 tracks), so they are used for octave/gross errors only.
+Existing analyses are recomputed when the user runs *Analyze* (analyser 1.3.0); user values win.
+
 ### Next priorities
 
-1. Tempo (BPM): perceptual-tempo development set and/or beat tracker, same dev/test protocol.
-2. Key, cue and energy improvements measured the same way.
+1. Tempo octave decision that keeps GiantSteps Accuracy2 (e.g. a learned half/double decision).
+2. Cue/structure and energy: find annotated corpora to measure them the same way.
 3. Manual smoke test of installers on Windows/macOS; load exports in the real DJ applications.
 
 ---

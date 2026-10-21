@@ -114,7 +114,7 @@ HEALTH = Library Health, BAK = Backup/Recovery (`backup`), UI = desktop app (`ui
 
 | Competitor | Plan | Feature | Expected workflow / behaviour | Module | Technical requirements | External deps | Compatibility & licensing | Prio | Status | Acceptance test | Limitations |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Mixed In Key | MIK | Key & BPM detection | Analyse files | AN | DSP / later model | — | — | P0 | PARTIALLY VERIFIED | `analysis_synthetic`, GiantSteps evaluation (`AI_VALIDATION.md`) | GiantSteps Key MIREX 64.8 % (exact 55.5 %), tempo Acc1 65.8 % / Acc2 88.2 %. Below commercial tools' published claims; improving it is the next priority. |
+| Mixed In Key | MIK | Key & BPM detection | Analyse files | AN | DSP / later model | — | — | P0 | PARTIALLY VERIFIED | `analysis_synthetic`, GiantSteps evaluation (`AI_VALIDATION.md`) | GiantSteps Key MIREX 67.5 % (exact 59.3 %, dc-dsp 1.3.0), tempo Acc1 65.8 % / Acc2 88.2 %. Below commercial tools' published claims; improving it is the next priority. |
 | Mixed In Key | MIK | Camelot wheel / compatible keys | Harmonic suggestions | META/CRATE | Camelot logic | — | — | P0 | PARTIALLY VERIFIED | `keys::tests::compatibility`, `key:8A+` | Energy-boost moves (+2, +7) not built. |
 | Mixed In Key | MIK | Energy Level (1–10) | Danceability/energy rating | DNA | Model or calibrated DSP | — | — | P1 | PARTIALLY VERIFIED (relative) | `tests/dna.rs` | 1–10 is the track's rank in the user's library on the measured energy proxy (not an absolute or human-calibrated score); correlation with human ratings not measured. |
 | Mixed In Key | MIK | Cue point generation | Auto cues | AN | Phrase-aligned suggestions from energy changes | — | — | P1 | PARTIALLY VERIFIED (synthetic) | Boundary F-measure on real music pending | |
@@ -180,7 +180,7 @@ official link. No features were assumed.
 | Data safety | User values never overwritten by imports/AI | PARTIALLY VERIFIED | Provenance precedence `user > import:* > file > analysis`, tests 7 and Rekordbox re-import |
 | Data safety | Backup before risky operations | PARTIALLY VERIFIED | Pre-Rekordbox-import and pre-restore snapshots, daily auto backup (app) |
 | Data safety | File identity independent of path | PARTIALLY VERIFIED | UUID track ids + content hash relink (move test) |
-| Analysis accuracy | Measured on real music | PARTIALLY VERIFIED | GiantSteps: tempo Acc1 65.8 % / Acc2 88.2 %, key MIREX 64.8 % (exact 55.5 %, dc-dsp 1.1.0, dev/test protocol) (`AI_VALIDATION.md`) |
+| Analysis accuracy | Measured on real music | PARTIALLY VERIFIED | GiantSteps: tempo Acc1 65.8 % / Acc2 88.2 %, key MIREX 67.5 % (exact 59.3 %, dc-dsp 1.3.0 with tuning estimate, dev/test protocol); exact BPM on held-out Beatport labels measured separately (`AI_VALIDATION.md`) |
 | Audio quality | Transcode / fake-lossless detection | PARTIALLY VERIFIED | Measured bandwidth cliff + stated rule (lossless with cut-off ≤ 19.8 kHz; ≥ 256 kbps lossy with cut-off ≤ 17.5 kHz). `tests/transcode.rs` (FLAC and 320 kbps made from a stereo 128 kbps LAME MP3 flagged; genuine FLAC, genuine 320k, honest 128k not), `bandwidth::tests`. Health section + `transcode:yes`. Not detected: sources whose encoder kept ~20 kHz (mono 128 kbps, 256–320 kbps). |
 | Performance | 100k tracks | PARTIALLY VERIFIED | `deepcuts bench 100000` (see `docs/BENCHMARKS.md`) |
 | Jobs | Persistent queue, crash recovery, cancellation | PARTIALLY VERIFIED | `interrupted_jobs_are_recovered_once`, `cancellation` |

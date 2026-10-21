@@ -1,5 +1,41 @@
 # Analysis & AI validation protocol
 
+## dc-dsp 1.3.0 (measured 2026-10-21): key with tuning estimate, exact BPM
+
+**Key.** The study grid gained a reference-tuning estimate (deviation from the 440 Hz grid as a
+weighted circular mean over the spectral peaks; pitch classes re-centred on it): 64 front-ends ×
+3 profile sets on the development corpus (GiantSteps-MTG-Keys, 1,159 tracks, learned profiles with
+5-fold CV). Choice: 60–2100 Hz, log(1+100·|X|), whitening, peaks, energy weighting, **tuning
+estimated**, learned profiles (dev 68.3 % vs 68.1 % for 1.1.0). Measured once on GiantSteps Key
+(CI run `39536348821`):
+
+| GiantSteps Key (test, 604) | MIREX | Correct | Fifth | Relative | Parallel | Other |
+|---|---|---|---|---|---|---|
+| **dc-dsp 1.3.0** | **67.5 %** | **59.3 %** | 8.1 % | 10.1 % | 5.8 % | 16.7 % |
+| dc-dsp 1.1.0 / 1.2.0 | 64.8 % | 55.5 % | 10.8 % | 9.8 % | 5.3 % | 18.7 % |
+| dc-dsp 1.0.0 | 47.5 % | 34.6 % | 15.7 % | 6.0 % | 16.2 % | 27.5 % |
+
+The development gain was small (0.2 points); the test gain (2.7 points MIREX, 3.8 points exact) is
+larger than the development gain, so part of it may be corpus variation. It is adopted because the
+choice was fixed before the test measurement, as for 1.1.0.
+
+**Tempo precision.** The final tempo is now refined with a 16-beat comb and snapped to the nearest
+whole BPM when that is within 0.3 BPM and its comb score is at least 90 % of the best (most club
+music is produced at an integer tempo; small errors make beat grids drift). Chosen on half A of
+the Beatport-labelled development set (554 tracks), measured once on half B (550 tracks, no shared
+tracks):
+
+| Beatport BPM, half B (hold-out) | Accuracy1 | Accuracy2 | Exact (±0.05 BPM) |
+|---|---|---|---|
+| Study choice (stronger octave prior + precision stage) | 95.1 % | 97.8 % | 89.1 % |
+| dc-dsp 1.2.0 | 92.5 % | 98.0 % | 84.0 % |
+
+The study also picked a stronger octave prior again (floor 0.1). As in the first tempo study it
+loses Accuracy2 on GiantSteps Tempo v2 (88.2 % → 84.1 %: more tempi not even octave-related), so
+**only the precision stage is adopted**; the octave decision is unchanged. The adopted combination
+is reported as "Production (this build)" by `deepcuts tempo-study --use` on the same hold-out half
+and on GiantSteps in the next evaluation run.
+
 ## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20; unchanged in 1.2.0)
 
 **Method.** `deepcuts key-study` compared 32 chroma front-ends (frequency range, log compression,

@@ -37,8 +37,8 @@ pub const TEMPERLEY: Profiles = Profiles {
 };
 
 /// Mean tonic-aligned chroma of 1,159 confidently annotated tracks of
-/// GiantSteps-MTG-Keys (Faraldo et al. 2017), computed with the `PRODUCTION`
-/// front-end by `deepcuts key-study` (CI run 39500524471). Selected on that
+/// GiantSteps-MTG-Keys (Faraldo et al. 2017), computed with the dc-dsp 1.1.0
+/// front-end (`FRONTEND_1_1`) by `deepcuts key-study` (CI run 39500524471). Selected on that
 /// development corpus only; measured once on GiantSteps Key (see
 /// docs/AI_VALIDATION.md).
 pub const LEARNED_EDM: Profiles = Profiles {
@@ -72,7 +72,40 @@ pub const LEARNED_EDM: Profiles = Profiles {
     ],
 };
 
-pub const PRODUCTION_PROFILES: Profiles = LEARNED_EDM;
+/// Profiles learned the same way with the dc-dsp 1.3.0 front-end
+/// (`PRODUCTION`, reference tuning estimated), CI run 39536348821.
+pub const LEARNED_EDM_1_3: Profiles = Profiles {
+    major: [
+        0.16240476865399375,
+        0.044740444222742634,
+        0.0987753852169465,
+        0.04435950050413154,
+        0.11896650191611362,
+        0.07058641524255667,
+        0.047244089162029386,
+        0.15252791929026624,
+        0.04401807908859665,
+        0.08420996352513131,
+        0.05422723679444591,
+        0.07793969638304593,
+    ],
+    minor: [
+        0.15884547396386986,
+        0.05194980149875308,
+        0.08444463122921897,
+        0.08266478676296361,
+        0.0775881906422644,
+        0.0803605578141649,
+        0.05169668622064206,
+        0.1477101441613213,
+        0.05736384867064015,
+        0.05608123755745703,
+        0.09338248883624994,
+        0.057912152642454494,
+    ],
+};
+
+pub const PRODUCTION_PROFILES: Profiles = LEARNED_EDM_1_3;
 
 /// Chroma front-end settings.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -108,8 +141,8 @@ pub const BASELINE_1_0: ChromaConfig = ChromaConfig {
     tuning: false,
 };
 
-/// Front-end chosen by the key study (dc-dsp 1.1.0).
-pub const PRODUCTION: ChromaConfig = ChromaConfig {
+/// Front-end chosen by the first key study (dc-dsp 1.1.0 – 1.2.0).
+pub const FRONTEND_1_1: ChromaConfig = ChromaConfig {
     fmin: 100.0,
     fmax: 5000.0,
     log_gamma: 100.0,
@@ -117,6 +150,17 @@ pub const PRODUCTION: ChromaConfig = ChromaConfig {
     peaks: true,
     frame_norm: true,
     tuning: false,
+};
+
+/// Front-end chosen by the key study with tuning variants (dc-dsp 1.3.0).
+pub const PRODUCTION: ChromaConfig = ChromaConfig {
+    fmin: 60.0,
+    fmax: 2100.0,
+    log_gamma: 100.0,
+    whiten: true,
+    peaks: true,
+    frame_norm: false,
+    tuning: true,
 };
 
 impl ChromaConfig {
@@ -414,13 +458,13 @@ mod tests {
     fn tuning_estimate_recentres_detuned_audio() {
         let tuned = ChromaConfig {
             tuning: true,
-            ..PRODUCTION
+            ..FRONTEND_1_1
         };
         // In tune: same key either way, offset ≈ 0.
         let acc = run(&chord(0.0), tuned);
         assert!(acc.tuning_offset().abs() < 0.05, "{}", acc.tuning_offset());
         let a = acc.profile().unwrap();
-        let b = run(&chord(0.0), PRODUCTION).profile().unwrap();
+        let b = run(&chord(0.0), FRONTEND_1_1).profile().unwrap();
         let diff: f64 = a.iter().zip(&b).map(|(x, y)| (x - y).abs()).sum();
         assert!(diff < 0.1, "{a:?} vs {b:?}");
         // +45 cents: the fixed 440 Hz grid splits C/C#, the estimated grid
@@ -433,7 +477,7 @@ mod tests {
             acc.tuning_offset()
         );
         let p = acc.profile().unwrap();
-        let fixed = run(&x, PRODUCTION).profile().unwrap();
+        let fixed = run(&x, FRONTEND_1_1).profile().unwrap();
         assert!(p[0] > p[1] * 3.0, "tuned {p:?}");
         assert!(
             p[0] / p[1] > fixed[0] / fixed[1],

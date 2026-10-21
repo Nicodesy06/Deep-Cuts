@@ -172,7 +172,13 @@ pub const FINE_BASELINE: FineConfig = FineConfig {
     snap_ratio: 1.0,
 };
 
-pub const FINE_PRODUCTION: FineConfig = FINE_BASELINE;
+/// Chosen on half of a Beatport-labelled development set, measured on the
+/// other half (dc-dsp 1.3.0; see docs/AI_VALIDATION.md).
+pub const FINE_PRODUCTION: FineConfig = FineConfig {
+    multiples: 16,
+    snap_tol: 0.3,
+    snap_ratio: 0.9,
+};
 
 impl FineConfig {
     pub fn label(&self) -> String {

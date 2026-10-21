@@ -1436,6 +1436,13 @@ fn tempo_study(
                 c.fine.label(),
             );
             md += &row("Chosen", &chosen);
+            md += &row(
+                &format!(
+                    "Production (this build, {})",
+                    dc_core::analysis::ANALYZER_VERSION
+                ),
+                &full(&tp::PRODUCTION, &tp::FINE_PRODUCTION),
+            );
             md += &row("Baseline dc-dsp 1.2.0", &base);
         }
         None => {
