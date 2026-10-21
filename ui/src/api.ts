@@ -173,6 +173,28 @@ export interface MatchReport {
   missing: number;
 }
 
+export interface CompareSource {
+  source: string;
+  bpm: number;
+  key: number;
+}
+
+export interface CompareReport {
+  source: string;
+  bpmCompared: number;
+  bpmExact: number;
+  bpmClose: number;
+  bpmOctave: number;
+  bpmOther: number;
+  keyCompared: number;
+  keySame: number;
+  keyFifth: number;
+  keyRelative: number;
+  keyParallel: number;
+  keyOther: number;
+  differences: { track: TrackRow; ours: string; theirs: string; kind: string }[];
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -639,6 +661,9 @@ export const api = {
   unusedFiles: (root: string) => invoke<string[]>("unused_files", { root }),
   setArchived: (ids: string[], archived: boolean) => invoke<void>("set_archived", { ids, archived }),
   integrityCheck: () => invoke<string[]>("integrity_check"),
+  reanalyzeAll: () => invoke<{ queued: number }>("reanalyze_all"),
+  compareSources: () => invoke<CompareSource[]>("compare_sources"),
+  compareAnalysis: (source: string) => invoke<CompareReport>("compare_analysis", { source }),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   undo: () => invoke<BatchInfo | null>("undo"),

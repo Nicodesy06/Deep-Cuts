@@ -164,7 +164,8 @@ fn run_analysis(
         return Err(Error::NotFound(format!("file missing: {}", path.display())));
     }
     let started = now_ms();
-    let a = analysis::analyze_file(&path, cancel)?;
+    let opts = analysis::AnalyzeOptions::from_settings(conn);
+    let a = analysis::analyze_file_with(&path, cancel, &opts)?;
     analysis::store(conn, track_id, &a, now_ms() - started)
 }
 

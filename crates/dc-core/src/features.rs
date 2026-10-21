@@ -261,6 +261,7 @@ mod tests {
                 bpm,
                 periodicity: 0.8,
                 first_beat_ms: 0.0,
+                range: None,
             }),
             key: Some(KeyResult {
                 camelot: camelot.into(),

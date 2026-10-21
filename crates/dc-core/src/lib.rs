@@ -7,6 +7,7 @@ pub mod artwork;
 pub mod audio;
 pub mod backup;
 pub mod bulk;
+pub mod compare;
 pub mod csvimport;
 pub mod cues;
 pub mod db;

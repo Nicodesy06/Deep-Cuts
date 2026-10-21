@@ -68,6 +68,28 @@ export function Settings() {
               </select>
             </label>
             <p className="hint">{t("settings.hardware")}</p>
+            <label className="field col">
+              <span className="field-label">{t("bpmRange.label")}</span>
+              <select
+                value={settings.bpmRange ?? "auto"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSettings((s) => ({ ...s, bpmRange: v }));
+                  act(() => api.setSetting("bpmRange", v), t("bpmRange.saved"));
+                }}
+              >
+                <option value="auto">{t("bpmRange.auto")}</option>
+                {["60-120", "70-140", "78-155", "88-175", "98-195"].map((r) => (
+                  <option key={r} value={r}>
+                    {r.replace("-", "–")} BPM
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="hint">{t("bpmRange.hint")}</p>
+            <button className="btn ghost" onClick={() => act(() => api.reanalyzeAll()).then((r) => r && toast(t("bpmRange.requeued", { n: r.queued }), "ok"))}>
+              {t("bpmRange.reanalyze")}
+            </button>
           </div>
         </section>
         <section className="panel">

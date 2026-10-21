@@ -1484,6 +1484,16 @@ fn tempo_study(
             }
         }
     }
+    // User BPM ranges (a setting, not tuned here): production pipeline with
+    // the tempo restricted to each preset range.
+    md += &format!("\n## User BPM ranges (production pipeline)\n\n{header}");
+    md += &row("Automatic", &full(&tp::PRODUCTION, &tp::FINE_PRODUCTION));
+    for r in tp::RANGE_PRESETS {
+        md += &row(
+            &format!("{:.0}–{:.0}", r.0, r.1),
+            &tempostudy::range_score(&samples, Some(*r)),
+        );
+    }
     println!("{md}");
     if let Some(out) = out {
         export::write_atomic(out, md.as_bytes())?;

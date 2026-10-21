@@ -411,6 +411,35 @@ pub fn enqueue_analysis(
     with_conn!(state, |c| jobs::enqueue_analysis(&c, &ids, force))
 }
 
+/// Re-queue every track (e.g. after changing the BPM range).
+#[tauri::command]
+pub fn reanalyze_all(state: State<'_, AppState>) -> Res<jobs::EnqueueReport> {
+    with_conn!(state, |c| {
+        let ids: Vec<String> = {
+            let mut stmt = c.prepare("SELECT id FROM live_tracks")?;
+            stmt.query_map([], |r| r.get(0))?
+                .collect::<std::result::Result<_, _>>()?
+        };
+        jobs::enqueue_analysis(&c, &ids, true)
+    })
+}
+
+#[tauri::command]
+pub fn compare_sources(state: State<'_, AppState>) -> Res<Vec<dc_core::compare::SourceCount>> {
+    with_conn!(state, |c| dc_core::compare::sources(&c))
+}
+
+#[tauri::command]
+pub async fn compare_analysis(
+    state: State<'_, AppState>,
+    source: String,
+) -> Res<dc_core::compare::CompareReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::compare::compare(c, &source, 500)
+    })
+    .await
+}
+
 #[tauri::command]
 pub fn queue_summary(state: State<'_, AppState>) -> Res<jobs::QueueSummary> {
     with_conn!(state, |c| jobs::summary(&c))

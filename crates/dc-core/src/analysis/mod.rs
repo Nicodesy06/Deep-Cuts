@@ -64,6 +64,9 @@ pub struct TempoResult {
     pub bpm: f64,
     pub periodicity: f64,
     pub first_beat_ms: f64,
+    /// User BPM range the tempo was constrained to (None = automatic).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -119,7 +122,33 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
     sorted[idx]
 }
 
+/// User options that change the analysis result.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AnalyzeOptions {
+    /// BPM range (see `tempo::RANGE_PRESETS`); None = automatic.
+    pub bpm_range: Option<(f64, f64)>,
+}
+
+impl AnalyzeOptions {
+    /// Options stored in the library settings.
+    pub fn from_settings(conn: &rusqlite::Connection) -> Self {
+        let bpm_range = crate::library::get_setting(conn, "bpmRange")
+            .ok()
+            .flatten()
+            .and_then(|s| tempo::parse_range(&s));
+        AnalyzeOptions { bpm_range }
+    }
+}
+
 pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> {
+    analyze_file_with(path, cancel, &AnalyzeOptions::default())
+}
+
+pub fn analyze_file_with(
+    path: &Path,
+    cancel: &dyn Fn() -> bool,
+    opts: &AnalyzeOptions,
+) -> Result<Analysis> {
     let mut meter: Option<loudness::LoudnessMeter> = None;
     let mut mono: Vec<f32> = Vec::new();
     let (info, corrupt) = audio::decode_stream(path, cancel, |info, frames| {
@@ -196,11 +225,13 @@ pub fn analyze_file(path: &Path, cancel: &dyn Fn() -> bool) -> Result<Analysis> 
     let (env, low_env) = detrend_envelopes(&flux, &low_flux);
     // The flux reacts when an onset reaches the centre of the analysis window.
     let shift_ms = (ONSET_N as f64 / 2.0) / SR as f64 * 1000.0;
-    let tempo = tempo::estimate(&env, &low_env, fps, &tempo::PRODUCTION).map(|t| TempoResult {
-        bpm: (t.bpm * 100.0).round() / 100.0,
-        periodicity: (t.periodicity * 1000.0).round() / 1000.0,
-        first_beat_ms: ((t.first_beat_ms + shift_ms).max(0.0) * 10.0).round() / 10.0,
-    });
+    let tempo = tempo::estimate_in_range(&env, &low_env, fps, &tempo::PRODUCTION, opts.bpm_range)
+        .map(|t| TempoResult {
+            bpm: (t.bpm * 100.0).round() / 100.0,
+            periodicity: (t.periodicity * 1000.0).round() / 1000.0,
+            first_beat_ms: ((t.first_beat_ms + shift_ms).max(0.0) * 10.0).round() / 10.0,
+            range: opts.bpm_range,
+        });
 
     let flux_max = flux.iter().copied().fold(0f32, f32::max).max(1e-9);
     let flux_mean =

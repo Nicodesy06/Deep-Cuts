@@ -47,6 +47,52 @@ pub const BASELINE_1_0: TempoConfig = TempoConfig {
 
 pub const PRODUCTION: TempoConfig = BASELINE_1_0;
 
+/// BPM ranges offered to the user (like Rekordbox/Traktor): the tempo is
+/// always reported inside the chosen range, which settles half/double
+/// ambiguity for the user's genres. `None` = automatic (60–200 with the
+/// tempo prior).
+pub const RANGE_PRESETS: &[(f64, f64)] = &[
+    (60.0, 120.0),
+    (70.0, 140.0),
+    (78.0, 155.0),
+    (88.0, 175.0),
+    (98.0, 195.0),
+];
+
+/// Parse a range setting: "auto" / "" → None, "88-175" → Some((88, 175)).
+/// Ranges narrower than 1.5× would exclude valid tempi and are refused.
+pub fn parse_range(s: &str) -> Option<(f64, f64)> {
+    let (a, b) = s.trim().split_once('-')?;
+    let (lo, hi) = (a.trim().parse::<f64>().ok()?, b.trim().parse::<f64>().ok()?);
+    (lo >= 40.0 && hi <= 250.0 && hi >= lo * 1.5).then_some((lo, hi))
+}
+
+/// Move a tempo into the user range by doubling or halving only, so the
+/// range settles half/double ambiguity and never introduces other
+/// ratios. A tempo with no octave inside the range keeps the octave
+/// closest to it.
+pub fn fold_into_range(bpm: f64, range: Option<(f64, f64)>) -> f64 {
+    let Some((lo, hi)) = range else {
+        return bpm;
+    };
+    if bpm.is_nan() || bpm <= 0.0 {
+        return bpm;
+    }
+    let mut b = bpm;
+    while b < lo {
+        b *= 2.0;
+    }
+    while b > hi {
+        b /= 2.0;
+    }
+    if b < lo {
+        // Fell through the gap below the range: pick the nearer octave.
+        if lo / b > (b * 2.0) / hi { b * 2.0 } else { b }
+    } else {
+        b
+    }
+}
+
 impl TempoConfig {
     pub fn label(&self) -> String {
         format!(
@@ -237,13 +283,25 @@ pub fn estimate(
     fps: f64,
     cfg: &TempoConfig,
 ) -> Option<TempoEstimate> {
+    estimate_in_range(onset_env, low_env, fps, cfg, None)
+}
+
+/// As `estimate`, with the tempo folded into a user BPM range before the
+/// beat phase is measured.
+pub fn estimate_in_range(
+    onset_env: &[f32],
+    low_env: &[f32],
+    fps: f64,
+    cfg: &TempoConfig,
+    range: Option<(f64, f64)>,
+) -> Option<TempoEstimate> {
     if onset_env.len() < (fps * 8.0) as usize {
         return None; // need at least ~8 s of audio
     }
     let search = tempo_envelope(onset_env, low_env, cfg.envelope);
     let ac = stft::autocorrelation(&search);
     let coarse = coarse_bpm(&ac, fps, cfg)?;
-    let bpm = refine(&ac, fps, coarse, &FINE_PRODUCTION);
+    let bpm = fold_into_range(refine(&ac, fps, coarse, &FINE_PRODUCTION), range);
     let periodicity = comb_score(&ac, fps, bpm, 16).clamp(0.0, 1.0);
 
     // Beat phase: offset that collects the most onset energy on the grid.
@@ -275,4 +333,26 @@ pub fn estimate(
         periodicity,
         first_beat_ms: best_phase.0 / fps * 1000.0,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ranges_fold_by_octaves_only() {
+        assert_eq!(parse_range("88-175"), Some((88.0, 175.0)));
+        assert_eq!(parse_range("auto"), None);
+        assert_eq!(parse_range("100-120"), None); // narrower than 1.5×
+        let r = Some((88.0, 175.0));
+        assert_eq!(fold_into_range(87.0, r), 174.0);
+        assert_eq!(fold_into_range(124.0, r), 124.0);
+        assert_eq!(fold_into_range(180.0, r), 90.0);
+        assert_eq!(fold_into_range(43.5, r), 174.0);
+        assert_eq!(fold_into_range(124.0, Some((60.0, 120.0))), 62.0);
+        assert_eq!(fold_into_range(124.0, None), 124.0);
+        // 175.5 has no octave in 88–175 (87.75 / 175.5): nearest is kept.
+        let b = fold_into_range(175.5, r);
+        assert!(b == 175.5 || b == 87.75);
+    }
 }

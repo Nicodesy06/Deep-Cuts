@@ -195,6 +195,19 @@ pub fn fine_scores(
         .collect()
 }
 
+/// Production pipeline with the result folded into a user BPM range.
+pub fn range_score(samples: &[(&TrackCurves, f64)], range: Option<(f64, f64)>) -> TempoSummary {
+    use rayon::prelude::*;
+    let pairs: Vec<(Option<f64>, f64)> = samples
+        .par_iter()
+        .map(|(t, r)| {
+            let est = fine_estimates(t, &tempo::PRODUCTION, &[tempo::FINE_PRODUCTION])[0];
+            (est.map(|b| tempo::fold_into_range(b, range)), *r)
+        })
+        .collect();
+    summarize_tempo(&pairs)
+}
+
 /// Choose the precision stage: most exact tempi, then lowest error on
 /// Accuracy1 hits; the production stage wins ties.
 pub fn fine_study(

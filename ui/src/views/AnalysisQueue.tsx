@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AppInfo, type JobRow, type QueueSummary } from "../api";
 import { useAction, useApp } from "../store";
+import { ComparePanel } from "../components/ComparePanel";
 
 export function AnalysisQueue() {
   const { t, dataVersion, bump, openLibrary } = useApp();
@@ -121,6 +122,7 @@ export function AnalysisQueue() {
           </tbody>
         </table>
       </section>
+      <ComparePanel />
     </div>
   );
 }
