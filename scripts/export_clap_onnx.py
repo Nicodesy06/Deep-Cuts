@@ -52,6 +52,17 @@ with torch.no_grad():
     ref = m.get_text_features(**tok)
     ref = ref.pooler_output if hasattr(ref, "pooler_output") else ref
     assert torch.allclose(ref, rt, atol=1e-4), float((ref - rt).abs().max())
+    # Sanity check on real inputs: white noise and a pure tone must match their
+    # own descriptions (laion/larger_clap_music on Hugging Face fails this:
+    # all its audio embeddings are nearly identical).
+    sr, n = 48000, np.arange(480000)
+    sig = [np.random.default_rng(0).standard_normal(480000).astype(np.float32) * 0.3,
+           (0.5 * np.sin(2 * np.pi * 440 * n / sr)).astype(np.float32)]
+    feats = torch.from_numpy(np.concatenate([proc.feature_extractor(s_, sampling_rate=sr, return_tensors="np")["input_features"] for s_ in sig]))
+    cap = proc.tokenizer(["white noise", "a pure sine tone", "a man speaking", "a rock band playing"], padding=True, return_tensors="pt")
+    sim = (a(feats) @ t(cap["input_ids"], cap["attention_mask"]).T).numpy()
+    print("sanity similarities\n", np.round(sim, 3))
+    assert sim[0].argmax() == 0 and sim[1].argmax() == 1, "model does not tell noise from a tone"
 pa, pt = f"{out}/clap_audio.onnx", f"{out}/clap_text_fp32.onnx"
 torch.onnx.export(a, (x,), pa, input_names=["input_features"], output_names=["embeds"],
                   dynamic_axes={"input_features": {0: "n"}, "embeds": {0: "n"}}, opset_version=17, dynamo=False)
