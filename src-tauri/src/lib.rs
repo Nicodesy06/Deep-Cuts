@@ -166,6 +166,8 @@ pub fn run() {
             commands::dna_groups,
             commands::dna_update_energy,
             commands::pending_tag_suggestions,
+            commands::match_playlist_file,
+            commands::create_matched_playlist,
             commands::csv_read,
             commands::csv_preview,
             commands::csv_apply,

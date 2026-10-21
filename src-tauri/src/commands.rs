@@ -564,6 +564,28 @@ pub fn track_playlists(
 }
 
 #[tauri::command]
+pub async fn match_playlist_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> Res<dc_core::playlist_match::MatchReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::playlist_match::read_and_match(c, std::path::Path::new(&path))
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn create_matched_playlist(
+    state: State<'_, AppState>,
+    name: String,
+    track_ids: Vec<String>,
+) -> Res<String> {
+    with_conn!(state, |c| dc_core::playlist_match::create_playlist(
+        &c, &name, &track_ids
+    ))
+}
+
+#[tauri::command]
 pub fn csv_read(path: String) -> Res<csvimport::Sheet> {
     csvimport::read(std::path::Path::new(&path)).map_err(|e| e.to_string())
 }

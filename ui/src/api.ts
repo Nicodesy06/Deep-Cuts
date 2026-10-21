@@ -159,6 +159,20 @@ export interface WritePlan {
   changes: { field: string; fileValue: string | null; newValue: string | null }[];
 }
 
+export interface MatchRow {
+  wanted: { line: number; artist: string; title: string; durationS: number | null; path: string | null };
+  status: "matched" | "review" | "missing";
+  candidates: { track: TrackRow; score: number }[];
+}
+
+export interface MatchReport {
+  name: string;
+  rows: MatchRow[];
+  matched: number;
+  review: number;
+  missing: number;
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -593,6 +607,8 @@ export const api = {
   shufflePlaylist: (id: string) => invoke<void>("shuffle_playlist", { id }),
   prefixPlaylists: (ids: string[], prefix: string) => invoke<number>("prefix_playlists", { ids, prefix }),
   trackPlaylists: (id: string) => invoke<PlaylistOccurrence[]>("track_playlists", { id }),
+  matchPlaylistFile: (path: string) => invoke<MatchReport>("match_playlist_file", { path }),
+  createMatchedPlaylist: (name: string, trackIds: string[]) => invoke<string>("create_matched_playlist", { name, trackIds }),
   csvRead: (path: string) => invoke<CsvSheet>("csv_read", { path }),
   csvPreview: (path: string, mapping: CsvMapping) => invoke<CsvPreview>("csv_preview", { path, mapping }),
   csvApply: (proposals: ReplaceProposal[]) => invoke<number>("csv_apply", { proposals }),

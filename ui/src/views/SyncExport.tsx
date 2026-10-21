@@ -3,6 +3,7 @@ import { api, type DjApp, type Playlist } from "../api";
 import { exportTracks, importFolders, importRekordboxXml, type ExportFormat } from "../actions";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { CsvImportDialog } from "../components/CsvImportDialog";
+import { MatchPlaylistDialog } from "../components/MatchPlaylistDialog";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store";
 
@@ -24,6 +25,7 @@ export function SyncExport() {
   const [writeQuery, setWriteQuery] = useState("");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
   const [csvPath, setCsvPath] = useState<string | null>(null);
+  const [matchPath, setMatchPath] = useState<string | null>(null);
 
   useEffect(() => {
     api.listPlaylists().then(setPlaylists, () => {});
@@ -90,6 +92,7 @@ export function SyncExport() {
         <h1>{t("nav.sync")}</h1>
         <span className="muted">{t("sync.subtitle")}</span>
       </header>
+      {matchPath && <MatchPlaylistDialog path={matchPath} onClose={() => setMatchPath(null)} />}
       {csvPath && <CsvImportDialog path={csvPath} onClose={() => setCsvPath(null)} />}
       <div className="cols-2">
         <section className="panel">
@@ -113,6 +116,16 @@ export function SyncExport() {
               {t("csv.button")}
             </button>
             <p className="hint">{t("csv.hint")}</p>
+            <button
+              className="btn"
+              onClick={async () => {
+                const r = await open({ multiple: false, title: t("match.choose"), filters: [{ name: "Playlist", extensions: ["csv", "tsv", "txt", "m3u", "m3u8"] }] });
+                if (typeof r === "string") setMatchPath(r);
+              }}
+            >
+              {t("match.button")}
+            </button>
+            <p className="hint">{t("match.buttonHint")}</p>
           </div>
         </section>
         <section className="panel">

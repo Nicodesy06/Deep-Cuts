@@ -28,6 +28,7 @@ pub mod library;
 pub mod map;
 pub mod metadata;
 pub mod paths;
+pub mod playlist_match;
 pub mod playlist_tools;
 pub mod query;
 pub mod recipes;

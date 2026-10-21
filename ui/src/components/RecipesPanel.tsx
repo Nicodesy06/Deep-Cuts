@@ -125,7 +125,7 @@ export function RecipesPanel() {
               <input className="mono" value={edit.query} onChange={(e) => setEdit({ ...edit, query: e.target.value })} placeholder={t("recipe.queryAll")} spellCheck={false} />
             </label>
           </div>
-          {count != null && <p className="muted small">{t("recipe.matches", { n: count })}</p>}
+          <p className="muted small">{count != null ? t("recipe.matches", { n: count }) : "\u00a0"}</p>
           {edit.actions.map((a, i) => (
             <ActionEditor
               key={i}

@@ -2058,3 +2058,8 @@ tr.rejected td {
   border-top: 1px solid var(--line);
   padding: 8px 0;
 }
+
+.chip.match-matched { color: var(--keep); }
+.chip.match-review { color: var(--maybe); }
+.chip.match-missing { color: var(--muted); }
+.match-pick { width: 100%; min-width: 280px; }

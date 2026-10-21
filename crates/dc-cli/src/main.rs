@@ -70,6 +70,14 @@ enum Cmd {
     /// Import another DJ app: rekordbox (.xml), traktor (.nml), serato
     /// (_Serato_ folder), virtualdj (VirtualDJ folder).
     ImportDj { app: String, path: PathBuf },
+    /// Match an external playlist (CSV e.g. Spotify/Exportify, M3U, or
+    /// "Artist - Title" lines) against the library; with --create, make a
+    /// playlist from the confident matches.
+    MatchPlaylist {
+        file: PathBuf,
+        #[arg(long)]
+        create: bool,
+    },
     /// Export to a DJ app: the whole library with playlists (no --query),
     /// or the tracks matching --query as one playlist. Target: .xml/.nml
     /// file, _Serato_ folder, or a folder for .vdjfolder playlists.
@@ -480,6 +488,41 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             println!("backup: {}", b.path);
             let rep = dc_core::djlib::import_from(&mut conn, &app, &path)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Cmd::MatchPlaylist { file, create } => {
+            let rep = dc_core::playlist_match::read_and_match(&conn, &file)?;
+            for r in &rep.rows {
+                let best = r.candidates.first().map(|c| {
+                    format!(
+                        "{} - {} ({:.2})",
+                        c.track.artist.as_deref().unwrap_or("?"),
+                        c.track.title.as_deref().unwrap_or("?"),
+                        c.score
+                    )
+                });
+                println!(
+                    "{:>4} {:<8} {} - {}  =>  {}",
+                    r.wanted.line,
+                    r.status,
+                    r.wanted.artist,
+                    r.wanted.title,
+                    best.unwrap_or_default()
+                );
+            }
+            println!(
+                "{} matched, {} to review, {} missing",
+                rep.matched, rep.review, rep.missing
+            );
+            if create {
+                let ids: Vec<String> = rep
+                    .rows
+                    .iter()
+                    .filter(|r| r.status == "matched")
+                    .map(|r| r.candidates[0].track.id.clone())
+                    .collect();
+                dc_core::playlist_match::create_playlist(&conn, &rep.name, &ids)?;
+                println!("created playlist '{}' with {} tracks", rep.name, ids.len());
+            }
         }
         Cmd::ExportDj {
             app,

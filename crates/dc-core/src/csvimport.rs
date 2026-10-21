@@ -54,7 +54,7 @@ pub struct ImportPreview {
     pub invalid: Vec<String>,
 }
 
-fn norm_header(h: &str) -> String {
+pub(crate) fn norm_header(h: &str) -> String {
     h.chars()
         .filter(|c| c.is_alphanumeric())
         .flat_map(char::to_lowercase)
