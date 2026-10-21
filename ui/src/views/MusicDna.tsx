@@ -59,7 +59,7 @@ function EnergyPanel() {
 function ModelPanel() {
   const { t, dataVersion, bump, openLibrary, toast } = useApp();
   const act = useAction();
-  const [st, setSt] = useState<{ file: string | null; enabled: boolean; device: string | null; error: string | null } | null>(null);
+  const [st, setSt] = useState<Awaited<ReturnType<typeof api.modelStatus>> | null>(null);
   useEffect(() => {
     api.modelStatus().then(setSt, () => setSt(null));
   }, [dataVersion]);
@@ -92,6 +92,23 @@ function ModelPanel() {
                 ? t("model.running", { device: st.device })
                 : (st.error ?? "")}
         </p>
+      )}
+      {st && st.missing > 0 && (
+        <div className="row">
+          <span className="small">{t("model.missingTracks", { n: st.missing })}</span>
+          <button
+            className="btn small"
+            onClick={async () => {
+              const n = await act(() => api.modelReanalyze());
+              if (n != null) {
+                bump();
+                toast(t("model.queued", { n }), "ok");
+              }
+            }}
+          >
+            {t("model.reanalyze")}
+          </button>
+        </div>
       )}
       <div className="row wrap">
         {["ai:techno", "ai:house", "ai:\"female singing\"", "ai:rapping", "ai:\"happy music\"", "ai:synthesizer"].map((q) => (

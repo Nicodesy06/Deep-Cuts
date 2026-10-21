@@ -171,6 +171,7 @@ impl Context {
                     timbre: 0.6,
                     rhythm: 0.4,
                     dynamics: 0.0,
+                    sound: 0.0,
                 };
                 similarity::score(x, y, &self.stats, None, None, &w).0
             }

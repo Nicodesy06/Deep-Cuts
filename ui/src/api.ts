@@ -294,9 +294,18 @@ export interface SimilarityWeights {
   timbre: number;
   rhythm: number;
   dynamics: number;
+  sound: number;
 }
 
-export const DEFAULT_WEIGHTS: SimilarityWeights = { tempo: 0.25, harmony: 0.2, energy: 0.2, timbre: 0.15, rhythm: 0.12, dynamics: 0.08 };
+export const DEFAULT_WEIGHTS: SimilarityWeights = {
+  tempo: 0.25,
+  harmony: 0.2,
+  energy: 0.2,
+  timbre: 0.15,
+  rhythm: 0.12,
+  dynamics: 0.08,
+  sound: 0.3,
+};
 
 type Pair<T> = [T | null, T | null];
 
@@ -736,7 +745,9 @@ export const api = {
   autotagCancel: () => invoke<void>("autotag_cancel"),
   autotagApply: (proposals: AutotagProposal[], keepBackup: boolean) => invoke<{ fields: number; artwork: WriteReport }>("autotag_apply", { proposals, keepBackup }),
   trackCharacter: (id: string) => invoke<TrackCharacter>("track_character", { id }),
-  modelStatus: () => invoke<{ file: string | null; enabled: boolean; device: string | null; error: string | null }>("model_status"),
+  modelStatus: () =>
+    invoke<{ file: string | null; enabled: boolean; device: string | null; error: string | null; missing: number }>("model_status"),
+  modelReanalyze: () => invoke<number>("model_reanalyze"),
   modelSuggestTags: () => invoke<number>("model_suggest_tags"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
@@ -820,9 +831,19 @@ let lastBlob: string | null = null;
 export async function audioSrc(trackId: string, transcode = false): Promise<string> {
   const url = audioUrl(trackId, transcode);
   if (!blobOnly) return url;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  const blob = await r.blob();
+  // A stalled load must not leave the player waiting forever.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 60000);
+  let blob: Blob;
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    blob = await r.blob();
+  } catch (e) {
+    throw ctl.signal.aborted ? new Error("audio did not load within 60 s") : e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (lastBlob) URL.revokeObjectURL(lastBlob);
   lastBlob = URL.createObjectURL(blob);
   return lastBlob;

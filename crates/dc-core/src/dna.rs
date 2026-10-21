@@ -1,13 +1,13 @@
 //! "Music DNA" from measurements and from the user's own labels.
 //!
-//! Nothing here is a pre-trained model:
 //! * Energy 1–10 is the rank of the documented energy proxy
 //!   (`features::energy_proxy`) within the user's library.
 //! * Genre and tag suggestions come from the most similar tracks the user has
-//!   already labelled (k nearest neighbours on z-scored measured features).
-//!   Their accuracy is measured on the user's own labels (leave-one-out) and
+//!   already labelled (k nearest neighbours on z-scored measured features,
+//!   plus the audio model's sound vector when the tracks have one). Their
+//!   accuracy is measured on the user's own labels (leave-one-out) and
 //!   reported next to the suggestions.
-//! * Auto groups are k-means clusters of the same features, described by the
+//! * Auto groups are k-means clusters in the same space, described by the
 //!   measurements that set each group apart.
 
 use crate::error::Result;
@@ -71,20 +71,78 @@ pub fn update_energy(conn: &Connection) -> Result<usize> {
     })
 }
 
-/// z-scored learning vectors (missing values → 0 = library average).
-fn standardize(vecs: &[(String, Vector)]) -> Vec<(String, [f32; DIMS.len()])> {
-    let stats = features::stats(vecs.iter().map(|v| &v.1));
-    vecs.iter()
-        .map(|(id, v)| {
-            let mut z = [0f32; DIMS.len()];
-            for (k, &d) in DIMS.iter().enumerate() {
-                if v[d].is_finite() {
-                    z[k] = stats.z(v, d).clamp(-4.0, 4.0);
-                }
-            }
-            (id.clone(), z)
+/// Share of the learning distance given to the audio model's sound vector
+/// (the rest to the measured features). Chosen on the GiantSteps-MTG-Keys
+/// development corpus by leave-one-out genre accuracy (AI_VALIDATION.md).
+pub const SOUND_WEIGHT: f32 = 0.7;
+
+/// Learning vector per track id.
+type Learning = Vec<(String, Vec<f32>)>;
+
+/// Median squared distance over a deterministic sample of pairs.
+fn median_dist2(vs: &[&[f32]]) -> f32 {
+    let n = vs.len();
+    if n < 2 {
+        return 1.0;
+    }
+    let mut d: Vec<f32> = (0..n.min(3000))
+        .map(|i| {
+            let j = (i * 7919 + 13) % n;
+            let j = if j == i { (i + 1) % n } else { j };
+            dist2(vs[i], vs[j])
         })
-        .collect()
+        .collect();
+    d.sort_by(f32::total_cmp);
+    d[d.len() / 2].max(1e-6)
+}
+
+/// Learning vectors: z-scored measured features (missing values → 0 = library
+/// average), followed by the unit sound vector when at least half of the
+/// tracks have one. Both parts are scaled so that the squared distance is
+/// `(1 − w)·measured/median + w·sound/median` with w = `SOUND_WEIGHT`.
+/// Also returns the factor applied to the z-scores.
+fn learning_vectors(conn: &Connection, vecs: &[(String, Vector)]) -> Result<(Learning, f32)> {
+    let stats = features::stats(vecs.iter().map(|v| &v.1));
+    let zs: Vec<Vec<f32>> = vecs
+        .iter()
+        .map(|(_, v)| {
+            DIMS.iter()
+                .map(|&d| {
+                    if v[d].is_finite() {
+                        stats.z(v, d).clamp(-4.0, 4.0)
+                    } else {
+                        0.0
+                    }
+                })
+                .collect()
+        })
+        .collect();
+    let sound = crate::ml::sound_all(conn)?;
+    let have: Vec<&[f32]> = vecs
+        .iter()
+        .filter_map(|(id, _)| sound.get(id).map(|v| v.as_slice()))
+        .collect();
+    if have.len() * 2 < vecs.len() || have.len() < 2 {
+        return Ok((vecs.iter().map(|(id, _)| id.clone()).zip(zs).collect(), 1.0));
+    }
+    let zref: Vec<&[f32]> = zs.iter().map(|z| z.as_slice()).collect();
+    let ms = ((1.0 - SOUND_WEIGHT) / median_dist2(&zref)).sqrt();
+    let ss = (SOUND_WEIGHT / median_dist2(&have)).sqrt();
+    let zero = vec![0f32; crate::ml::SOUND_DIM];
+    let out = vecs
+        .iter()
+        .zip(zs)
+        .map(|((id, _), z)| {
+            let s = sound.get(id).unwrap_or(&zero);
+            let v = z
+                .iter()
+                .map(|x| x * ms)
+                .chain(s.iter().map(|x| x * ss))
+                .collect();
+            (id.clone(), v)
+        })
+        .collect();
+    Ok((out, ms))
 }
 
 fn dist2(a: &[f32], b: &[f32]) -> f32 {
@@ -126,7 +184,7 @@ pub const K: usize = 10;
 fn vote<'a>(
     z: &[f32],
     labelled: &'a [(usize, Vec<String>)],
-    zs: &[(String, [f32; DIMS.len()])],
+    zs: &[(String, Vec<f32>)],
     skip: Option<usize>,
 ) -> Vec<(&'a str, f32)> {
     let mut near: Vec<(f32, usize)> = labelled
@@ -160,7 +218,7 @@ fn vote<'a>(
 /// vote "none of these labels"): right for tags, where most tracks lack a
 /// given tag. For genre only labelled tracks vote.
 fn suggest_labels(
-    zs: &[(String, [f32; DIMS.len()])],
+    zs: &[(String, Vec<f32>)],
     labels: &HashMap<String, Vec<String>>,
     single: bool,
     all_neighbours: bool,
@@ -239,7 +297,7 @@ fn suggest_labels(
 
 /// Genre suggestions for analysed tracks without a genre.
 pub fn genre_suggestions(conn: &Connection, min_share: f32) -> Result<LabelReport> {
-    let zs = standardize(&vectors(conn)?);
+    let (zs, _) = learning_vectors(conn, &vectors(conn)?)?;
     // Most common spelling per case-insensitive genre.
     let mut spelling: HashMap<String, HashMap<String, usize>> = HashMap::new();
     let mut raw: Vec<(String, String)> = Vec::new();
@@ -283,7 +341,7 @@ pub fn tag_suggestions(
     min_share: f32,
     min_examples: usize,
 ) -> Result<LabelReport> {
-    let zs = standardize(&vectors(conn)?);
+    let (zs, _) = learning_vectors(conn, &vectors(conn)?)?;
     let mut labels: HashMap<String, Vec<String>> = HashMap::new();
     let mut counts: HashMap<String, usize> = HashMap::new();
     {
@@ -368,7 +426,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
     .collect();
     let all = vectors(conn)?;
     let vecs: Vec<(String, Vector)> = all.into_iter().filter(|(id, _)| ids.contains(id)).collect();
-    let zs = standardize(&vecs);
+    let (zs, zscale) = learning_vectors(conn, &vecs)?;
     let n = zs.len();
     let k = k.clamp(2, 24).min(n.max(1));
     if n < 2 {
@@ -382,7 +440,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
         state ^= state << 17;
         (state >> 11) as f64 / (1u64 << 53) as f64
     };
-    let mut centers: Vec<[f32; DIMS.len()]> = vec![zs[(rnd() * n as f64) as usize % n].1];
+    let mut centers: Vec<Vec<f32>> = vec![zs[(rnd() * n as f64) as usize % n].1.clone()];
     while centers.len() < k {
         let d: Vec<f32> = zs
             .iter()
@@ -401,7 +459,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
                 break;
             }
         }
-        centers.push(zs[pick].1);
+        centers.push(zs[pick].1.clone());
     }
     let mut assign = vec![0usize; n];
     for _ in 0..50 {
@@ -416,7 +474,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
             }
         }
         for (c, center) in centers.iter_mut().enumerate() {
-            let members: Vec<&[f32; DIMS.len()]> = zs
+            let members: Vec<&Vec<f32>> = zs
                 .iter()
                 .zip(&assign)
                 .filter(|(_, a)| **a == c)
@@ -425,7 +483,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
             if members.is_empty() {
                 continue;
             }
-            for d in 0..DIMS.len() {
+            for d in 0..center.len() {
                 center[d] = members.iter().map(|m| m[d]).sum::<f32>() / members.len() as f32;
             }
         }
@@ -450,7 +508,7 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
                 .enumerate()
                 .map(|(j, d)| Trait {
                     dim: features::DIMS[*d].to_string(),
-                    z: centers[c][j],
+                    z: centers[c][j] / zscale,
                 })
                 .filter(|t| t.z.abs() >= 0.5)
                 .collect();

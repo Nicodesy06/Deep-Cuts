@@ -26,7 +26,12 @@ fn model_tags_music_and_silence() {
     };
     let stereo = synth(&spec, 44100);
     let mono: Vec<f32> = stereo.chunks(2).map(|c| (c[0] + c[1]) / 2.0).collect();
-    let p = tagger.tag_signal(&mono, 44100).unwrap();
+    let o = tagger.tag_signal(&mono, 44100).unwrap();
+    assert_eq!(o.embedding.len(), ml::EMBEDDING_DIM);
+    let sv = ml::sound_vector(&o.embedding);
+    assert_eq!(sv.len(), ml::SOUND_DIM);
+    assert!(sv.iter().all(|x| x.is_finite()) && sv.iter().any(|x| *x != 0.0));
+    let p = o.probs;
     assert_eq!(p.len(), 527);
     let music = ml::LABELS.iter().position(|l| *l == "Music").unwrap();
     let silence = ml::LABELS.iter().position(|l| *l == "Silence").unwrap();
@@ -35,7 +40,7 @@ fn model_tags_music_and_silence() {
     eprintln!("top kept: {top:?}");
     assert!(p[music] > 0.3, "music {}", p[music]);
     let quiet = vec![0f32; 44100 * 12];
-    let q = tagger.tag_signal(&quiet, 44100).unwrap();
+    let q = tagger.tag_signal(&quiet, 44100).unwrap().probs;
     assert!(
         q[silence] > q[music],
         "silence {} music {}",

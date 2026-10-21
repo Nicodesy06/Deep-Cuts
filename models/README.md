@@ -24,3 +24,11 @@ Google, CC BY-SA 4.0).
 
 Deep Cuts measures these outputs against its own reference data before
 calling any of them validated (see docs/AI_VALIDATION.md).
+
+## sound_projection_32.bin
+
+Projection of the model's 1024-dim embedding to the 32-dim "sound" vector
+used for similarity (per-dimension mean and scale, then 32 principal
+components), computed by `scripts/sound_projection.py` from embeddings of the
+GiantSteps-MTG-Keys audio. It contains statistics of the embeddings only, no
+audio and no annotations.

@@ -23,8 +23,10 @@ jobs:
             args: ""
           - os: macos-latest
             args: "--target aarch64-apple-darwin"
+          # ONNX Runtime has no prebuilt binaries for Intel Macs: that build
+          # leaves out the local audio model (everything else is the same).
           - os: macos-latest
-            args: "--target x86_64-apple-darwin"
+            args: "--target x86_64-apple-darwin -- --no-default-features"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -62,7 +64,7 @@ jobs:
 
             **Windows 10/11 (x64)** — download `Deep.Cuts_*_x64-setup.exe` (or the `.msi`). The installer is not code-signed, so SmartScreen shows "Windows protected your PC": click *More info* › *Run anyway*.
 
-            **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`)** — open the DMG and drag Deep Cuts to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"`).
+            **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`; the Intel build has no local audio model — genre/mood suggestions from the model are missing there)** — open the DMG and drag Deep Cuts to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"`).
 
             Your music files are never modified unless you explicitly write tags; the library lives in your user data folder. Checklist for testing on real hardware and DJ software: `docs/TEST_PLAN.md`.
 
@@ -70,4 +72,4 @@ jobs:
 
             **Windows** — scarica `Deep.Cuts_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
 
-            **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel. Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
+            **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel (senza il modello audio locale). Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.

@@ -147,6 +147,7 @@ pub fn run() {
             commands::track_character,
             commands::model_status,
             commands::model_suggest_tags,
+            commands::model_reanalyze,
             commands::autotag_run,
             commands::autotag_cancel,
             commands::autotag_apply,

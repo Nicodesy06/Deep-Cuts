@@ -113,7 +113,7 @@ pub struct Analysis {
     /// Acoustic fingerprint (`fingerprint` module), None for short tracks.
     pub fingerprint: Option<Vec<u16>>,
     /// Audio tagging model probabilities (crate::ml), when the model ran.
-    pub model_probs: Option<Vec<f32>>,
+    pub model: Option<crate::ml::ModelOutput>,
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -192,7 +192,7 @@ pub fn analyze_file_with(
     let bandwidth = bandwidth::measure(&mono, info.sample_rate);
     let x = audio::resample(&mono, info.sample_rate, SR);
     // The model failing never fails the analysis (it is optional).
-    let model_probs = opts
+    let model = opts
         .tagger
         .as_ref()
         .and_then(|t| t.tag_signal(&mono, info.sample_rate).ok());
@@ -361,7 +361,7 @@ pub fn analyze_file_with(
         },
         waveform,
         fingerprint,
-        model_probs,
+        model,
     })
 }
 
@@ -607,8 +607,9 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
     };
     crate::cues::store_suggestions(tx, track_id, &a.result)?;
     crate::features::store(tx, track_id, &a.result)?;
-    if let Some(p) = &a.model_probs {
-        crate::ml::store(tx, track_id, p)?;
+    if let Some(m) = &a.model {
+        crate::ml::store(tx, track_id, &m.probs)?;
+        crate::ml::store_sound(tx, track_id, &crate::ml::sound_vector(&m.embedding))?;
     }
     Ok(())
 }

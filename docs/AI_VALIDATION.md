@@ -6,10 +6,27 @@ Runs during analysis on three 10 s windows (from 25 %, 50 %, 75 % of the track),
 class probabilities. Device: CUDA (build with `--features gpu-cuda`), DirectML on Windows, CoreML
 on macOS, otherwise CPU; the device in use is shown on the Music DNA page.
 
-* **Genre**: agreement of the top AudioSet genre with Beatport genres (mapped to AudioSet's broad
-  classes; Beatport genres without an AudioSet counterpart are counted as "unmapped") is measured
-  on the CI corpus by `deepcuts genre-eval`. Result: see the "Genre agreement" note below once the
-  CI run has been read.
+* **Genre (AudioSet classes)**: agreement of the top AudioSet genre with Beatport genres mapped to
+  AudioSet's broad classes (`deepcuts genre-eval`): **40.8 %** on GiantSteps-MTG-Keys (1,298
+  comparable of 1,486 tracks, CI run `39578582446`), **34.2 %** on GiantSteps Key (532 of 604).
+  Good on Drum & Bass (77 %), Dubstep (76 %), Techno (69 %), Hip-Hop (61 %); poor on Progressive
+  House (16 %), House (22 %), Trance (28 %), Electronica (16 %). Shown as broad genres only.
+* **Beatport genre head (not shipped)**: a logistic-regression head on the 1024-dim embedding,
+  trained on GiantSteps-MTG-Keys (C and features chosen by 5-fold CV there: 46.8 %), reached
+  **36.1 % top-1 / 56.8 % top-2** on GiantSteps Key (565 tracks in the 16 training genres; majority
+  class 15.6 %). Not reliable enough to label tracks, so it is not in the app.
+* **Sound vector** (shipped): the embedding projected to 32 dimensions (PCA on the development
+  corpus, `scripts/sound_projection.py`; 32 dims matched the full vector on development
+  nearest-neighbour genre agreement). Used in two places, weights fixed on the development corpus
+  (MTG-Keys, measured features from a full analysis) and measured once on GiantSteps Key
+  (604 tracks):
+
+  | Use | Rule on development set | Without sound (test) | With sound (test) |
+  |---|---|---|---|
+  | Genre suggestions from the user's own labels (k = 10, leave-one-out) | best top-1, smallest weight within 0.5 points → w = 0.7 | top-1 34.3 %; confident (≥ 60 % share) on 11 % of tracks at 62.5 % | top-1 **42.2 %**; confident on **22 %** at 65.6 % |
+  | Similar tracks (default weights, top 10) | highest same-genre share with ≥ 85 % tempo-compatible → sound weight 0.3 | same genre 29.6 %, tempo-compatible 90.5 % | same genre **35.6 %**, tempo-compatible 86.1 % |
+
+  "Same genre" is a proxy for "sounds alike"; tags and auto groups use the same learning space.
 * **Mood, vocals, instruments**: computed and shown as probabilities, **not validated** on a
   music-library reference set. They are suggestions for review, never written automatically.
 

@@ -1,6 +1,6 @@
 //! Explainable similarity and transition compatibility from measured
 //! features. Each score is decomposed into named dimensions so the UI can
-//! show *why* two tracks match; there are no opaque embeddings here.
+//! show *why* two tracks match.
 //!
 //! Dimensions (all measurements, see `features.rs`):
 //! * tempo     — BPM distance, octave-aware (6 % apart = 0 similarity)
@@ -10,6 +10,8 @@
 //! * rhythm    — onset density, flux, beat periodicity (a density proxy,
 //!   not a groove model)
 //! * dynamics  — loudness spread, level variation, breakdown depth, trend
+//! * sound     — cosine of the audio model's sound vectors (`ml::sound_vector`):
+//!   the one learned dimension, compared directly, not explained further
 
 use crate::error::{Error, Result};
 use crate::features::{self, Stats, Vector};
@@ -19,7 +21,9 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub const GROUPS: &[&str] = &["tempo", "harmony", "energy", "timbre", "rhythm", "dynamics"];
+pub const GROUPS: &[&str] = &[
+    "tempo", "harmony", "energy", "timbre", "rhythm", "dynamics", "sound",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -30,6 +34,7 @@ pub struct Weights {
     pub timbre: f32,
     pub rhythm: f32,
     pub dynamics: f32,
+    pub sound: f32,
 }
 
 impl Default for Weights {
@@ -41,6 +46,7 @@ impl Default for Weights {
             timbre: 0.15,
             rhythm: 0.12,
             dynamics: 0.08,
+            sound: SOUND_DEFAULT,
         }
     }
 }
@@ -54,6 +60,7 @@ impl Weights {
             "timbre" => self.timbre,
             "rhythm" => self.rhythm,
             "dynamics" => self.dynamics,
+            "sound" => self.sound,
             _ => 0.0,
         }
         .max(0.0)
@@ -216,6 +223,11 @@ fn facts(a: &Vector, b: &Vector, ka: Option<&str>, kb: Option<&str>) -> Facts {
     }
 }
 
+/// Default weight of the "sound" group (relative to the measured groups,
+/// whose defaults sum to 1). Chosen on the GiantSteps-MTG-Keys development
+/// corpus (AI_VALIDATION.md).
+pub const SOUND_DEFAULT: f32 = 0.3;
+
 /// Weighted similarity between two vectors; missing groups are skipped
 /// (their weight is not counted).
 pub fn score(
@@ -226,11 +238,28 @@ pub fn score(
     kb: Option<&str>,
     w: &Weights,
 ) -> (f32, Vec<GroupScore>) {
+    score_with_sound(a, b, s, ka, kb, None, w)
+}
+
+/// `score` plus the sound group, given both tracks' unit sound vectors.
+pub fn score_with_sound(
+    a: &Vector,
+    b: &Vector,
+    s: &Stats,
+    ka: Option<&str>,
+    kb: Option<&str>,
+    sound: Option<(&[f32], &[f32])>,
+    w: &Weights,
+) -> (f32, Vec<GroupScore>) {
     let mut total = 0.0;
     let mut wsum = 0.0;
     let mut groups = Vec::with_capacity(GROUPS.len());
     for &g in GROUPS {
-        let sim = group_sim(g, a, b, s, ka, kb);
+        let sim = if g == "sound" {
+            sound.map(|(x, y)| crate::ml::cosine(x, y).clamp(0.0, 1.0))
+        } else {
+            group_sim(g, a, b, s, ka, kb)
+        };
         if let Some(x) = sim {
             total += x * w.get(g);
             wsum += w.get(g);
@@ -265,6 +294,8 @@ pub fn similar(
         .ok_or_else(|| Error::Invalid("this track has no analysis yet: analyse it first".into()))?;
     let stats = features::stats(vecs.values());
     let keys = keys_of(conn)?;
+    let sound = crate::ml::sound_all(conn)?;
+    let my_sound = sound.get(track_id);
     let candidates: Option<std::collections::HashSet<String>> = if scope.trim().is_empty() {
         None
     } else {
@@ -287,7 +318,10 @@ pub fn similar(
             id.as_str() != track_id && candidates.as_ref().is_none_or(|c| c.contains(*id))
         })
         .map(|(id, v)| {
-            let (sc, g) = score(me, v, &stats, ka, keys.get(id).map(String::as_str), weights);
+            let snd = my_sound.zip(sound.get(id.as_str()));
+            let snd = snd.map(|(a, b)| (a.as_slice(), b.as_slice()));
+            let kb = keys.get(id).map(String::as_str);
+            let (sc, g) = score_with_sound(me, v, &stats, ka, kb, snd, weights);
             (sc, id, g)
         })
         .collect();
@@ -383,6 +417,26 @@ mod tests {
         assert_eq!(harmonic(Some("10A"), Some("8A")), Harmonic::Distant);
         assert_eq!(harmonic(Some("8A"), Some("3B")), Harmonic::Distant);
         assert_eq!(harmonic(None, Some("3B")), Harmonic::Unknown);
+    }
+
+    #[test]
+    fn sound_group_counts_only_when_both_tracks_have_it() {
+        let mut a = [0f32; N];
+        a[0] = 124.0;
+        let s = features::stats([a, a].iter());
+        let w = Weights::default();
+        let x = [1.0f32, 0.0];
+        let y = [0.0f32, 1.0];
+        let (same, g) = score_with_sound(&a, &a, &s, None, None, Some((&x, &x)), &w);
+        let (other, _) = score_with_sound(&a, &a, &s, None, None, Some((&x, &y)), &w);
+        assert!(same > other, "{same} vs {other}");
+        let sound = g.iter().find(|g| g.group == "sound").unwrap();
+        assert_eq!(sound.similarity, Some(1.0));
+        let (_, g) = score(&a, &a, &s, None, None, &w);
+        assert_eq!(
+            g.iter().find(|g| g.group == "sound").unwrap().similarity,
+            None
+        );
     }
 
     #[test]

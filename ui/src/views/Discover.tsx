@@ -5,7 +5,7 @@ import { camelotHue, formatBpm, trackLabel } from "../format";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
 
-const GROUPS: (keyof SimilarityWeights)[] = ["tempo", "harmony", "energy", "timbre", "rhythm", "dynamics"];
+const GROUPS: (keyof SimilarityWeights)[] = ["tempo", "harmony", "energy", "timbre", "rhythm", "dynamics", "sound"];
 
 function loadWeights(): SimilarityWeights {
   try {

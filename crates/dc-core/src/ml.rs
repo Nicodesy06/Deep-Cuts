@@ -3,22 +3,34 @@
 //! CUDA (NVIDIA, optional build feature `gpu-cuda`), DirectML (any DirectX 12
 //! GPU on Windows), CoreML (Apple silicon / macOS) or the CPU.
 //!
-//! The model returns 527 AudioSet class probabilities. Deep Cuts keeps the
+//! The model returns 527 AudioSet class probabilities and the 1024-dim clip
+//! embedding they are computed from. Deep Cuts keeps the
 //! music-related ones (genres, moods, vocals, instruments), stores them per
 //! track and only calls a group validated after measuring it against
 //! reference labels (docs/AI_VALIDATION.md).
 
 use crate::error::{Error, Result};
+#[cfg(feature = "ml")]
 use ort::ep::ExecutionProvider;
+#[cfg(feature = "ml")]
 use ort::session::Session;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "ml")]
 use std::sync::Mutex;
 
 pub const MODEL: &str = "panns-mobilenetv1";
 pub const MODEL_FILE: &str = "panns_mobilenetv1.onnx";
-pub const MODEL_VERSION: &str = "1";
+pub const MODEL_VERSION: &str = "2";
 pub const SAMPLE_RATE: u32 = 32_000;
 const WINDOW_S: f64 = 10.0;
+pub const EMBEDDING_DIM: usize = 1024;
+
+/// Model outputs for a clip (or the mean over a track's windows).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelOutput {
+    pub probs: Vec<f32>,
+    pub embedding: Vec<f32>,
+}
 
 pub static LABELS: std::sync::LazyLock<Vec<&'static str>> = std::sync::LazyLock::new(|| {
     include_str!("../../../models/audioset_labels.txt")
@@ -161,15 +173,38 @@ pub fn find_model() -> Option<PathBuf> {
 }
 
 pub struct Tagger {
+    #[cfg(feature = "ml")]
     session: Mutex<Session>,
     /// Execution provider in use ("CUDA", "DirectML", "CoreML" or "CPU").
     pub device: String,
 }
 
+/// Builds without the `ml` feature (ONNX Runtime has no prebuilt binaries for
+/// every target, e.g. Intel Macs) have no model: loading always fails, so
+/// analysis simply skips it.
+#[cfg(not(feature = "ml"))]
+impl Tagger {
+    pub fn load(_path: &Path) -> Result<Tagger> {
+        Err(Error::Invalid(
+            "this build does not include the audio model runtime".into(),
+        ))
+    }
+
+    pub fn load_default() -> Result<Tagger> {
+        Self::load(Path::new(MODEL_FILE))
+    }
+
+    pub fn predict(&self, _wav: &[f32]) -> Result<ModelOutput> {
+        Self::load_default().map(|_| unreachable!())
+    }
+}
+
+#[cfg(feature = "ml")]
 fn ort_err(e: impl std::fmt::Display) -> Error {
     Error::Invalid(format!("model: {e}"))
 }
 
+#[cfg(feature = "ml")]
 impl Tagger {
     // On a CPU-only build `builder`/`device` are never changed.
     #[allow(unused_mut)]
@@ -215,7 +250,7 @@ impl Tagger {
     }
 
     /// Class probabilities for one mono 32 kHz excerpt.
-    pub fn predict(&self, wav: &[f32]) -> Result<Vec<f32>> {
+    pub fn predict(&self, wav: &[f32]) -> Result<ModelOutput> {
         let input =
             ort::value::Tensor::from_array(([1usize, wav.len()], wav.to_vec().into_boxed_slice()))
                 .map_err(ort_err)?;
@@ -229,12 +264,20 @@ impl Tagger {
         let (_, probs) = outputs["probs"]
             .try_extract_tensor::<f32>()
             .map_err(ort_err)?;
-        Ok(probs.to_vec())
+        let (_, embedding) = outputs["embedding"]
+            .try_extract_tensor::<f32>()
+            .map_err(ort_err)?;
+        Ok(ModelOutput {
+            probs: probs.to_vec(),
+            embedding: embedding.to_vec(),
+        })
     }
+}
 
-    /// Mean probabilities over up to three 10 s windows (at 25 %, 50 % and
-    /// 75 % of the track) of a mono signal at `sample_rate`.
-    pub fn tag_signal(&self, mono: &[f32], sample_rate: u32) -> Result<Vec<f32>> {
+impl Tagger {
+    /// Mean probabilities and embedding over up to three 10 s windows (at
+    /// 25 %, 50 % and 75 % of the track) of a mono signal at `sample_rate`.
+    pub fn tag_signal(&self, mono: &[f32], sample_rate: u32) -> Result<ModelOutput> {
         let x = crate::audio::resample(mono, sample_rate, SAMPLE_RATE);
         let win = (WINDOW_S * SAMPLE_RATE as f64) as usize;
         if x.len() < SAMPLE_RATE as usize {
@@ -252,15 +295,24 @@ impl Tagger {
                 })
                 .collect()
         };
-        let mut sum = vec![0f32; LABELS.len()];
+        let mut sum = ModelOutput {
+            probs: vec![0f32; LABELS.len()],
+            embedding: vec![0f32; EMBEDDING_DIM],
+        };
         for s in &starts {
             let end = (s + win).min(x.len());
-            let p = self.predict(&x[*s..end])?;
-            for (a, b) in sum.iter_mut().zip(p) {
+            let o = self.predict(&x[*s..end])?;
+            for (a, b) in sum.probs.iter_mut().zip(o.probs) {
+                *a += b;
+            }
+            for (a, b) in sum.embedding.iter_mut().zip(o.embedding) {
                 *a += b;
             }
         }
-        Ok(sum.into_iter().map(|v| v / starts.len() as f32).collect())
+        let n = starts.len() as f32;
+        sum.probs.iter_mut().for_each(|v| *v /= n);
+        sum.embedding.iter_mut().for_each(|v| *v /= n);
+        Ok(sum)
     }
 }
 
@@ -298,6 +350,92 @@ pub fn shared(conn: &rusqlite::Connection) -> Option<std::sync::Arc<Tagger>> {
 }
 
 /// Replace a track's model outputs (kept labels only, ranked per group).
+/// Dimensions of the stored "sound" vector.
+pub const SOUND_DIM: usize = 32;
+
+/// Projection of the 1024-dim embedding to `SOUND_DIM`: per-dimension mean
+/// and scale, then the first principal components (computed on the
+/// GiantSteps-MTG-Keys development corpus by `scripts/sound_projection.py`;
+/// chosen there by genre agreement of nearest neighbours, AI_VALIDATION.md).
+static PROJECTION: std::sync::LazyLock<Vec<f32>> = std::sync::LazyLock::new(|| {
+    include_bytes!("../../../models/sound_projection_32.bin")
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+});
+
+/// Compact sound vector of a track from the model embedding.
+pub fn sound_vector(embedding: &[f32]) -> Vec<f32> {
+    let p = &*PROJECTION;
+    let (mean, rest) = p.split_at(EMBEDDING_DIM);
+    let (scale, comps) = rest.split_at(EMBEDDING_DIM);
+    let z: Vec<f32> = (0..EMBEDDING_DIM.min(embedding.len()))
+        .map(|i| (embedding[i] - mean[i]) / scale[i])
+        .collect();
+    comps
+        .chunks_exact(EMBEDDING_DIM)
+        .take(SOUND_DIM)
+        .map(|c| c.iter().zip(&z).map(|(a, b)| a * b).sum())
+        .collect()
+}
+
+pub fn store_sound(conn: &rusqlite::Connection, track_id: &str, v: &[f32]) -> Result<()> {
+    let blob: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
+    conn.execute(
+        "INSERT OR REPLACE INTO track_sound (track_id, model, model_version, data)
+         VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![track_id, MODEL, MODEL_VERSION, blob],
+    )?;
+    Ok(())
+}
+
+/// Sound vectors of all live tracks, unit length (for cosine distances).
+pub fn sound_all(
+    conn: &rusqlite::Connection,
+) -> Result<std::collections::HashMap<String, Vec<f32>>> {
+    let mut stmt = conn.prepare(
+        "SELECT s.track_id, s.data FROM track_sound s JOIN live_tracks t ON t.id = s.track_id
+         WHERE s.model = ?1 AND s.model_version = ?2",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![MODEL, MODEL_VERSION], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))
+    })?;
+    let mut out = std::collections::HashMap::new();
+    for r in rows {
+        let (id, b) = r?;
+        let mut v: Vec<f32> = b
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if v.len() == SOUND_DIM && n > 0.0 {
+            v.iter_mut().for_each(|x| *x /= n);
+            out.insert(id, v);
+        }
+    }
+    Ok(out)
+}
+
+/// Analysed live tracks that have no current model results (analysed before
+/// the model, or by an older model version).
+pub fn tracks_without_model(conn: &rusqlite::Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.id FROM live_tracks t
+         WHERE EXISTS (SELECT 1 FROM analysis_results a WHERE a.track_id = t.id)
+           AND NOT EXISTS (SELECT 1 FROM track_sound s WHERE s.track_id = t.id
+                           AND s.model = ?1 AND s.model_version = ?2)",
+    )?;
+    let ids = stmt
+        .query_map(rusqlite::params![MODEL, MODEL_VERSION], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    Ok(ids)
+}
+
+/// Cosine similarity of two unit vectors.
+pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b).map(|(x, y)| x * y).sum()
+}
+
 pub fn store(conn: &rusqlite::Connection, track_id: &str, probs: &[f32]) -> Result<()> {
     conn.execute(
         "DELETE FROM model_tags WHERE track_id = ?1 AND model = ?2",

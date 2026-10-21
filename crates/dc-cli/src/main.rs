@@ -218,10 +218,16 @@ enum Cmd {
     /// (tab-separated metadata with ID and "BP GENRE" columns).
     GenreEval {
         audio: PathBuf,
+        /// Tab-separated metadata with ID and "BP GENRE" columns, or a
+        /// directory of <stem>.genre files (GiantSteps Key)
         #[arg(long)]
         genres: PathBuf,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Also write the model outputs per track (stem, genre, embedding,
+        /// probabilities) as tab-separated text, for training genre heads
+        #[arg(long)]
+        features: Option<PathBuf>,
         #[arg(long, default_value = "")]
         name: String,
     },
@@ -294,10 +300,11 @@ fn run(cli: Cli) -> dc_core::Result<()> {
         audio,
         genres,
         out,
+        features,
         name,
     } = &cli.cmd
     {
-        return genre_eval(audio, genres, out.as_deref(), name);
+        return genre_eval(audio, genres, out.as_deref(), features.as_deref(), name);
     }
     if let Cmd::TempoStudy {
         audio,
@@ -1390,41 +1397,53 @@ fn genre_eval(
     audio: &std::path::Path,
     genres: &std::path::Path,
     out: Option<&std::path::Path>,
+    features: Option<&std::path::Path>,
     name: &str,
 ) -> dc_core::Result<()> {
     use dc_core::ml;
     use rayon::prelude::*;
-    let text = std::fs::read_to_string(genres)?;
-    let mut lines = text.lines();
-    let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
-    let col = header
-        .iter()
-        .position(|h| h.trim() == "BP GENRE")
-        .ok_or_else(|| dc_core::Error::Invalid("no 'BP GENRE' column".into()))?;
-    let table: std::collections::HashMap<String, String> = lines
-        .filter_map(|l| {
-            let c: Vec<&str> = l.split('\t').collect();
-            Some((
-                c.first()?.trim().to_string(),
-                c.get(col)?.trim().to_string(),
-            ))
-        })
-        .collect();
+    let table: std::collections::HashMap<String, String> = if genres.is_dir() {
+        std::fs::read_dir(genres)?
+            .filter_map(|e| {
+                let p = e.ok()?.path();
+                let stem = p.file_stem()?.to_str()?.split('.').next()?.to_string();
+                let g = std::fs::read_to_string(&p).ok()?.trim().to_string();
+                (!g.is_empty()).then_some((stem, g))
+            })
+            .collect()
+    } else {
+        let text = std::fs::read_to_string(genres)?;
+        let mut lines = text.lines();
+        let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
+        let col = header
+            .iter()
+            .position(|h| h.trim() == "BP GENRE")
+            .ok_or_else(|| dc_core::Error::Invalid("no 'BP GENRE' column".into()))?;
+        lines
+            .filter_map(|l| {
+                let c: Vec<&str> = l.split('\t').collect();
+                Some((
+                    c.first()?.trim().to_string(),
+                    c.get(col)?.trim().to_string(),
+                ))
+            })
+            .collect()
+    };
     let files = library::collect_audio_files(&[audio.to_path_buf()]);
-    let refs: Vec<(PathBuf, String)> = files
+    let refs: Vec<(PathBuf, String, String)> = files
         .into_iter()
         .filter_map(|f| {
             let stem = f.file_stem()?.to_str()?.split('.').next()?.to_string();
             let g = table.get(&stem)?.clone();
-            Some((f, g))
+            Some((f, stem, g))
         })
         .collect();
     let tagger = std::sync::Arc::new(ml::Tagger::load_default()?);
     let started = Instant::now();
     let done = std::sync::atomic::AtomicUsize::new(0);
-    let samples: Vec<(Vec<f32>, String)> = refs
+    let outputs: Vec<(String, ml::ModelOutput, String)> = refs
         .par_iter()
-        .filter_map(|(f, g)| {
+        .filter_map(|(f, stem, g)| {
             let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
             if n.is_multiple_of(100) {
                 eprintln!("{n}/{}", refs.len());
@@ -1439,10 +1458,24 @@ fn genre_eval(
                 );
             })
             .ok()?;
-            let p = tagger.tag_signal(&mono, info.sample_rate).ok()?;
-            Some((p, g.clone()))
+            let o = tagger.tag_signal(&mono, info.sample_rate).ok()?;
+            Some((stem.clone(), o, g.clone()))
         })
         .collect();
+    if let Some(path) = features {
+        use std::fmt::Write as _;
+        let mut t = String::new();
+        for (stem, o, g) in &outputs {
+            let _ = write!(t, "{stem}\t{g}");
+            for v in o.embedding.iter().chain(&o.probs) {
+                let _ = write!(t, "\t{v:.5}");
+            }
+            t.push('\n');
+        }
+        std::fs::write(path, t)?;
+    }
+    let samples: Vec<(Vec<f32>, String)> =
+        outputs.into_iter().map(|(_, o, g)| (o.probs, g)).collect();
     let e = ml::genre_eval(&samples);
     let pct = |a: usize, b: usize| {
         if b == 0 {

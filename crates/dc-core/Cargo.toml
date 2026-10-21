@@ -11,8 +11,7 @@ csv = "1.4.0"
 dirs = "7.0.0"
 dunce = "1.0.5"
 lofty = "0.25.4"
-ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native"] }
-ndarray = "0.16"
+ort = { version = "=2.0.0-rc.13", default-features = false, optional = true, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native"] }
 percent-encoding = "2.3.2"
 printpdf = "0.7"
 quick-xml = "0.42.0"
@@ -33,12 +32,15 @@ walkdir = "2.5.0"
 tempfile = "3.27.0"
 
 [target.'cfg(windows)'.dependencies]
-ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "directml"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, optional = true, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "directml"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "coreml"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, optional = true, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "coreml"] }
 
 [features]
-default = []
+default = ["ml"]
+# Local audio model through ONNX Runtime (prebuilt for Windows x64, Linux
+# x64/arm64 and Apple silicon; not for Intel Macs).
+ml = ["dep:ort"]
 # CUDA execution provider (needs the NVIDIA CUDA/cuDNN runtime installed).
-gpu-cuda = ["ort/cuda"]
+gpu-cuda = ["ml", "ort/cuda"]

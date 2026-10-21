@@ -596,6 +596,8 @@ pub struct ModelStatus {
     enabled: bool,
     device: Option<String>,
     error: Option<String>,
+    /// Analysed tracks still without results of the current model.
+    missing: usize,
 }
 
 /// Whether the audio model is present, enabled and on which device.
@@ -612,14 +614,29 @@ pub async fn model_status(state: State<'_, AppState>) -> Res<ModelStatus> {
         } else {
             (None, None)
         };
+        let missing = if device.is_some() {
+            dc_core::ml::tracks_without_model(c)?.len()
+        } else {
+            0
+        };
         Ok(ModelStatus {
             file,
             enabled,
             device,
             error,
+            missing,
         })
     })
     .await
+}
+
+/// Queue re-analysis of the tracks without current model results.
+#[tauri::command]
+pub fn model_reanalyze(state: State<'_, AppState>) -> Res<usize> {
+    with_conn!(state, |c| {
+        let ids = dc_core::ml::tracks_without_model(&c)?;
+        jobs::enqueue_analysis(&c, &ids, true).map(|_| ids.len())
+    })
 }
 
 #[tauri::command]
