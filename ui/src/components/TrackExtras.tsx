@@ -261,6 +261,22 @@ export function CharacterSection({ trackId }: { trackId: string }) {
               </span>
             </div>
           )}
+          {(["emotion", "tag"] as const).map((g) => {
+            const rows = c.styles.filter((m) => m.group === g).slice(0, g === "tag" ? 5 : 2);
+            if (rows.length === 0) return null;
+            return (
+              <div key={g} className="char-group">
+                <span className="muted small">{t(`character.g.${g}` as MsgKey)}</span>
+                <span className="chips">
+                  {rows.map((m) => (
+                    <span key={m.label} className="chip" title={`${Math.round(m.score * 100)} %`}>
+                      {g === "emotion" ? t(`feel.${m.label}` as MsgKey) : m.label} <span className="muted">{Math.round(m.score * 100)}%</span>
+                    </span>
+                  ))}
+                </span>
+              </div>
+            );
+          })}
           <div className="hint">{t("character.styleHint")}</div>
         </div>
       )}

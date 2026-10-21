@@ -565,6 +565,19 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                         .collect();
                     println!("    {}", d.join(", "));
                 }
+                if let Some((a, v)) = o.emotion {
+                    println!("    arousal {a:.2}  valence {v:.2} (1-9)");
+                }
+                if let Some(tags) = &o.tags {
+                    let mut i: Vec<usize> = (0..tags.len()).collect();
+                    i.sort_by(|a, b| tags[*b].total_cmp(&tags[*a]));
+                    let t: Vec<String> = i
+                        .iter()
+                        .take(5)
+                        .map(|k| format!("{} {:.2}", dc_core::discogs::MUSICNN_TAGS[*k], tags[*k]))
+                        .collect();
+                    println!("    MSD tags: {}", t.join(", "));
+                }
                 out.push_str(&format!(
                     "{}\t{}\n",
                     f.display(),

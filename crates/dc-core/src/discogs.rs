@@ -24,7 +24,7 @@ pub const URL: &str = "https://essentia.upf.edu/models/feature-extractors/discog
 pub const BLAKE3: &str = "eac28b8c8e665ef2bd0952871d2383c314f44e25137fbfe1031ce3fdd49cdfcc";
 pub const LICENSE: &str = "CC BY-NC-SA 4.0 — Music Technology Group, Universitat Pompeu Fabra \
 (Alonso-Jiménez, Serra, Bogdanov, ISMIR 2022). Non-commercial use only.";
-pub const SIZE_MB: u32 = 23;
+pub const SIZE_MB: u32 = 26;
 
 const SR: u32 = 16_000;
 const FRAME: usize = 512;
@@ -59,6 +59,31 @@ pub struct Head {
 }
 
 const HEAD_BASE: &str = "https://essentia.upf.edu/models/classification-heads";
+
+/// MSD-MusiCNN (MTG): 50 Million Song Dataset tags and a 200-dim embedding
+/// read by the emoMusic arousal/valence regressor. Same front-end, patches
+/// of 187 frames every 93.
+pub const MUSICNN_MODEL: &str = "msd-musicnn";
+const MUSICNN_FILE: &str = "msd-musicnn-1.onnx";
+const MUSICNN_URL: &str =
+    "https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.onnx";
+const MUSICNN_BLAKE3: &str = "437269e5e5675033d6c5366804abe7513eba614cdd96946c88d4ca215b6decdf";
+const EMOTION_FILE: &str = "emomusic-msd-musicnn-2.onnx";
+const EMOTION_URL: &str =
+    "https://essentia.upf.edu/models/classification-heads/emomusic/emomusic-msd-musicnn-2.onnx";
+const EMOTION_BLAKE3: &str = "39fe7e3206ee646e4971bc3321c54bbffefe0e3a7ad48eb78798a4103e0f5be1";
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MUSICNN_PATCH: usize = 187;
+#[cfg_attr(not(feature = "ml"), allow(dead_code))]
+const MUSICNN_HOP: usize = 93;
+
+/// MSD-MusiCNN tag names in output order.
+pub static MUSICNN_TAGS: std::sync::LazyLock<Vec<&'static str>> = std::sync::LazyLock::new(|| {
+    include_str!("../../../models/msd_musicnn_tags.txt")
+        .lines()
+        .filter(|l| !l.is_empty())
+        .collect()
+});
 
 pub const HEADS: &[Head] = &[
     Head {
@@ -142,6 +167,8 @@ pub fn is_downloaded() -> bool {
 /// Whether the mood/descriptor classifiers are downloaded too.
 pub fn heads_downloaded() -> bool {
     HEADS.iter().all(|h| models_dir().join(h.file).is_file())
+        && models_dir().join(MUSICNN_FILE).is_file()
+        && models_dir().join(EMOTION_FILE).is_file()
 }
 
 /// Download a file to `out`, retrying 503/429, and check its BLAKE3 hash.
@@ -212,6 +239,15 @@ pub fn download(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<PathBuf> {
                 h.blake3,
                 &mut |_, _| {},
             )?;
+        }
+    }
+    for (url, file, hash) in [
+        (MUSICNN_URL, MUSICNN_FILE, MUSICNN_BLAKE3),
+        (EMOTION_URL, EMOTION_FILE, EMOTION_BLAKE3),
+    ] {
+        let p = models_dir().join(file);
+        if !p.is_file() {
+            download_file(url, &p, hash, &mut |_, _| {})?;
         }
     }
     Ok(out)
@@ -294,10 +330,15 @@ pub fn melspectrogram(x: &[f32]) -> Vec<[f32; BANDS]> {
 /// Start frames of the patches used for a track: every `PATCH_HOP`, thinned
 /// evenly to at most `MAX_PATCHES`.
 pub fn patch_starts(n_frames: usize) -> Vec<usize> {
-    if n_frames < PATCH {
+    patch_starts_with(n_frames, PATCH, PATCH_HOP)
+}
+
+/// `patch_starts` for another patch size / hop (MusiCNN: 187 / 93).
+pub fn patch_starts_with(n_frames: usize, patch: usize, hop: usize) -> Vec<usize> {
+    if n_frames < patch {
         return if n_frames > 0 { vec![0] } else { vec![] };
     }
-    let all: Vec<usize> = (0..=n_frames - PATCH).step_by(PATCH_HOP).collect();
+    let all: Vec<usize> = (0..=n_frames - patch).step_by(hop).collect();
     if all.len() <= MAX_PATCHES {
         return all;
     }
@@ -313,6 +354,10 @@ pub struct StyleOutput {
     pub probs: Vec<f32>,
     pub embedding: Vec<f32>,
     pub descriptors: Vec<(&'static str, f32)>,
+    /// MSD-MusiCNN tag probabilities (50), when that model is present.
+    pub tags: Option<Vec<f32>>,
+    /// emoMusic (arousal, valence) on its 1–9 scale, when present.
+    pub emotion: Option<(f32, f32)>,
 }
 
 pub struct StyleModel {
@@ -320,6 +365,10 @@ pub struct StyleModel {
     session: std::sync::Mutex<ort::session::Session>,
     #[cfg(feature = "ml")]
     heads: Vec<(&'static Head, std::sync::Mutex<ort::session::Session>)>,
+    #[cfg(feature = "ml")]
+    musicnn: Option<std::sync::Mutex<ort::session::Session>>,
+    #[cfg(feature = "ml")]
+    emotion: Option<std::sync::Mutex<ort::session::Session>>,
     pub device: String,
 }
 
@@ -340,9 +389,16 @@ impl StyleModel {
                 Some((h, std::sync::Mutex::new(s)))
             })
             .collect();
+        let open = |f: &str| {
+            crate::ml::open_session(&models_dir().join(f))
+                .ok()
+                .map(|(s, _)| std::sync::Mutex::new(s))
+        };
         Ok(StyleModel {
             session: std::sync::Mutex::new(session),
             heads,
+            musicnn: open(MUSICNN_FILE),
+            emotion: open(EMOTION_FILE),
             device,
         })
     }
@@ -415,11 +471,84 @@ impl StyleModel {
                 / rows;
             descriptors.push((h.label, val.clamp(0.0, 1.0)));
         }
+        let (tags, emotion) = self.musicnn_outputs(&mel).unwrap_or((None, None));
         Ok(StyleOutput {
             probs,
             embedding,
             descriptors,
+            tags,
+            emotion,
         })
+    }
+
+    /// MSD tags and emoMusic arousal/valence from the same mel frames.
+    #[allow(clippy::type_complexity)]
+    fn musicnn_outputs(
+        &self,
+        mel: &[[f32; BANDS]],
+    ) -> Result<(Option<Vec<f32>>, Option<(f32, f32)>)> {
+        use crate::ml::ort_err;
+        let Some(m) = &self.musicnn else {
+            return Ok((None, None));
+        };
+        let starts = patch_starts_with(mel.len(), MUSICNN_PATCH, MUSICNN_HOP);
+        if starts.is_empty() {
+            return Ok((None, None));
+        }
+        let mut data = Vec::with_capacity(starts.len() * MUSICNN_PATCH * BANDS);
+        for &s in &starts {
+            for f in s..s + MUSICNN_PATCH {
+                data.extend_from_slice(mel.get(f).unwrap_or(&[0.0; BANDS]));
+            }
+        }
+        let input = ort::value::Tensor::from_array((
+            [starts.len(), MUSICNN_PATCH, BANDS],
+            data.into_boxed_slice(),
+        ))
+        .map_err(ort_err)?;
+        let mut sess = m.lock().map_err(|_| Error::Invalid("model lock".into()))?;
+        let out = sess
+            .run(ort::inputs!["melspectrogram" => input])
+            .map_err(ort_err)?;
+        let (_, act) = out["activations"]
+            .try_extract_tensor::<f32>()
+            .map_err(ort_err)?;
+        let n = starts.len();
+        let width = act.len() / n;
+        let mut tags = vec![0f32; width];
+        for row in act.chunks_exact(width) {
+            for (a, b) in tags.iter_mut().zip(row) {
+                *a += b / n as f32;
+            }
+        }
+        let (_, emb) = out["embeddings"]
+            .try_extract_tensor::<f32>()
+            .map_err(ort_err)?;
+        let emb = emb.to_vec();
+        drop(out);
+        drop(sess);
+        let emotion = match &self.emotion {
+            Some(e) => {
+                let dim = emb.len() / n;
+                let input = ort::value::Tensor::from_array(([n, dim], emb.into_boxed_slice()))
+                    .map_err(ort_err)?;
+                let mut s = e.lock().map_err(|_| Error::Invalid("model lock".into()))?;
+                let o = s
+                    .run(ort::inputs!["embeddings" => input])
+                    .map_err(ort_err)?;
+                let (_, v) = o["activations"]
+                    .try_extract_tensor::<f32>()
+                    .map_err(ort_err)?;
+                let (mut val, mut aro) = (0f32, 0f32);
+                for r in v.chunks_exact(2) {
+                    val += r[0] / n as f32;
+                    aro += r[1] / n as f32;
+                }
+                Some((aro, val))
+            }
+            None => None,
+        };
+        Ok((Some(tags), emotion))
     }
 }
 
@@ -500,6 +629,48 @@ pub fn store(conn: &rusqlite::Connection, track_id: &str, out: &StyleOutput) -> 
                 rank as i64 + 1
             ],
         )?;
+    }
+    conn.execute(
+        "DELETE FROM model_tags WHERE track_id = ?1 AND model = ?2",
+        rusqlite::params![track_id, MUSICNN_MODEL],
+    )?;
+    if let Some(tags) = &out.tags {
+        let mut idx: Vec<usize> = (0..tags.len().min(MUSICNN_TAGS.len())).collect();
+        idx.sort_by(|a, b| tags[*b].total_cmp(&tags[*a]));
+        for (rank, i) in idx.into_iter().take(KEEP).enumerate() {
+            conn.execute(
+                "INSERT OR REPLACE INTO model_tags
+                   (track_id, model, model_version, grp, label, score, rank)
+                 VALUES (?1, ?2, '1', 'tag', ?3, ?4, ?5)",
+                rusqlite::params![
+                    track_id,
+                    MUSICNN_MODEL,
+                    MUSICNN_TAGS[i],
+                    (tags[i] * 1000.0).round() / 1000.0,
+                    rank as i64 + 1
+                ],
+            )?;
+        }
+    }
+    if let Some((arousal, valence)) = out.emotion {
+        // emoMusic's 1–9 scale mapped to 0..1.
+        for (rank, (label, v)) in [("Arousal", arousal), ("Valence", valence)]
+            .iter()
+            .enumerate()
+        {
+            conn.execute(
+                "INSERT OR REPLACE INTO model_tags
+                   (track_id, model, model_version, grp, label, score, rank)
+                 VALUES (?1, ?2, '1', 'emotion', ?3, ?4, ?5)",
+                rusqlite::params![
+                    track_id,
+                    MUSICNN_MODEL,
+                    label,
+                    (((v - 1.0) / 8.0).clamp(0.0, 1.0) * 1000.0).round() / 1000.0,
+                    rank as i64 + 1
+                ],
+            )?;
+        }
     }
     for (i, (label, v)) in out.descriptors.iter().enumerate() {
         conn.execute(
@@ -606,10 +777,10 @@ pub fn tracks_without_styles(conn: &rusqlite::Connection) -> Result<Vec<String>>
 /// A track's stored styles, best first.
 pub fn for_track(conn: &rusqlite::Connection, track_id: &str) -> Result<Vec<crate::ml::ModelTag>> {
     let mut stmt = conn.prepare(
-        "SELECT grp, label, score, rank FROM model_tags WHERE track_id = ?1 AND model = ?2
-         ORDER BY rank",
+        "SELECT grp, label, score, rank FROM model_tags
+         WHERE track_id = ?1 AND model IN (?2, ?3) ORDER BY grp, rank",
     )?;
-    let rows = stmt.query_map(rusqlite::params![track_id, MODEL], |r| {
+    let rows = stmt.query_map(rusqlite::params![track_id, MODEL, MUSICNN_MODEL], |r| {
         Ok(crate::ml::ModelTag {
             group: r.get(0)?,
             label: r.get(1)?,
