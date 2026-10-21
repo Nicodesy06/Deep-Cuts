@@ -195,6 +195,26 @@ export interface CompareReport {
   differences: { track: TrackRow; ours: string; theirs: string; kind: string }[];
 }
 
+export type CueAnchor = "firstBeat" | "main" | "breakdown" | "drop" | "outro" | "end";
+
+export interface CueTemplateSlot {
+  anchor: CueAnchor;
+  occurrence: number;
+  offsetBars: number;
+  kind: "hotcue" | "memory" | "loop";
+  hot: number | null;
+  loopBars: number | null;
+  name: string | null;
+  color: string | null;
+}
+
+export interface CueTemplate {
+  id: string;
+  name: string;
+  slots: CueTemplateSlot[];
+  replaceHot: boolean;
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -664,6 +684,10 @@ export const api = {
   reanalyzeAll: () => invoke<{ queued: number }>("reanalyze_all"),
   compareSources: () => invoke<CompareSource[]>("compare_sources"),
   compareAnalysis: (source: string) => invoke<CompareReport>("compare_analysis", { source }),
+  listCueTemplates: () => invoke<CueTemplate[]>("list_cue_templates"),
+  saveCueTemplate: (template: CueTemplate) => invoke<CueTemplate>("save_cue_template", { template }),
+  deleteCueTemplate: (id: string) => invoke<void>("delete_cue_template", { id }),
+  applyCueTemplate: (template: CueTemplate, ids: string[]) => invoke<{ tracks: number; created: number; skipped: [string, string][] }>("apply_cue_template", { template, ids }),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   undo: () => invoke<BatchInfo | null>("undo"),

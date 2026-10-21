@@ -5,6 +5,7 @@ import { DetailsPanel } from "../components/DetailsPanel";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
 import { CoverDialog } from "../components/CoverDialog";
+import { CueTemplateDialog } from "../components/CueTemplateDialog";
 import { FindReplaceDialog } from "../components/FindReplaceDialog";
 import { PlaylistPickDialog, type CombineOp } from "../components/PlaylistPickDialog";
 import { ALL_COLUMNS, DEFAULT_COLUMNS, TrackTable } from "../components/TrackTable";
@@ -51,6 +52,7 @@ export function Library() {
   const [advance, setAdvance] = useState(localStorage.getItem("dc.advance") === "1");
   const [writeIds, setWriteIds] = useState<string[] | null>(null);
   const [keyWriteIds, setKeyWriteIds] = useState<string[] | null>(null);
+  const [cueTplIds, setCueTplIds] = useState<string[] | null>(null);
   const [cover, setCover] = useState<{ ids: string[]; mode: "set" | "remove" } | null>(null);
   const [renameIds, setRenameIds] = useState<string[] | null>(null);
   const [frIds, setFrIds] = useState<string[] | null>(null);
@@ -443,6 +445,7 @@ export function Library() {
 
       <DetailsPanel selected={selectedRows} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
+      {cueTplIds && <CueTemplateDialog ids={cueTplIds} onClose={() => setCueTplIds(null)} />}
       {keyWriteIds && <WriteTagsDialog ids={keyWriteIds} fields={KEY_ONLY} onClose={() => setKeyWriteIds(null)} />}
       {cover && <CoverDialog ids={cover.ids} mode={cover.mode} onClose={() => setCover(null)} />}
       {renameIds && <RenameDialog ids={renameIds} onClose={() => setRenameIds(null)} />}
@@ -619,6 +622,7 @@ export function Library() {
           </button>
           <button onClick={() => planWrite(selectedIds)}>{t("write.menu")}</button>
           <button onClick={() => setKeyWriteIds(selectedIds)}>{t("keyNotation.menu")}</button>
+          <button onClick={() => setCueTplIds(selectedIds)}>{t("cueTpl.menu")}</button>
           <button onClick={() => setCover({ ids: selectedIds, mode: "set" })}>{t("cover.setMenu")}</button>
           <button onClick={() => setCover({ ids: selectedIds, mode: "remove" })}>{t("cover.removeMenu")}</button>
           <button onClick={() => setFrIds(selectedIds)}>{t("fr.menu")}</button>

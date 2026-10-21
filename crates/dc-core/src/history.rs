@@ -34,6 +34,8 @@ pub enum Kind {
     FileRecord,
     /// The user beatgrid (key "user"; value = JSON {bpm, firstBeatMs}).
     Beatgrid,
+    /// One cue point row (key = cue id; value = JSON of the row).
+    Cue,
 }
 
 impl Kind {
@@ -49,6 +51,7 @@ impl Kind {
             Kind::Archived => "archived",
             Kind::FileRecord => "file-record",
             Kind::Beatgrid => "beatgrid",
+            Kind::Cue => "cue",
         }
     }
 
@@ -64,6 +67,7 @@ impl Kind {
             "archived" => Kind::Archived,
             "file-record" => Kind::FileRecord,
             "beatgrid" => Kind::Beatgrid,
+            "cue" => Kind::Cue,
             other => return Err(Error::Invalid(format!("unknown change kind '{other}'"))),
         })
     }
@@ -141,6 +145,10 @@ fn read_state(conn: &Connection, kind: Kind, track: &str, key: &str) -> Result<S
         Kind::FilePath | Kind::FileRecord => {
             State::set(Some(&crate::fileops::file_path(conn, key)?))
         }
+        Kind::Cue => match crate::cues::read_row(conn, key)? {
+            Some(v) => State::set(Some(&v)),
+            None => State::absent(),
+        },
         Kind::Beatgrid => match crate::grid::read_user(conn, track)? {
             Some(v) => State::set(Some(&v)),
             None => State::absent(),
@@ -210,6 +218,14 @@ fn write_state(conn: &Connection, kind: Kind, track: &str, key: &str, s: &State)
             if let Some(p) = &s.value {
                 crate::fileops::set_file_path(conn, key, p)?;
             }
+        }
+        Kind::Cue => {
+            crate::cues::write_row(
+                conn,
+                track,
+                key,
+                if s.present { s.value.as_deref() } else { None },
+            )?;
         }
         Kind::Beatgrid => {
             crate::grid::write_user(

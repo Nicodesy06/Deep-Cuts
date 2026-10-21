@@ -2063,3 +2063,4 @@ tr.rejected td {
 .chip.match-review { color: var(--maybe); }
 .chip.match-missing { color: var(--muted); }
 .match-pick { width: 100%; min-width: 280px; }
+input.narrow { width: 64px; }

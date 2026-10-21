@@ -347,3 +347,347 @@ mod tests {
         assert!(suggest(0.0, 0.0, &[-10.0; 30], 30_000.0).is_empty());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Row snapshots for the undo history
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Row {
+    kind: String,
+    slot: Option<i64>,
+    start_ms: f64,
+    end_ms: Option<f64>,
+    name: Option<String>,
+    color: Option<String>,
+    source: String,
+    locked: bool,
+    created_at: i64,
+}
+
+/// JSON snapshot of one cue row (None if it does not exist).
+pub(crate) fn read_row(conn: &Connection, id: &str) -> Result<Option<String>> {
+    let row: Option<Row> = conn
+        .query_row(
+            "SELECT kind, slot, start_ms, end_ms, name, color, source, locked, created_at
+             FROM cue_points WHERE id = ?1",
+            [id],
+            |r| {
+                Ok(Row {
+                    kind: r.get(0)?,
+                    slot: r.get(1)?,
+                    start_ms: r.get(2)?,
+                    end_ms: r.get(3)?,
+                    name: r.get(4)?,
+                    color: r.get(5)?,
+                    source: r.get(6)?,
+                    locked: r.get(7)?,
+                    created_at: r.get(8)?,
+                })
+            },
+        )
+        .optional()?;
+    Ok(row.map(|r| serde_json::to_string(&r)).transpose()?)
+}
+
+/// Restore (Some) or delete (None) one cue row.
+pub(crate) fn write_row(
+    conn: &Connection,
+    track_id: &str,
+    id: &str,
+    json: Option<&str>,
+) -> Result<()> {
+    match json {
+        None => {
+            conn.execute("DELETE FROM cue_points WHERE id = ?1", [id])?;
+        }
+        Some(j) => {
+            let r: Row = serde_json::from_str(j)?;
+            conn.execute(
+                "INSERT INTO cue_points (id, track_id, kind, slot, start_ms, end_ms, name, color, source, locked, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                 ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, slot = excluded.slot,
+                   start_ms = excluded.start_ms, end_ms = excluded.end_ms, name = excluded.name,
+                   color = excluded.color, source = excluded.source, locked = excluded.locked",
+                params![
+                    id, track_id, r.kind, r.slot, r.start_ms, r.end_ms, r.name, r.color, r.source,
+                    r.locked, r.created_at
+                ],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Cue templates
+// ---------------------------------------------------------------------------
+
+/// Where a template slot is placed before its bar offset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Anchor {
+    /// First beat of the grid (assumed to be a downbeat).
+    FirstBeat,
+    /// Start of the first full-energy phrase.
+    Main,
+    /// n-th breakdown (energy drop that comes back).
+    Breakdown,
+    /// n-th drop (return to full energy after a breakdown).
+    Drop,
+    /// Start of the outro.
+    Outro,
+    /// End of the track.
+    End,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateSlot {
+    pub anchor: Anchor,
+    /// 1-based occurrence for Breakdown / Drop.
+    #[serde(default = "one")]
+    pub occurrence: usize,
+    /// Bars added to the anchor (negative = before), on the beat grid.
+    #[serde(default)]
+    pub offset_bars: f64,
+    /// "hotcue", "memory" or "loop".
+    pub kind: String,
+    /// Hot cue slot 0–7 (A–H) for kind "hotcue".
+    #[serde(default)]
+    pub hot: Option<i64>,
+    /// Loop length in bars for kind "loop".
+    #[serde(default)]
+    pub loop_bars: Option<f64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+fn one() -> usize {
+    1
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Template {
+    #[serde(default)]
+    pub id: String,
+    pub name: String,
+    pub slots: Vec<TemplateSlot>,
+    /// Replace hot cues already in the template's slots (they are kept as
+    /// memory cues, as when setting a hot cue by hand). Otherwise occupied
+    /// slots are skipped.
+    #[serde(default)]
+    pub replace_hot: bool,
+}
+
+const TEMPLATES_KEY: &str = "cueTemplates";
+
+pub fn list_templates(conn: &Connection) -> Result<Vec<Template>> {
+    Ok(crate::library::get_setting(conn, TEMPLATES_KEY)?
+        .map(|s| serde_json::from_str(&s))
+        .transpose()?
+        .unwrap_or_default())
+}
+
+fn validate(t: &Template) -> Result<()> {
+    if t.name.trim().is_empty() {
+        return Err(Error::Invalid("template name is empty".into()));
+    }
+    if t.slots.is_empty() {
+        return Err(Error::Invalid("a template needs at least one cue".into()));
+    }
+    for s in &t.slots {
+        check_kind(&s.kind)?;
+        if s.kind == "hotcue" && !s.hot.is_some_and(|h| (0..=7).contains(&h)) {
+            return Err(Error::Invalid("hot cues need a slot A–H".into()));
+        }
+        if s.kind == "loop" && !s.loop_bars.is_some_and(|b| b > 0.0 && b <= 64.0) {
+            return Err(Error::Invalid("loops need a length of 1–64 bars".into()));
+        }
+        if s.occurrence == 0 || s.offset_bars.abs() > 512.0 {
+            return Err(Error::Invalid("invalid anchor occurrence or offset".into()));
+        }
+    }
+    Ok(())
+}
+
+pub fn save_template(conn: &Connection, mut t: Template) -> Result<Template> {
+    validate(&t)?;
+    let mut all = list_templates(conn)?;
+    if t.id.is_empty() {
+        t.id = new_id();
+    }
+    match all.iter_mut().find(|x| x.id == t.id) {
+        Some(x) => *x = t.clone(),
+        None => all.push(t.clone()),
+    }
+    crate::library::set_setting(conn, TEMPLATES_KEY, &serde_json::to_string(&all)?)?;
+    Ok(t)
+}
+
+pub fn delete_template(conn: &Connection, id: &str) -> Result<()> {
+    let all: Vec<Template> = list_templates(conn)?
+        .into_iter()
+        .filter(|t| t.id != id)
+        .collect();
+    crate::library::set_setting(conn, TEMPLATES_KEY, &serde_json::to_string(&all)?)
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateReport {
+    pub tracks: usize,
+    pub created: usize,
+    /// (track id, reason) for slots that were not placed.
+    pub skipped: Vec<(String, String)>,
+}
+
+/// Grid, sections and duration of an analysed track.
+struct Layout {
+    beat_ms: f64,
+    first_beat_ms: f64,
+    duration_ms: f64,
+    sections: Vec<Suggestion>,
+}
+
+fn layout(conn: &Connection, track_id: &str) -> Result<Option<Layout>> {
+    let Some(a) = crate::analysis::latest_result(conn, track_id)? else {
+        return Ok(None);
+    };
+    let Some((g, _)) = crate::grid::effective(conn, track_id)? else {
+        return Ok(None);
+    };
+    let (bpm, first) = (g.bpm, g.first_beat_ms);
+    if bpm <= 0.0 {
+        return Ok(None);
+    }
+    let duration_ms = a.duration_ms as f64;
+    Ok(Some(Layout {
+        beat_ms: 60_000.0 / bpm,
+        first_beat_ms: first,
+        duration_ms,
+        sections: suggest(bpm, first, &a.energy_curve_db, duration_ms),
+    }))
+}
+
+/// Position of a slot on a track, snapped to the beat grid.
+fn place(l: &Layout, s: &TemplateSlot) -> std::result::Result<f64, String> {
+    let nth = |name: &str| {
+        l.sections
+            .iter()
+            .filter(|x| x.name == name)
+            .nth(s.occurrence - 1)
+            .map(|x| x.start_ms)
+    };
+    let anchor = match s.anchor {
+        Anchor::FirstBeat => Some(l.first_beat_ms),
+        Anchor::Main => nth("Main").or_else(|| nth("Intro").map(|_| l.first_beat_ms)),
+        Anchor::Breakdown => nth("Breakdown"),
+        Anchor::Drop => nth("Drop"),
+        Anchor::Outro => nth("Outro"),
+        Anchor::End => Some(l.duration_ms),
+    }
+    .ok_or_else(|| format!("{:?} {} not found", s.anchor, s.occurrence))?;
+    let raw = anchor + s.offset_bars * 4.0 * l.beat_ms;
+    let beats = ((raw - l.first_beat_ms) / l.beat_ms).round();
+    let at = l.first_beat_ms + beats * l.beat_ms;
+    let end = at + s.loop_bars.unwrap_or(0.0) * 4.0 * l.beat_ms;
+    if at < 0.0 || end > l.duration_ms || (s.kind != "loop" && at >= l.duration_ms) {
+        return Err("outside the track".into());
+    }
+    Ok(at)
+}
+
+/// Apply a template to tracks as one undoable batch. Cues are user cues
+/// (locked). Tracks without analysis or grid are skipped and reported.
+pub fn apply_template(conn: &Connection, t: &Template, ids: &[String]) -> Result<TemplateReport> {
+    validate(t)?;
+    crate::history::batch(
+        conn,
+        "cue-template",
+        &format!("cue template {} ({} tracks)", t.name, ids.len()),
+        |tx, b| {
+            let mut rep = TemplateReport {
+                tracks: ids.len(),
+                ..Default::default()
+            };
+            for id in ids {
+                let Some(l) = layout(tx, id)? else {
+                    rep.skipped.push((id.clone(), "not analysed".into()));
+                    continue;
+                };
+                for s in &t.slots {
+                    let at = match place(&l, s) {
+                        Ok(at) => at,
+                        Err(e) => {
+                            rep.skipped.push((id.clone(), e));
+                            continue;
+                        }
+                    };
+                    if s.kind == "hotcue" {
+                        let occupied: Option<String> = tx
+                            .query_row(
+                                "SELECT id FROM cue_points WHERE track_id = ?1 AND kind = 'hotcue' AND slot = ?2",
+                                params![id, s.hot],
+                                |r| r.get(0),
+                            )
+                            .optional()?;
+                        if let Some(old) = occupied {
+                            if !t.replace_hot {
+                                rep.skipped.push((
+                                    id.clone(),
+                                    format!("hot cue {} in use", slot_letter(s.hot)),
+                                ));
+                                continue;
+                            }
+                            let mut row: Row =
+                                serde_json::from_str(&read_row(tx, &old)?.unwrap_or_default())?;
+                            row.kind = "memory".into();
+                            row.slot = None;
+                            crate::history::change(
+                                tx,
+                                b,
+                                crate::history::Kind::Cue,
+                                id,
+                                &old,
+                                crate::history::State::set(Some(&serde_json::to_string(&row)?)),
+                            )?;
+                        }
+                    }
+                    let row = Row {
+                        kind: s.kind.clone(),
+                        slot: if s.kind == "hotcue" { s.hot } else { None },
+                        start_ms: (at * 10.0).round() / 10.0,
+                        end_ms: s
+                            .loop_bars
+                            .filter(|_| s.kind == "loop")
+                            .map(|bars| ((at + bars * 4.0 * l.beat_ms) * 10.0).round() / 10.0),
+                        name: s.name.clone().filter(|n| !n.trim().is_empty()),
+                        color: s.color.clone(),
+                        source: "user".into(),
+                        locked: true,
+                        created_at: now_ms(),
+                    };
+                    crate::history::change(
+                        tx,
+                        b,
+                        crate::history::Kind::Cue,
+                        id,
+                        &new_id(),
+                        crate::history::State::set(Some(&serde_json::to_string(&row)?)),
+                    )?;
+                    rep.created += 1;
+                }
+            }
+            Ok(rep)
+        },
+    )
+}
+
+fn slot_letter(s: Option<i64>) -> char {
+    (b'A' + s.unwrap_or(0).clamp(0, 7) as u8) as char
+}

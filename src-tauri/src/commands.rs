@@ -441,6 +441,36 @@ pub async fn compare_analysis(
 }
 
 #[tauri::command]
+pub fn list_cue_templates(state: State<'_, AppState>) -> Res<Vec<dc_core::cues::Template>> {
+    with_conn!(state, |c| dc_core::cues::list_templates(&c))
+}
+
+#[tauri::command]
+pub fn save_cue_template(
+    state: State<'_, AppState>,
+    template: dc_core::cues::Template,
+) -> Res<dc_core::cues::Template> {
+    with_conn!(state, |c| dc_core::cues::save_template(&c, template))
+}
+
+#[tauri::command]
+pub fn delete_cue_template(state: State<'_, AppState>, id: String) -> Res<()> {
+    with_conn!(state, |c| dc_core::cues::delete_template(&c, &id))
+}
+
+#[tauri::command]
+pub async fn apply_cue_template(
+    state: State<'_, AppState>,
+    template: dc_core::cues::Template,
+    ids: Vec<String>,
+) -> Res<dc_core::cues::TemplateReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::cues::apply_template(c, &template, &ids)
+    })
+    .await
+}
+
+#[tauri::command]
 pub fn queue_summary(state: State<'_, AppState>) -> Res<jobs::QueueSummary> {
     with_conn!(state, |c| jobs::summary(&c))
 }

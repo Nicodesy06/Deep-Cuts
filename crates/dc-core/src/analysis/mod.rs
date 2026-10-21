@@ -122,6 +122,21 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
     sorted[idx]
 }
 
+/// First beat within the first period. A beat at the very start of the
+/// file is only seen at negative frame times, so its phase wraps to almost
+/// a full period: within 30 ms of a period it counts as a beat at 0.
+fn first_beat(ms: f64, bpm: f64) -> f64 {
+    if bpm <= 0.0 {
+        return ms.max(0.0);
+    }
+    let period = 60_000.0 / bpm;
+    let mut b = ms.rem_euclid(period);
+    if b > period - 30.0 {
+        b -= period;
+    }
+    b.max(0.0)
+}
+
 /// User options that change the analysis result.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AnalyzeOptions {
@@ -229,7 +244,7 @@ pub fn analyze_file_with(
         .map(|t| TempoResult {
             bpm: (t.bpm * 100.0).round() / 100.0,
             periodicity: (t.periodicity * 1000.0).round() / 1000.0,
-            first_beat_ms: ((t.first_beat_ms + shift_ms).max(0.0) * 10.0).round() / 10.0,
+            first_beat_ms: (first_beat(t.first_beat_ms + shift_ms, t.bpm) * 10.0).round() / 10.0,
             range: opts.bpm_range,
         });
 
