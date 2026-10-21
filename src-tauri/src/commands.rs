@@ -891,6 +891,16 @@ pub fn create_backup(state: State<'_, AppState>) -> Res<backup::BackupInfo> {
     with_conn!(state, |c| backup::create(&c, &dir, "manual"))
 }
 
+/// Start over: empty the library after a backup; files on disk untouched.
+#[tauri::command]
+pub fn reset_library(app: AppHandle, state: State<'_, AppState>) -> Res<backup::ResetReport> {
+    let dir = state.backups_dir.clone();
+    let rep = with_conn!(state, |c| backup::reset_library(&c, &dir))?;
+    // Watch folders were removed: stop watching them.
+    crate::watch::restart(&app);
+    Ok(rep)
+}
+
 #[tauri::command]
 pub fn list_backups(state: State<'_, AppState>) -> Res<Vec<backup::BackupInfo>> {
     backup::list(&state.backups_dir).map_err(e)

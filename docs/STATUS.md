@@ -31,7 +31,9 @@ journalled, recoverable file moves and all-or-nothing merges; tag writes through
 copy with a refresh journal; watched-folder removal marks every child; watcher errors shown in the
 app; automatic schema-upgrade tests from every old version with a pre-upgrade copy; portable file
 names; listening confirmation for non-identical duplicate merges; capped HTTPS-only model
-downloads and model removal; dependency audit in CI; SHA-256 checksums on releases.
+downloads and model removal; dependency audit in CI; SHA-256 checksums on releases. Also new:
+select all / shift ranges over any number of tracks (was limited to the 200 loaded rows) and
+Settings › Start over (empties the library after a backup; files on disk untouched).
 
 After v0.1.1: Rekordbox My Tags in comments (`/* a / b */`) are read automatically when files are
 imported or change, and by "Scan all comments"; M3U/M3U8 playlists (e.g. from Rekordbox) import as

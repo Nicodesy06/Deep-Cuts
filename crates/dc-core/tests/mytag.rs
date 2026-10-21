@@ -199,20 +199,26 @@ fn flac_and_ogg_comments_are_read() {
     let wav = make_track(tmp.path(), "src.wav", &spec);
     let music = tmp.path().join("music");
     std::fs::create_dir_all(&music).unwrap();
-    for (name, args) in [
-        ("a.flac", ["-c:a", "flac"]),
-        ("b.ogg", ["-c:a", "libvorbis"]),
-    ] {
-        assert!(
-            ffmpeg_encode(
+    let meta = |name: &'static str| [("comment", "warm-up opener"), ("title", name)];
+    assert!(ffmpeg_encode(
+        &wav,
+        &music.join("a.flac"),
+        &["-c:a", "flac"],
+        &meta("a.flac")
+    ));
+    // Some ffmpeg builds (e.g. Homebrew on CI) lack libvorbis: fall back to
+    // ffmpeg's native Vorbis encoder.
+    let ogg = music.join("b.ogg");
+    assert!(
+        ffmpeg_encode(&wav, &ogg, &["-c:a", "libvorbis"], &meta("b.ogg"))
+            || ffmpeg_encode(
                 &wav,
-                &music.join(name),
-                &args,
-                &[("comment", "warm-up opener"), ("title", name)]
+                &ogg,
+                &["-c:a", "vorbis", "-strict", "-2", "-ac", "2"],
+                &meta("b.ogg")
             ),
-            "{name}"
-        );
-    }
+        "no Vorbis encoder in ffmpeg"
+    );
     let mut conn = db::open(&tmp.path().join("lib.db")).unwrap();
     for _ in 0..2 {
         library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();

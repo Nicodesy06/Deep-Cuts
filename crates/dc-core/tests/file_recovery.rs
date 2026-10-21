@@ -407,3 +407,39 @@ fn vanished_folder_behind_symlink_matches_stored_paths() {
     std::fs::remove_dir_all(real.join("crate")).unwrap();
     assert_eq!(library::mark_missing_under(&conn, &via_alias).unwrap(), 1);
 }
+
+/// "Start over" empties the library but never touches files on disk, and
+/// the backup taken first restores everything.
+#[test]
+fn reset_library_keeps_files_and_can_be_restored() {
+    let (tmp, mut conn, ids) = setup(&["a.wav", "b.wav"]);
+    let pl = library::create_playlist(&conn, "From XML", None, "manual", None).unwrap();
+    library::add_to_playlist(&conn, &pl, &ids).unwrap();
+    library::set_decision(&conn, &ids, "global", Some("keep")).unwrap();
+    let m3u = tmp.path().join("in/list.m3u8");
+    std::fs::write(&m3u, "#EXTM3U\na.wav\nb.wav\n").unwrap();
+    let before: Vec<Vec<u8>> = ["a.wav", "b.wav", "list.m3u8"]
+        .iter()
+        .map(|n| std::fs::read(tmp.path().join("in").join(n)).unwrap())
+        .collect();
+    let backups = tmp.path().join("backups");
+    let rep = dc_core::backup::reset_library(&conn, &backups).unwrap();
+    assert_eq!((rep.tracks, rep.playlists), (2, 1));
+    let n =
+        |c: &rusqlite::Connection, sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!(n(&conn, "SELECT count(*) FROM tracks"), 0);
+    assert_eq!(n(&conn, "SELECT count(*) FROM files"), 0);
+    assert_eq!(n(&conn, "SELECT count(*) FROM playlists"), 0);
+    assert_eq!(n(&conn, "SELECT count(*) FROM decisions"), 0);
+    // Files on disk are untouched.
+    for (name, bytes) in ["a.wav", "b.wav", "list.m3u8"].iter().zip(&before) {
+        assert_eq!(
+            &std::fs::read(tmp.path().join("in").join(name)).unwrap(),
+            bytes
+        );
+    }
+    // The backup brings the library back.
+    dc_core::backup::restore(&mut conn, Path::new(&rep.backup.path), &backups).unwrap();
+    assert_eq!(n(&conn, "SELECT count(*) FROM tracks"), 2);
+    assert_eq!(library::playlist_track_ids(&conn, &pl).unwrap(), ids);
+}

@@ -736,6 +736,7 @@ export const api = {
   setPaused: (paused: boolean) => invoke<void>("set_paused", { paused }),
   setProfile: (profile: string) => invoke<number>("set_profile", { profile }),
   createBackup: () => invoke<BackupInfo>("create_backup"),
+  resetLibrary: () => invoke<{ backup: { fileName: string }; tracks: number; playlists: number }>("reset_library"),
   listBackups: () => invoke<BackupInfo[]>("list_backups"),
   restoreBackup: (path: string) => invoke<BackupInfo>("restore_backup", { path }),
   checkMissing: () => invoke<[number, number]>("check_missing"),

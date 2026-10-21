@@ -303,6 +303,24 @@ export function Settings() {
           </tbody>
         </table>
       </section>
+      <section className="panel">
+        <h2>{t("reset.title")}</h2>
+        <p className="muted">{t("reset.body")}</p>
+        <button
+          className="btn danger-solid"
+          onClick={async () => {
+            if (!(await confirm(t("reset.confirmTitle"), t("reset.confirmBody"), true))) return;
+            const r = await act(() => api.resetLibrary());
+            if (r) {
+              toast(t("reset.done", { tracks: r.tracks, playlists: r.playlists, backup: r.backup.fileName }), "ok");
+              refresh();
+              bump();
+            }
+          }}
+        >
+          {t("reset.button")}
+        </button>
+      </section>
     </div>
   );
 }

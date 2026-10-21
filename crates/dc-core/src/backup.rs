@@ -133,3 +133,56 @@ pub fn prune_auto(dir: &Path, keep: usize) -> Result<usize> {
     }
     Ok(removed)
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResetReport {
+    /// Snapshot taken first (restore it from Settings › Backups to undo).
+    pub backup: BackupInfo,
+    pub tracks: usize,
+    pub playlists: usize,
+}
+
+/// Start over: empty the library (tracks, files, playlists including those
+/// imported from XML/M3U8, tags, decisions, cues, analysis, watch folders,
+/// queue and undo history) after taking a backup. Audio files and playlist
+/// files on disk are never touched; settings, recipes and downloaded models
+/// stay.
+pub fn reset_library(conn: &Connection, dir: &Path) -> Result<ResetReport> {
+    let backup = create(conn, dir, "before-reset")?;
+    let count = |sql: &str| -> Result<usize> {
+        Ok(conn.query_row(sql, [], |r| r.get::<_, i64>(0))? as usize)
+    };
+    let tracks = count("SELECT count(*) FROM tracks")?;
+    let playlists = count("SELECT count(*) FROM playlists")?;
+    crate::util::atomic(conn, |tx| {
+        tx.execute_batch(
+            "DELETE FROM changes;
+             DELETE FROM change_batches;
+             DELETE FROM jobs;
+             DELETE FROM set_chapters;
+             DELETE FROM set_locks;
+             DELETE FROM playlist_tracks;
+             DELETE FROM playlists;
+             DELETE FROM quick_tags;
+             DELETE FROM tag_synonyms;
+             DELETE FROM track_tags;
+             DELETE FROM tags;
+             DELETE FROM watch_folders;
+             DELETE FROM tracks;
+             DELETE FROM tracks_fts;",
+        )?;
+        crate::library::audit(
+            tx,
+            "reset-library",
+            "library",
+            None,
+            serde_json::json!({ "tracks": tracks, "playlists": playlists, "backup": backup.file_name }),
+        )
+    })?;
+    Ok(ResetReport {
+        backup,
+        tracks,
+        playlists,
+    })
+}

@@ -180,6 +180,7 @@ pub fn run() {
             commands::set_paused,
             commands::set_profile,
             commands::create_backup,
+            commands::reset_library,
             commands::list_backups,
             commands::restore_backup,
             commands::check_missing,
