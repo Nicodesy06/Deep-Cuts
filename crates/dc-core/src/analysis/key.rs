@@ -91,6 +91,10 @@ pub struct ChromaConfig {
     /// Normalise each frame before summing (quiet passages count as much
     /// as loud ones) instead of summing raw energy.
     pub frame_norm: bool,
+    /// Estimate the reference tuning (A4 ≠ 440 Hz, pitched or detuned
+    /// records) from the spectrum and centre the pitch classes on it.
+    #[serde(default)]
+    pub tuning: bool,
 }
 
 /// dc-dsp 1.0.0 front-end (kept as the study baseline).
@@ -101,6 +105,7 @@ pub const BASELINE_1_0: ChromaConfig = ChromaConfig {
     whiten: false,
     peaks: false,
     frame_norm: true,
+    tuning: false,
 };
 
 /// Front-end chosen by the key study (dc-dsp 1.1.0).
@@ -111,12 +116,13 @@ pub const PRODUCTION: ChromaConfig = ChromaConfig {
     whiten: true,
     peaks: true,
     frame_norm: true,
+    tuning: false,
 };
 
 impl ChromaConfig {
     pub fn label(&self) -> String {
         format!(
-            "{:.0}-{:.0}Hz {} {}{}{}",
+            "{:.0}-{:.0}Hz {} {}{}{}{}",
             self.fmin,
             self.fmax,
             if self.log_gamma > 0.0 {
@@ -131,6 +137,7 @@ impl ChromaConfig {
             } else {
                 "energy"
             },
+            if self.tuning { " tuned" } else { "" },
         )
         .trim()
         .to_string()
@@ -145,12 +152,24 @@ pub struct KeyEstimate {
     pub margin: f64,
 }
 
+/// Resolution of the tuning-mode pitch histogram (10 cents).
+const FINE_BINS: usize = 120;
+
 /// Accumulates a pitch-class profile from magnitude spectra.
 pub struct ChromaAccumulator {
     cfg: ChromaConfig,
     first: usize,
     /// Pitch class and triangular weight per bin in `first..first + len`.
     bin_pc: Vec<(usize, f32)>,
+    /// Position in the octave (0..12 semitones from C, 440 Hz grid) per
+    /// bin, used when the tuning is estimated.
+    bin_pos: Vec<f64>,
+    /// 10-cent pitch-class histogram (tuning mode).
+    fine: Vec<f64>,
+    frame_fine: Vec<f64>,
+    /// Weighted circular sum of the deviation from the 440 Hz grid.
+    tune_cos: f64,
+    tune_sin: f64,
     /// Whitening window [lo, hi) per bin (absolute bin indices).
     win: Vec<(usize, usize)>,
     work: Vec<f32>,
@@ -169,6 +188,9 @@ impl ChromaAccumulator {
         let hz = sample_rate / fft_size as f64;
         let first = ((cfg.fmin / hz).ceil() as usize).max(1);
         let last = ((cfg.fmax / hz).floor() as usize).min(bins - 2);
+        let bin_pos = (first..=last)
+            .map(|k| (69.0 + 12.0 * (k as f64 * hz / 440.0).log2()).rem_euclid(12.0))
+            .collect();
         let bin_pc = (first..=last)
             .map(|k| {
                 let pitch = 69.0 + 12.0 * (k as f64 * hz / 440.0).log2();
@@ -190,6 +212,11 @@ impl ChromaAccumulator {
             cfg,
             first,
             bin_pc,
+            bin_pos,
+            fine: vec![0.0; FINE_BINS],
+            frame_fine: vec![0.0; FINE_BINS],
+            tune_cos: 0.0,
+            tune_sin: 0.0,
             win,
             work: vec![0.0; bins],
             prefix: vec![0.0; bins + 1],
@@ -209,6 +236,10 @@ impl ChromaAccumulator {
             for (i, &v) in self.work.iter().enumerate() {
                 self.prefix[i + 1] = self.prefix[i] + v as f64;
             }
+        }
+        if cfg.tuning {
+            self.push_tuned();
+            return;
         }
         let mut c = [0f64; 12];
         let mut total = 0.0;
@@ -237,8 +268,70 @@ impl ChromaAccumulator {
         self.frames += 1;
     }
 
+    fn push_tuned(&mut self) {
+        let cfg = self.cfg;
+        self.frame_fine.iter_mut().for_each(|v| *v = 0.0);
+        let (mut total, mut tc, mut ts) = (0.0, 0.0, 0.0);
+        for (i, &pos) in self.bin_pos.iter().enumerate() {
+            let k = self.first + i;
+            let mut v = self.work[k];
+            if cfg.peaks && !(v > self.work[k - 1] && v >= self.work[k + 1]) {
+                continue;
+            }
+            if cfg.whiten {
+                let (lo, hi) = self.win[i];
+                let mean = (self.prefix[hi] - self.prefix[lo]) / (hi - lo) as f64;
+                v = (v as f64 - mean).max(0.0) as f32;
+            }
+            let v = v as f64;
+            if v <= 0.0 {
+                continue;
+            }
+            let x = pos * (FINE_BINS as f64 / 12.0);
+            let j = x.floor() as usize % FINE_BINS;
+            let f = x - x.floor();
+            self.frame_fine[j] += v * (1.0 - f);
+            self.frame_fine[(j + 1) % FINE_BINS] += v * f;
+            let a = std::f64::consts::TAU * pos;
+            tc += v * a.cos();
+            ts += v * a.sin();
+            total += v;
+        }
+        if total < 1e-6 {
+            return;
+        }
+        let scale = if cfg.frame_norm { 1.0 / total } else { 1.0 };
+        for (acc, v) in self.fine.iter_mut().zip(&self.frame_fine) {
+            *acc += v * scale;
+        }
+        self.tune_cos += tc * scale;
+        self.tune_sin += ts * scale;
+        self.frames += 1;
+    }
+
+    /// Measured deviation from the 440 Hz grid in semitones (−0.5..0.5);
+    /// 0 when the tuning is not estimated.
+    pub fn tuning_offset(&self) -> f64 {
+        if !self.cfg.tuning || (self.tune_cos == 0.0 && self.tune_sin == 0.0) {
+            return 0.0;
+        }
+        self.tune_sin.atan2(self.tune_cos) / std::f64::consts::TAU
+    }
+
     /// Mean chroma normalised to sum 1, or `None` for silence.
     pub fn profile(&self) -> Option<[f64; 12]> {
+        if self.cfg.tuning {
+            let off = self.tuning_offset();
+            let mut c = [0f64; 12];
+            for (j, v) in self.fine.iter().enumerate() {
+                let shifted = j as f64 * 12.0 / FINE_BINS as f64 - off;
+                let nearest = shifted.round();
+                let w = (1.0 - 2.0 * (shifted - nearest).abs()).max(0.0);
+                c[(nearest as i64).rem_euclid(12) as usize] += v * w;
+            }
+            let s: f64 = c.iter().sum();
+            return (self.frames > 0 && s > 0.0).then(|| c.map(|v| v / s));
+        }
         let s: f64 = self.chroma.iter().sum();
         (self.frames > 0 && s > 0.0).then(|| self.chroma.map(|v| v / s))
     }
@@ -285,5 +378,72 @@ fn pearson(a: &[f64], b: &[f64]) -> f64 {
         0.0
     } else {
         num / (da * db).sqrt()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::{CHROMA_HOP, CHROMA_N, SR, stft};
+
+    /// C major triad with harmonics, every partial detuned by `cents`.
+    fn chord(cents: f64) -> Vec<f32> {
+        let sr = SR as f64;
+        let n = (sr * 6.0) as usize;
+        let mut x = vec![0f32; n];
+        for midi in [48.0, 52.0, 55.0, 60.0, 64.0, 67.0] {
+            let f0 = 440.0 * 2f64.powf((midi - 69.0 + cents / 100.0) / 12.0);
+            for h in 1..=4 {
+                let f = f0 * h as f64;
+                for (i, v) in x.iter_mut().enumerate() {
+                    *v +=
+                        (0.2 / h as f64 * (std::f64::consts::TAU * f * i as f64 / sr).sin()) as f32;
+                }
+            }
+        }
+        x
+    }
+
+    fn run(x: &[f32], cfg: ChromaConfig) -> ChromaAccumulator {
+        let mut acc = ChromaAccumulator::with_config(SR as f64, CHROMA_N, cfg);
+        stft::magnitudes(x, CHROMA_N, CHROMA_HOP, |_, mag| acc.push(mag));
+        acc
+    }
+
+    #[test]
+    fn tuning_estimate_recentres_detuned_audio() {
+        let tuned = ChromaConfig {
+            tuning: true,
+            ..PRODUCTION
+        };
+        // In tune: same key either way, offset ≈ 0.
+        let acc = run(&chord(0.0), tuned);
+        assert!(acc.tuning_offset().abs() < 0.05, "{}", acc.tuning_offset());
+        let a = acc.profile().unwrap();
+        let b = run(&chord(0.0), PRODUCTION).profile().unwrap();
+        let diff: f64 = a.iter().zip(&b).map(|(x, y)| (x - y).abs()).sum();
+        assert!(diff < 0.1, "{a:?} vs {b:?}");
+        // +45 cents: the fixed 440 Hz grid splits C/C#, the estimated grid
+        // does not.
+        let x = chord(45.0);
+        let acc = run(&x, tuned);
+        assert!(
+            (acc.tuning_offset() - 0.45).abs() < 0.06,
+            "{}",
+            acc.tuning_offset()
+        );
+        let p = acc.profile().unwrap();
+        let fixed = run(&x, PRODUCTION).profile().unwrap();
+        assert!(p[0] > p[1] * 3.0, "tuned {p:?}");
+        assert!(
+            p[0] / p[1] > fixed[0] / fixed[1],
+            "fixed {fixed:?} tuned {p:?}"
+        );
+        // The chord tones are the three strongest classes once re-centred.
+        let mut order: Vec<usize> = (0..12).collect();
+        order.sort_by(|i, j| p[*j].total_cmp(&p[*i]));
+        let mut top = order[..3].to_vec();
+        top.sort();
+        assert_eq!(top, vec![0, 4, 7], "{p:?}");
     }
 }

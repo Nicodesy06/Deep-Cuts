@@ -48,14 +48,17 @@ pub fn grid() -> Vec<ChromaConfig> {
             for whiten in [false, true] {
                 for peaks in [false, true] {
                     for frame_norm in [true, false] {
-                        v.push(ChromaConfig {
-                            fmin,
-                            fmax,
-                            log_gamma,
-                            whiten,
-                            peaks,
-                            frame_norm,
-                        });
+                        for tuning in [false, true] {
+                            v.push(ChromaConfig {
+                                fmin,
+                                fmax,
+                                log_gamma,
+                                whiten,
+                                peaks,
+                                frame_norm,
+                                tuning,
+                            });
+                        }
                     }
                 }
             }
@@ -218,7 +221,7 @@ mod tests {
         let (res, choice) = study(&[key::PRODUCTION], &[samples]);
         assert_eq!(res.len(), 1);
         assert_eq!(choice.unwrap().dev_weighted, 1.0);
-        assert_eq!(grid().len(), 32);
+        assert_eq!(grid().len(), 64);
         assert!(grid().contains(&key::PRODUCTION) && grid().contains(&key::BASELINE_1_0));
     }
 }
