@@ -1980,3 +1980,53 @@ tr.rejected td {
 .nowrap {
   white-space: nowrap;
 }
+
+.energy-bars {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+  height: 140px;
+  margin-top: 8px;
+}
+.energy-bar {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100% !important;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
+.eb-track {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+}
+.eb-track span {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.energy-bar:hover .eb-track span {
+  opacity: 0.8;
+}
+.energy-bar em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 4px;
+}
+.dna-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.dna-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}

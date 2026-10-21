@@ -414,6 +414,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                 }
             }
             pool.shutdown();
+            dc_core::dna::update_energy(&conn)?;
             eprintln!();
             println!(
                 "{} jobs with {n} workers in {:.1}s",

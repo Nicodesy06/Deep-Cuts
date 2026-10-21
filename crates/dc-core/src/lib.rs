@@ -11,6 +11,7 @@ pub mod cues;
 pub mod db;
 pub mod dedupe;
 pub mod djlib;
+pub mod dna;
 pub mod error;
 pub mod eval;
 pub mod export;

@@ -281,6 +281,7 @@ impl Parser {
             "bpm" => self.numeric("t.bpm", value, 1.0),
             "year" => self.numeric("t.year", value, 1.0),
             "rating" => self.numeric("COALESCE(t.rating, 0)", value, 1.0),
+            "energy" => self.numeric("t.energy", value, 1.0),
             "duration" => self.numeric("t.duration_ms", value, 1000.0),
             "lufs" | "loudness" => self.numeric("t.lufs", value, 1.0),
             "bitrate" => self.numeric(
@@ -488,6 +489,7 @@ fn sort_column(sort: &str) -> Option<&'static str> {
         "key" => "CAST(rtrim(t.key_camelot, 'AB') AS INTEGER), t.key_camelot",
         "durationMs" => "t.duration_ms",
         "rating" => "t.rating",
+        "energy" => "t.energy",
         "createdAt" => "t.created_at",
         "lufs" => "t.lufs",
         "decision" => {

@@ -8,7 +8,7 @@ use dc_core::{
     tagwrite,
 };
 use dc_core::{
-    bulk, csvimport, dedupe, djlib, fileops, map, playlist_tools, relocate, sets, similarity,
+    bulk, csvimport, dedupe, djlib, dna, fileops, map, playlist_tools, relocate, sets, similarity,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -607,6 +607,81 @@ pub fn relocate_apply(
 #[tauri::command]
 pub fn missing_folders(state: State<'_, AppState>) -> Res<Vec<(String, i64)>> {
     with_conn!(state, |c| relocate::missing_folders(&c, 10))
+}
+
+#[tauri::command]
+pub async fn dna_genre_suggestions(
+    state: State<'_, AppState>,
+    min_share: f32,
+) -> Res<dna::LabelReport> {
+    blocking(state.db_path.clone(), move |c| {
+        dna::genre_suggestions(c, min_share)
+    })
+    .await
+}
+
+/// Compute tag suggestions and put them in the review queue.
+#[tauri::command]
+pub async fn dna_tag_suggestions(
+    state: State<'_, AppState>,
+    min_share: f32,
+) -> Res<dna::LabelReport> {
+    blocking(state.db_path.clone(), move |c| {
+        let rep = dna::tag_suggestions(c, min_share, 5)?;
+        dna::store_tag_suggestions(c, &rep)?;
+        Ok(rep)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn dna_groups(
+    state: State<'_, AppState>,
+    k: usize,
+    scope: String,
+) -> Res<Vec<dna::Group>> {
+    blocking(state.db_path.clone(), move |c| {
+        dna::auto_groups(c, k, &scope)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn dna_update_energy(state: State<'_, AppState>) -> Res<usize> {
+    blocking(state.db_path.clone(), |c| dna::update_energy(c)).await
+}
+
+/// (track id, tag id, tag name, confidence)
+type PendingSuggestion = (String, String, String, Option<f64>);
+
+/// Tag suggestions waiting for review (all tracks).
+#[tauri::command]
+pub fn pending_tag_suggestions(
+    state: State<'_, AppState>,
+) -> Res<Vec<PendingSuggestion>> {
+    with_conn!(state, |c| {
+        let mut stmt = c.prepare(
+            "SELECT tt.track_id, tt.tag_id, t.name, tt.confidence FROM track_tags tt JOIN tags t ON t.id = tt.tag_id
+             JOIN tracks tr ON tr.id = tt.track_id
+             WHERE tt.origin = 'ai' AND tt.status = 'suggested' AND tr.archived = 0 ORDER BY t.name, tt.confidence DESC",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+        Ok::<_, dc_core::Error>(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+    })
+}
+
+#[tauri::command]
+pub fn tracks_by_ids(state: State<'_, AppState>, ids: Vec<String>) -> Res<Vec<library::TrackRow>> {
+    with_conn!(state, |c| dc_core::query::rows_for_ids(&c, &ids))
+}
+
+#[tauri::command]
+pub fn dna_apply_genres(state: State<'_, AppState>, proposals: Vec<bulk::Proposal>) -> Res<usize> {
+    with_conn!(state, |c| bulk::apply_as(
+        &c,
+        "genre-suggestions",
+        &proposals
+    ))
 }
 
 #[tauri::command]

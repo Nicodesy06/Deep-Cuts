@@ -62,6 +62,7 @@ export const ALL_COLUMNS: Column[] = [
   { id: "album", label: "col.album", width: 150, sort: "album", render: (t) => t.album },
   { id: "year", label: "col.year", width: 56, sort: "year", align: "right", render: (t) => <span className="num">{t.year ?? ""}</span> },
   { id: "rating", label: "col.rating", width: 84, sort: "rating", render: (t) => <Stars n={t.rating} /> },
+  { id: "energy", label: "col.energy", width: 60, sort: "energy", align: "right", render: (t) => <span className="num">{t.energy ?? ""}</span> },
   { id: "lufs", label: "col.lufs", width: 64, sort: "lufs", align: "right", render: (t) => <span className="num">{t.lufs != null ? t.lufs.toFixed(1) : ""}</span> },
   { id: "format", label: "col.format", width: 60, render: (t) => <span className="muted">{t.format?.toUpperCase()}</span> },
   { id: "bitrate", label: "col.bitrate", width: 64, align: "right", render: (t) => <span className="num muted">{t.bitrate ?? ""}</span> },

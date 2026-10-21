@@ -300,6 +300,7 @@ mod tests {
             preview_ms: None,
             analysis_status: "none".into(),
             created_at: 0,
+            energy: None,
         }
     }
 

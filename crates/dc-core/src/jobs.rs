@@ -325,6 +325,7 @@ impl WorkerPool {
                             }
                         };
                         let cancel = || stop.load(Ordering::Relaxed);
+                        let mut worked = false;
                         while !stop.load(Ordering::Relaxed) {
                             if paused.load(Ordering::Relaxed) {
                                 std::thread::sleep(Duration::from_millis(300));
@@ -334,13 +335,25 @@ impl WorkerPool {
                             let r = run_one(&conn, &cancel);
                             active.fetch_sub(1, Ordering::SeqCst);
                             match r {
-                                Ok(Some((job_id, track_id, outcome))) => on_event(JobEvent {
-                                    job_id,
-                                    track_id,
-                                    ok: outcome.is_ok(),
-                                    error: outcome.err(),
-                                }),
-                                Ok(None) => std::thread::sleep(Duration::from_millis(400)),
+                                Ok(Some((job_id, track_id, outcome))) => {
+                                    worked = true;
+                                    on_event(JobEvent {
+                                        job_id,
+                                        track_id,
+                                        ok: outcome.is_ok(),
+                                        error: outcome.err(),
+                                    })
+                                }
+                                Ok(None) => {
+                                    // Queue drained: refresh library-relative values once.
+                                    if worked && active.load(Ordering::SeqCst) == 0 {
+                                        worked = false;
+                                        if let Err(e) = crate::dna::update_energy(&conn) {
+                                            eprintln!("worker {i}: energy: {e}");
+                                        }
+                                    }
+                                    std::thread::sleep(Duration::from_millis(400))
+                                }
                                 Err(e) => {
                                     eprintln!("worker {i}: {e}");
                                     std::thread::sleep(Duration::from_millis(1000));

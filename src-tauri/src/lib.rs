@@ -77,6 +77,9 @@ pub fn run() {
         eprintln!("job recovery failed: {e}");
     }
     auto_backup(&conn, &backups_dir);
+    if let Err(e) = dc_core::dna::update_energy(&conn) {
+        eprintln!("energy: {e}");
+    }
     let profile = library::get_setting(&conn, "analysisProfile")
         .ok()
         .flatten()
@@ -146,6 +149,13 @@ pub fn run() {
             commands::duplicate_groups,
             commands::transcode_suspects,
             commands::suggest_keep,
+            commands::tracks_by_ids,
+            commands::dna_apply_genres,
+            commands::dna_genre_suggestions,
+            commands::dna_tag_suggestions,
+            commands::dna_groups,
+            commands::dna_update_energy,
+            commands::pending_tag_suggestions,
             commands::csv_read,
             commands::csv_preview,
             commands::csv_apply,

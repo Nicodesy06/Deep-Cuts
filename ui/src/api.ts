@@ -31,6 +31,8 @@ export interface TrackRow {
   previewMs: number | null;
   analysisStatus: "none" | "queued" | "done" | "failed";
   createdAt: number;
+  /** Energy 1–10 relative to the library (measured proxy, not a rating). */
+  energy: number | null;
 }
 
 export interface TrackQuery {
@@ -439,6 +441,31 @@ export interface RelocatePreview {
   samples: [string, string, boolean][];
 }
 
+export interface LabelSuggestion {
+  trackId: string;
+  label: string;
+  share: number;
+}
+
+export interface LabelEval {
+  labelled: number;
+  suggested: number;
+  correct: number;
+}
+
+export interface LabelReport {
+  suggestions: LabelSuggestion[];
+  eval: Record<string, LabelEval>;
+}
+
+export interface DnaGroup {
+  tracks: string[];
+  traits: { dim: string; z: number }[];
+  bpmMin: number | null;
+  bpmMax: number | null;
+  topGenres: [string, number][];
+}
+
 export interface MergeReport {
   merged: number;
   playlistsUpdated: number;
@@ -555,6 +582,13 @@ export const api = {
   relocatePreview: (from: string, to: string) => invoke<RelocatePreview>("relocate_preview", { from, to }),
   relocateApply: (from: string, to: string, onlyFound: boolean) => invoke<number>("relocate_apply", { from, to, onlyFound }),
   missingFolders: () => invoke<[string, number][]>("missing_folders"),
+  tracksByIds: (ids: string[]) => invoke<TrackRow[]>("tracks_by_ids", { ids }),
+  dnaGenreSuggestions: (minShare: number) => invoke<LabelReport>("dna_genre_suggestions", { minShare }),
+  dnaTagSuggestions: (minShare: number) => invoke<LabelReport>("dna_tag_suggestions", { minShare }),
+  dnaGroups: (k: number, scope: string) => invoke<DnaGroup[]>("dna_groups", { k, scope }),
+  dnaUpdateEnergy: () => invoke<number>("dna_update_energy"),
+  dnaApplyGenres: (proposals: ReplaceProposal[]) => invoke<number>("dna_apply_genres", { proposals }),
+  pendingTagSuggestions: () => invoke<[string, string, string, number | null][]>("pending_tag_suggestions"),
   suggestKeep: (ids: string[]) => invoke<string | null>("suggest_keep", { ids }),
   mergeDuplicates: (keep: string, others: string[]) => invoke<MergeReport>("merge_duplicates", { keep, others }),
   brokenPlaylists: () => invoke<BrokenPlaylist[]>("broken_playlists"),

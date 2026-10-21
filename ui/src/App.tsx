@@ -10,6 +10,7 @@ import { Dashboard } from "./views/Dashboard";
 import { Library } from "./views/Library";
 import { LibraryHealth } from "./views/LibraryHealth";
 import { Planned } from "./views/Planned";
+import { MusicDna } from "./views/MusicDna";
 import { Settings } from "./views/Settings";
 import { SmartCrates } from "./views/SmartCrates";
 import { SyncExport } from "./views/SyncExport";
@@ -21,7 +22,7 @@ const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "dashboard", label: "nav.dashboard", icon: "◧" },
   { id: "library", label: "nav.library", icon: "≡" },
   { id: "discover", label: "nav.discover", icon: "✦" },
-  { id: "dna", label: "nav.dna", icon: "⌬", planned: true },
+  { id: "dna", label: "nav.dna", icon: "⌬" },
   { id: "crates", label: "nav.crates", icon: "⚡" },
   { id: "sets", label: "nav.sets", icon: "☰" },
   { id: "health", label: "nav.health", icon: "✚" },
@@ -229,6 +230,9 @@ function Main() {
       break;
     case "sets":
       content = <SetBuilder />;
+      break;
+    case "dna":
+      content = <MusicDna />;
       break;
     default:
       content = <Planned view={view} />;
