@@ -26,7 +26,7 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
-v0.2.1: fixes from the independent technical audit (see [AUDIT_RESPONSE.md](AUDIT_RESPONSE.md)):
+v0.2.1 (released): fixes from the independent technical audit (see [AUDIT_RESPONSE.md](AUDIT_RESPONSE.md)):
 journalled, recoverable file moves and all-or-nothing merges; tag writes through a verified staged
 copy with a refresh journal; watched-folder removal marks every child; watcher errors shown in the
 app; automatic schema-upgrade tests from every old version with a pre-upgrade copy; portable file
