@@ -1,16 +1,20 @@
 name: Release
 
-# Push a tag like v0.1.0 to build the Windows and macOS installers and attach
-# them to a GitHub pre-release of the same name.
+# Builds the Windows and macOS installers and attaches them to a GitHub
+# pre-release "v<version>" (version from tauri.conf.json). Runs on a pushed
+# v* tag, or on a branch push whose commit message contains "[release]"
+# (tauri-action then creates the tag on that commit).
 on:
   push:
     tags: ["v*"]
+    branches: ["**"]
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[release]')
     strategy:
       fail-fast: false
       matrix:
@@ -48,8 +52,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Deep Cuts ${{ github.ref_name }}
+          tagName: v__VERSION__
+          releaseName: Deep Cuts v__VERSION__
+          releaseCommitish: ${{ github.sha }}
           prerelease: true
           args: ${{ matrix.args }}
           releaseBody: |
