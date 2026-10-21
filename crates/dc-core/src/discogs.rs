@@ -187,6 +187,15 @@ pub fn is_downloaded() -> bool {
     model_path().is_file()
 }
 
+/// Delete the MAEST file (accurate styles); the setting falls back to EffNet.
+pub fn remove_maest() -> Result<()> {
+    let p = models_dir().join(MAEST_FILE);
+    if p.exists() {
+        std::fs::remove_file(p)?;
+    }
+    Ok(())
+}
+
 pub fn maest_downloaded() -> bool {
     models_dir().join(MAEST_FILE).is_file()
 }
@@ -251,6 +260,14 @@ pub(crate) fn download_file(
     progress: &mut dyn FnMut(u64, Option<u64>),
 ) -> Result<()> {
     use std::io::{Read, Write};
+    // Only HTTPS sources, and never more than this many bytes (the largest
+    // model is about 350 MB): a wrong or hostile server cannot fill the disk.
+    const MAX_BYTES: u64 = 1 << 30;
+    if !url.starts_with("https://") {
+        return Err(Error::Invalid(format!(
+            "refusing a non-HTTPS download: {url}"
+        )));
+    }
     std::fs::create_dir_all(out.parent().unwrap_or(out))?;
     let tmp = out.with_extension("part");
     // Servers sometimes answer 503/429 under load: retry with back-off.
@@ -268,6 +285,11 @@ pub(crate) fn download_file(
     let total = resp
         .header("Content-Length")
         .and_then(|v| v.parse::<u64>().ok());
+    if total.is_some_and(|t| t > MAX_BYTES) {
+        return Err(Error::Invalid(
+            "download larger than any expected model: refused".into(),
+        ));
+    }
     let mut reader = resp.into_reader();
     let mut file = std::fs::File::create(&tmp)?;
     let mut hasher = blake3::Hasher::new();
@@ -278,9 +300,16 @@ pub(crate) fn download_file(
         if n == 0 {
             break;
         }
+        done += n as u64;
+        if done > MAX_BYTES {
+            drop(file);
+            let _ = std::fs::remove_file(&tmp);
+            return Err(Error::Invalid(
+                "download larger than any expected model: stopped".into(),
+            ));
+        }
         hasher.update(&buf[..n]);
         file.write_all(&buf[..n])?;
-        done += n as u64;
         progress(done, total);
     }
     file.sync_all()?;

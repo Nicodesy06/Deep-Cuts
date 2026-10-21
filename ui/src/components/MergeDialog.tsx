@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { api, type MergeReport, type TrackRow } from "../api";
 import { useApp } from "../store";
 
-export function MergeDialog({ tracks, onClose }: { tracks: TrackRow[]; onClose: () => void }) {
+export function MergeDialog({ tracks, kind, onClose }: { tracks: TrackRow[]; kind?: string; onClose: () => void }) {
   const { t, bump } = useApp();
   const [keep, setKeep] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<MergeReport | null>(null);
+  // Only byte-identical files are certain duplicates. Matches by sound or by
+  // artist + title can be edits, remixes, live versions or shared loops: the
+  // user must confirm having listened (audit DC-05).
+  const needsListen = kind !== "identical-file";
+  const [listened, setListened] = useState(false);
 
   useEffect(() => {
     api.suggestKeep(tracks.map((x) => x.id)).then((id) => setKeep(id ?? tracks[0]?.id ?? null), () => setKeep(tracks[0]?.id ?? null));
@@ -55,11 +60,17 @@ export function MergeDialog({ tracks, onClose }: { tracks: TrackRow[]; onClose: 
               </tbody>
             </table>
             <p className="hint">{t("merge.safety")}</p>
+            {needsListen && (
+              <label className="toggle warn-box panel">
+                <input type="checkbox" checked={listened} onChange={(e) => setListened(e.target.checked)} />
+                <span>{t("merge.confirmListened")}</span>
+              </label>
+            )}
             <div className="row end">
               <button className="btn ghost" onClick={onClose}>
                 {t("action.cancel")}
               </button>
-              <button className="btn danger-solid" disabled={busy || !keep} onClick={merge}>
+              <button className="btn danger-solid" disabled={busy || !keep || (needsListen && !listened)} onClick={merge}>
                 {busy ? t("common.working") : t("merge.go", { n: tracks.length - 1 })}
               </button>
             </div>

@@ -26,6 +26,13 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
+v0.2.1: fixes from the independent technical audit (see [AUDIT_RESPONSE.md](AUDIT_RESPONSE.md)):
+journalled, recoverable file moves and all-or-nothing merges; tag writes through a verified staged
+copy with a refresh journal; watched-folder removal marks every child; watcher errors shown in the
+app; automatic schema-upgrade tests from every old version with a pre-upgrade copy; portable file
+names; listening confirmation for non-identical duplicate merges; capped HTTPS-only model
+downloads and model removal; dependency audit in CI; SHA-256 checksums on releases.
+
 After v0.1.1: Rekordbox My Tags in comments (`/* a / b */`) are read automatically when files are
 imported or change, and by "Scan all comments"; M3U/M3U8 playlists (e.g. from Rekordbox) import as
 playlists, adding missing files; every DJ export gets a "My Tag" folder with one playlist per tag,

@@ -88,7 +88,7 @@
         <article class="reason">
           <span class="idx">01</span>
           <h3 class="h3">Private by design</h3>
-          <p>Everything runs on your machine: analysis, AI models, search. No account, no telemetry. The only network calls are the ones you start yourself, like a model download or the optional online auto-tagger.</p>
+          <p>The core works fully offline: analysis, AI models, search. No account, no telemetry. The network is used only when you start it: downloading an optional model, or the online auto-tagger (it shows which fields it sends).</p>
         </article>
         <article class="reason">
           <span class="idx">02</span>
@@ -98,12 +98,12 @@
         <article class="reason">
           <span class="idx">03</span>
           <h3 class="h3">Speaks your DJ software</h3>
-          <p>Import and export Rekordbox XML, Traktor NML, Serato crates and VirtualDJ, with BPM, key, cues, loops and beatgrids where the format has them. Rekordbox My Tags too.</p>
+          <p>Import and export Rekordbox XML, Traktor NML, Serato crates and VirtualDJ, with BPM, key, cues, loops and beatgrids where the format has them. Every format is round-trip tested; checks inside each application are in progress.</p>
         </article>
         <article class="reason">
           <span class="idx">04</span>
           <h3 class="h3">Your files stay untouched</h3>
-          <p>Imports are read-only. Tags are written to files only when you ask, with a dry run and copies of the originals. Nothing is ever deleted, every edit can be undone, and the library is backed up daily.</p>
+          <p>Imports are read-only. Tags are written only when you ask, to a verified copy that replaces the file only if everything checks out. File moves are journalled and recovered after a crash. Nothing is ever deleted, every edit can be undone, and the library is backed up daily.</p>
         </article>
         <article class="reason">
           <span class="idx">05</span>
@@ -216,7 +216,7 @@
           <h3 class="h3">Out to the booth, in one step.</h3>
           <p>Everything you organise travels to your DJ software, playlists and folders included. Imports from other software take a backup first, and their own databases are never modified.</p>
           <ul class="ticks">
-            <li>Rekordbox XML, Traktor NML, Serato crates, VirtualDJ</li>
+            <li>Rekordbox XML, Traktor NML, Serato crates, VirtualDJ (round-trip tested)</li>
             <li>M3U8 and CSV, HTML and PDF track lists</li>
             <li>Rebuild Spotify or Apple Music playlists from your own files</li>
           </ul>
@@ -308,7 +308,7 @@
           </div>
         </article>
       </div>
-      <p class="hero-note">The installers are not code-signed yet. macOS: right-click the app › Open the first time. Windows: “More info” › “Run anyway”. <a href="guide.html#install">Step-by-step</a>. Prefer to build it yourself? <a href="guide.html#source">Build from source</a>.</p>
+      <p class="hero-note">The installers are not code-signed yet. macOS: right-click the app › Open the first time. Windows: “More info” › “Run anyway”. <a href="guide.html#install">Step-by-step</a>. Each release lists SHA-256 checksums (<code>SHA256SUMS.txt</code>) to verify the download. Prefer to build it yourself? <a href="guide.html#source">Build from source</a>.</p>
     </div>
   </section>
 

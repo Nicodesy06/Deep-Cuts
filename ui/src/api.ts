@@ -803,6 +803,7 @@ export const api = {
   clapStatus: () => invoke<ClapStatus>("clap_status"),
   clapDownload: () => invoke<void>("clap_download"),
   clapReanalyze: () => invoke<number>("clap_reanalyze"),
+  optionalModelRemove: (name: "clap" | "maest") => invoke<void>("optional_model_remove", { name }),
   clapSearch: (text: string, scope: string, limit = 60) => invoke<ClapHit[]>("clap_search", { text, scope, limit }),
   dnaStyleGenreSuggestions: (minScore: number) => invoke<LabelReport>("dna_style_genre_suggestions", { minScore }),
   modelSuggestTags: () => invoke<number>("model_suggest_tags"),

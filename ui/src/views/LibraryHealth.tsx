@@ -14,7 +14,7 @@ export function LibraryHealth() {
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [suspects, setSuspects] = useState<TranscodeSuspect[] | null>(null);
   const [broken, setBroken] = useState<BrokenPlaylist[] | null>(null);
-  const [merging, setMerging] = useState<TrackRow[] | null>(null);
+  const [merging, setMerging] = useState<{ tracks: TrackRow[]; kind: string } | null>(null);
   const [unused, setUnused] = useState<string[] | null>(null);
   const [unusedRoot, setUnusedRoot] = useState<string | null>(null);
   const [missing, setMissing] = useState<[number, number] | null>(null);
@@ -68,7 +68,7 @@ export function LibraryHealth() {
               <div className="dup-head">
                 <span className={`badge ${g.kind === "identical-file" ? "badge-warn" : ""}`}>{t(`health.${g.kind}` as never)}</span>
                 <span className="muted small">{g.tracks.length} ×</span>
-                <button className="btn small" onClick={() => setMerging(g.tracks)}>
+                <button className="btn small" onClick={() => setMerging({ tracks: g.tracks, kind: g.kind })}>
                   {t("merge.button")}
                 </button>
               </div>
@@ -197,7 +197,7 @@ export function LibraryHealth() {
           </ul>
         )}
       </section>
-      {merging && <MergeDialog tracks={merging} onClose={() => setMerging(null)} />}
+      {merging && <MergeDialog tracks={merging.tracks} kind={merging.kind} onClose={() => setMerging(null)} />}
     </div>
   );
 }

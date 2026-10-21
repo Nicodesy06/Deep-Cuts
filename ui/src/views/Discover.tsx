@@ -508,6 +508,22 @@ function Describe() {
               <input className="mono grow" value={scope} onChange={(e) => setScope(e.target.value)} placeholder={t("disc.scope")} spellCheck={false} />
             </div>
             {st.indexed === 0 && <p className="hint">{t("clap.none")}</p>}
+            <div className="row mt">
+              <button
+                className="btn small ghost"
+                onClick={() =>
+                  api.optionalModelRemove("clap").then(
+                    () => {
+                      toast(t("clap.removed"), "ok");
+                      bump();
+                    },
+                    (e) => toast(String(e), "error"),
+                  )
+                }
+              >
+                {t("clap.remove", { mb: st.sizeMb })}
+              </button>
+            </div>
           </>
         )}
         <p className="hint">{t("clap.honesty")}</p>

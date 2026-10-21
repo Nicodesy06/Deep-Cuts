@@ -62,7 +62,7 @@
 
         <section id="install" aria-labelledby="h-install">
           <h2 id="h-install">Install</h2>
-          <p>Download the file for your system from the <a href="./#download">download section</a>. The installers are not code-signed yet, so the operating system asks for confirmation the first time.</p>
+          <p>Download the file for your system from the <a href="./#download">download section</a>. The installers are not code-signed yet, so the operating system asks for confirmation the first time. To check a download, compare its SHA-256 with <code>SHA256SUMS.txt</code> in the release (<code>shasum -a 256 file</code> on macOS, <code>sha256sum file</code> on Linux, <code>Get-FileHash file</code> in PowerShell).</p>
 
           <h3>macOS</h3>
           <ol>
@@ -111,7 +111,7 @@
               <tr><td><strong>Dashboard</strong></td><td>Statistics computed from your library: BPM, keys, loudness, genres, formats, decisions.</td></tr>
               <tr><td><strong>Library</strong></td><td>All tracks, playlists and Smart Crates; preview, decide, tag, edit, analyse. The details panel shows the source of every value.</td></tr>
               <tr><td><strong>Discover</strong></td><td>Similar tracks, search by description, and a map of your library.</td></tr>
-              <tr><td><strong>Music DNA</strong></td><td>Energy 1–10, the local audio model, genre and tag suggestions learned from your labels, automatic groups.</td></tr>
+              <tr><td><strong>Music DNA</strong></td><td>Relative energy 1–10, the local audio model, genre and tag suggestions learned from your labels, automatic groups.</td></tr>
               <tr><td><strong>Smart Crates</strong></td><td>Saved searches that update themselves; exported as rules or playlists.</td></tr>
               <tr><td><strong>Set Builder</strong></td><td>Order a set, see transitions, chapters, next-track suggestions, export.</td></tr>
               <tr><td><strong>Library Health</strong></td><td>Missing files, duplicates, suspected transcodes, broken playlists, unused files.</td></tr>
@@ -246,6 +246,7 @@
           <p>Choose the <code>_Serato_</code> folder on the drive that holds the music; crates and folders are written there. Serato reads BPM and key from the files' tags, so use <strong>Write tags to files</strong> for those tracks first.</p>
           <h3>VirtualDJ</h3>
           <p>Export playlists as <code>.vdjfolder</code> files into a folder you choose, for example <code>VirtualDJ/Playlists</code>. Import reads <code>database.xml</code> and playlists (metadata, BPM, key, grid, hot cues).</p>
+          <div class="note"><p>Each format is round-trip tested (export, import, compare). Checks inside each DJ application and version are in progress; tell us on GitHub if a field does not arrive as expected.</p></div>
           <h3>Other formats</h3>
           <p>M3U8 and CSV export, HTML and PDF track lists, CSV metadata import with column mapping, and <strong>Rebuild an external playlist</strong>: a Spotify CSV (e.g. from Exportify), an Apple Music text export, an M3U or an “Artist - Title” list matched to your own files, with a review step and the list of missing tracks.</p>
         </section>
@@ -263,7 +264,9 @@
         <section id="safety" aria-labelledby="h-safety">
           <h2 id="h-safety">Safety, backups, privacy</h2>
           <ul>
-            <li>Your audio files are only read, unless you choose <strong>Write tags to files</strong> (dry run, copies of the originals, read-back check) or rename/move files.</li>
+            <li>Your audio files are only read, unless you choose <strong>Write tags to files</strong> (dry run, optional copies of the originals; tags go to a verified copy that replaces the file only after a read-back check) or rename/move files.</li>
+            <li>File moves (rename, move, merge) are journalled: if something fails or the computer stops halfway, files are put back where the library says they are at the next start. A merge either completes for every file or changes nothing.</li>
+            <li>Before the library is upgraded to a new version, a copy of the old database is kept next to it (<code>lib.db.pre-vN.bak</code>).</li>
             <li>Every edit, decision, tag and fix can be undone; each track has a change history.</li>
             <li>The library database is backed up daily (last 10 kept), before imports from DJ software and before every restore. Settings › Backups.</li>
             <li>Nothing is deleted: duplicates go to a trash folder you review.</li>

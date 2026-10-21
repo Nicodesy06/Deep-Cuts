@@ -768,6 +768,17 @@ pub async fn clap_download(app: AppHandle) -> Res<()> {
     .map_err(e)
 }
 
+/// Delete an optional model's files ("clap" or "maest").
+#[tauri::command]
+pub fn optional_model_remove(name: String) -> Res<()> {
+    match name.as_str() {
+        "clap" => dc_core::clap::remove(),
+        "maest" => dc_core::discogs::remove_maest(),
+        _ => return Err(format!("unknown model '{name}'")),
+    }
+    .map_err(e)
+}
+
 /// Queue analysis of the tracks without a CLAP embedding.
 #[tauri::command]
 pub fn clap_reanalyze(state: State<'_, AppState>) -> Res<usize> {

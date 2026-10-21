@@ -115,6 +115,23 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
                 <span className="hint">{t("styles.accurateHint", { mb: st?.maestSizeMb ?? 332 })}</span>
               </span>
             </label>
+            {st?.maestDownloaded && (
+              <button
+                className="btn small ghost"
+                disabled={busy}
+                onClick={async () => {
+                  await api.setSetting("stylesAccurate", "off").catch(() => {});
+                  await api.optionalModelRemove("maest").then(
+                    () => toast(t("styles.maestRemoved"), "ok"),
+                    (e) => toast(String(e), "error"),
+                  );
+                  setAccurate(false);
+                  setSt(await api.stylesStatus());
+                }}
+              >
+                {t("styles.maestRemove", { mb: st.maestSizeMb })}
+              </button>
+            )}
           </div>
         )}
         {progress && (

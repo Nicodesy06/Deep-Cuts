@@ -42,7 +42,7 @@ Run everything: `npm install && npm test` (UI unit tests + `cargo test --workspa
 | Set from a seed track over the transition graph | `phase3::graph_path_from_seed…` | | |
 | Recipes on demand and on import, undo | `tests/recipes.rs` | | |
 | External playlist matching (CSV/M3U/text parsing, version-aware scoring, playlist creation) | `tests/playlist_match.rs`, `playlist_match::tests` | | |
-| Schema migrations (v1 → v8) | manual on the v1 test library + `db::migrate` on every open | | |
+| Schema migrations (every v1…v11 → current) | automatic: `tests/migrations.rs` (data, decisions, tags, playlists, integrity, FK check, pre-upgrade copy) | CI, 3 OS | passing |
 | UI: formatting, selection model, i18n parity, virtual table, histograms, tag tree | `ui/src/**/*.test.ts(x)` | vitest + jsdom | |
 
 ## Not yet automated (manual or pending)

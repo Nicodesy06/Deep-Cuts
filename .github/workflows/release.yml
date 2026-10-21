@@ -77,6 +77,8 @@ jobs:
 
             **Linux (x86-64, Ubuntu 24.04 / Debian 13 / Fedora 40 or newer)** — `.deb` (`sudo apt install ./Deep.Cuts_*_amd64.deb`) or the `.AppImage` (`chmod +x`, then run).
 
+            Checksums: `SHA256SUMS.txt` (verify with `sha256sum -c SHA256SUMS.txt --ignore-missing`, or `Get-FileHash` on Windows).
+
             Your music files are never modified unless you explicitly write tags; the library lives in your user data folder. Checklist for testing on real hardware and DJ software: `docs/TEST_PLAN.md`.
 
             Optional model downloads (offered inside the app, none required): Discogs styles + mood/feel/emotion pack (MTG, non-commercial licence, 26 MB + heads), "accurate styles" with MAEST (MTG, non-commercial, 332 MB) and text search by description with LAION-CLAP (Apache-2.0, about 400 MB). Measurements: `docs/AI_VALIDATION.md`.
@@ -90,3 +92,21 @@ jobs:
             Modelli facoltativi scaricabili dall'app: stili Discogs + mood/emozione (MTG, licenza non commerciale), "stili accurati" MAEST (MTG, non commerciale, 332 MB), ricerca per descrizione LAION-CLAP (Apache-2.0, circa 400 MB).
 
             **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel (senza il modello audio locale). Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
+
+  # SHA-256 checksums of every installer, attached to the release
+  # (audit DC-40: assets can be checked after download).
+  checksums:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Publish SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")"
+          mkdir assets && cd assets
+          gh release download "$tag" --pattern '*.dmg' --pattern '*.exe' --pattern '*.msi' --pattern '*.deb' --pattern '*.AppImage' --pattern '*.tar.gz'
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$tag" SHA256SUMS.txt --clobber

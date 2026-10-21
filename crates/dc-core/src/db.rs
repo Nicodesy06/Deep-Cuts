@@ -2,7 +2,7 @@
 
 use crate::error::Result;
 use rusqlite::Connection;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Ordered list of migrations; index + 1 == schema version (PRAGMA user_version).
 const MIGRATIONS: &[&str] = &[
@@ -28,6 +28,15 @@ pub fn open(path: &Path) -> Result<Connection> {
     }
     let conn = Connection::open(path)?;
     configure(&conn)?;
+    // Keep a copy of an existing library before its schema is upgraded, so a
+    // failed or unwanted upgrade can be undone by restoring the copy.
+    let current = schema_version(&conn)?;
+    if current > 0 && current < SCHEMA_VERSION {
+        let bak = PathBuf::from(format!("{}.pre-v{current}.bak", path.display()));
+        if !bak.exists() {
+            conn.execute("VACUUM INTO ?1", [bak.to_string_lossy()])?;
+        }
+    }
     migrate(&conn)?;
     // Finish or reverse file moves interrupted by a crash.
     for m in crate::fileops::recover(&conn)? {
@@ -63,13 +72,25 @@ pub fn schema_version(conn: &Connection) -> Result<i64> {
 }
 
 pub fn migrate(conn: &Connection) -> Result<()> {
+    migrate_to(conn, SCHEMA_VERSION)
+}
+
+/// Apply migrations up to `target` (tests build libraries of older schema
+/// versions with it). Each migration runs in its own transaction, so a
+/// failure leaves the library at the previous version.
+pub fn migrate_to(conn: &Connection, target: i64) -> Result<()> {
     let current = schema_version(conn)?;
     if current > SCHEMA_VERSION {
         return Err(crate::Error::Invalid(format!(
             "database schema v{current} is newer than this build supports (v{SCHEMA_VERSION})"
         )));
     }
-    for (i, sql) in MIGRATIONS.iter().enumerate().skip(current as usize) {
+    for (i, sql) in MIGRATIONS
+        .iter()
+        .enumerate()
+        .skip(current as usize)
+        .take((target - current).max(0) as usize)
+    {
         let tx = crate::util::write_tx(conn)?;
         tx.execute_batch(sql)?;
         tx.pragma_update(None, "user_version", (i + 1) as i64)?;

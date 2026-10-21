@@ -60,6 +60,18 @@ pub fn is_downloaded() -> bool {
     FILES.iter().all(|(f, _)| path(f).is_file())
 }
 
+/// Delete the downloaded model files (embeddings already stored stay, but
+/// search needs the model again).
+pub fn remove() -> Result<()> {
+    for (file, _) in FILES {
+        let p = path(file);
+        if p.exists() {
+            std::fs::remove_file(p)?;
+        }
+    }
+    Ok(())
+}
+
 /// Download the three files (progress over the whole set).
 pub fn download(progress: &mut dyn FnMut(u64, Option<u64>)) -> Result<()> {
     let mut before = 0u64;

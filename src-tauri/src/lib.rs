@@ -156,6 +156,7 @@ pub fn run() {
             commands::clap_download,
             commands::clap_reanalyze,
             commands::clap_search,
+            commands::optional_model_remove,
             commands::dna_style_genre_suggestions,
             commands::import_m3u,
             commands::mytag_scan,

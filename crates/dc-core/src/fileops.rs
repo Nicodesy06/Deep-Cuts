@@ -30,7 +30,7 @@ pub struct MovePlan {
     pub from: String,
     pub to: String,
     /// Why this file is skipped by `apply`: no-metadata, missing,
-    /// unchanged, duplicate-in-plan, exists or no-target.
+    /// unchanged, duplicate-in-plan, exists, no-target or path-too-long.
     pub conflict: Option<String>,
 }
 
@@ -126,8 +126,46 @@ pub fn render(pattern: &str, t: &TrackRow) -> Result<Option<String>> {
     }
     // Windows does not allow trailing dots or spaces.
     let s = s.trim_end_matches(['.', ' ']).to_string();
-    Ok((!s.is_empty()).then_some(s))
+    Ok((!s.is_empty()).then_some(portable_stem(&s)))
 }
+
+/// Names Windows reserves for devices, with or without an extension.
+const RESERVED: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+/// Longest file name stem in bytes (255 is the limit on NTFS, APFS, ext4
+/// and exFAT; room is kept for the extension).
+const MAX_STEM_BYTES: usize = 200;
+
+/// A file name stem that is valid on Windows, macOS and Linux: reserved
+/// device names get a leading underscore, over-long names are shortened at a
+/// character boundary.
+pub fn portable_stem(stem: &str) -> String {
+    let mut s = stem.to_string();
+    let base = s
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
+    if RESERVED.contains(&base.as_str()) {
+        s.insert(0, '_');
+    }
+    if s.len() > MAX_STEM_BYTES {
+        let mut cut = MAX_STEM_BYTES;
+        while !s.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        s.truncate(cut);
+        s = s.trim_end_matches(['.', ' ']).to_string();
+    }
+    s
+}
+
+/// Full paths longer than this fail on Windows without long-path support.
+const MAX_PATH_WINDOWS: usize = 259;
 
 fn primary_file(conn: &Connection, track_id: &str) -> Result<Option<(String, String, bool)>> {
     Ok(conn
@@ -182,6 +220,8 @@ pub fn plan(
                 conflict = Some("exists".into());
             } else if target_dir.is_some_and(|d| !d.is_dir()) {
                 conflict = Some("no-target".into());
+            } else if cfg!(windows) && to_s.chars().count() > MAX_PATH_WINDOWS {
+                conflict = Some("path-too-long".into());
             }
         }
         if conflict.is_none() {
@@ -676,6 +716,22 @@ mod tests {
             .unwrap(),
             "AC_DC - Thunder (Extended Mix)"
         );
+        // Windows device names and over-long names stay portable.
+        assert_eq!(
+            render("{title}", &row("con", None)).unwrap().unwrap(),
+            "_con"
+        );
+        assert_eq!(
+            render("{title}", &row("Nul.Mix", None)).unwrap().unwrap(),
+            "_Nul.Mix"
+        );
+        assert_eq!(
+            render("{title}", &row("Console", None)).unwrap().unwrap(),
+            "Console"
+        );
+        let long = "é".repeat(150);
+        let r = render("{title}", &row(&long, None)).unwrap().unwrap();
+        assert!(r.len() <= 200 && r.chars().all(|c| c == 'é'));
         let mut empty = row("", None);
         empty.title = None;
         empty.artist = None;

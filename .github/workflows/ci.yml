@@ -5,6 +5,27 @@ on:
   pull_request:
 
 jobs:
+  # Known vulnerabilities in Rust and npm dependencies (audit DC-44).
+  # RUSTSEC-2026-0187 (lopdf stack overflow when *parsing* nested PDFs) is
+  # ignored: lopdf comes with printpdf, which Deep Cuts only uses to write
+  # PDF track lists; no PDF is ever read.
+  dependency-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --locked --quiet
+          cargo audit --ignore RUSTSEC-2026-0187
+      - name: npm audit
+        run: |
+          npm audit --audit-level=high
+          npm --prefix ui audit --audit-level=high
+
   test-and-build:
     strategy:
       fail-fast: false

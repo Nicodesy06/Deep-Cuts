@@ -29,8 +29,8 @@ Free · Open source · Offline · No account
 |---|---|
 | **Private by design** | Analysis, AI models and search run on your machine. No account, no telemetry, nothing uploaded. |
 | **Measured, not promised** | Every analysis and AI feature is tested on public benchmarks before it ships, and the numbers are published, weak spots included. |
-| **Speaks your DJ software** | Rekordbox XML, Traktor NML, Serato crates and VirtualDJ, in and out, with BPM, key, cues, loops and beatgrids. Rekordbox My Tags too. |
-| **Your files stay untouched** | Imports are read-only, tags are written only on request (dry run, copies, verification), nothing is deleted, everything can be undone. |
+| **Speaks your DJ software** | Rekordbox XML, Traktor NML, Serato crates and VirtualDJ, in and out, with BPM, key, cues, loops and beatgrids; round-trip tested per format, checks inside each application in progress. |
+| **Your files stay untouched** | Imports are read-only; tags are written only on request, to a verified copy; file moves are journalled and recovered after a crash; nothing is deleted, everything can be undone. |
 | **Fast on big libraries** | Built for 100,000+ tracks: the first page opens in 40 ms, searches take 1–120 ms. |
 | **Free and open** | GPL-3.0, no paid tier, an open SQLite library and a command-line tool on the same data. |
 
@@ -146,6 +146,7 @@ docs             architecture, feature matrix, test plan, benchmarks, licensing,
 * [Status report](docs/STATUS.md) · [Feature audit](docs/FEATURE_AUDIT.md) · [Competitor feature matrix](docs/COMPETITOR_FEATURE_MATRIX.md)
 * [Architecture & database](docs/ARCHITECTURE.md) · [Scope](docs/SCOPE.md)
 * [Test plan](docs/TEST_PLAN.md) · [Analysis/AI validation](docs/AI_VALIDATION.md) · [Benchmarks](docs/BENCHMARKS.md)
+* [Audit response](docs/AUDIT_RESPONSE.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
 * [Licensing](docs/LICENSING.md) · [Model research](docs/MODEL_RESEARCH.md) · [Legacy migration](docs/LEGACY_MIGRATION.md)
 
 ## Licence

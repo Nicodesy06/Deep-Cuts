@@ -179,3 +179,50 @@ fn my_tags_from_file_comments_m3u8_import_and_tag_playlists() {
     let again = mytag::scan_library(&conn).unwrap();
     assert_eq!(again.assignments, 0, "{again:?}");
 }
+
+/// Regression (audit DC-37): comments in Vorbis comments (FLAC and OGG) are
+/// read on import and after a re-import.
+#[test]
+fn flac_and_ogg_comments_are_read() {
+    if !has_ffmpeg() {
+        eprintln!("ffmpeg not available: skipping");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = Spec {
+        bpm: 124.0,
+        tonic: 0,
+        minor: false,
+        seconds: 3.0,
+        first_beat_s: 0.0,
+    };
+    let wav = make_track(tmp.path(), "src.wav", &spec);
+    let music = tmp.path().join("music");
+    std::fs::create_dir_all(&music).unwrap();
+    for (name, args) in [
+        ("a.flac", ["-c:a", "flac"]),
+        ("b.ogg", ["-c:a", "libvorbis"]),
+    ] {
+        assert!(
+            ffmpeg_encode(
+                &wav,
+                &music.join(name),
+                &args,
+                &[("comment", "warm-up opener"), ("title", name)]
+            ),
+            "{name}"
+        );
+    }
+    let mut conn = db::open(&tmp.path().join("lib.db")).unwrap();
+    for _ in 0..2 {
+        library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();
+        let comments: Vec<String> = conn
+            .prepare("SELECT ifnull(comment, '') FROM tracks ORDER BY title")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(comments, vec!["warm-up opener"; 2]);
+    }
+}

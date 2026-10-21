@@ -370,7 +370,8 @@ fn renamed_folder_marks_children_and_relinks() {
         .unwrap();
     assert_eq!(sib_missing, 0);
 
-    let rep = library::import_paths(&mut conn, &[renamed.clone()], None, &mut |_| {}).unwrap();
+    let rep = library::import_paths(&mut conn, std::slice::from_ref(&renamed), None, &mut |_| {})
+        .unwrap();
     assert_eq!(rep.relinked, 300, "{rep:?}");
     assert_eq!(rep.added, 0);
     let (missing, keep): (i64, i64) = conn
