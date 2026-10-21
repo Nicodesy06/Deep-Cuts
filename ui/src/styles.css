@@ -848,6 +848,9 @@ button.chip:hover {
 .tr-playing .td:nth-child(3) {
   color: var(--accent);
 }
+.row-playing td {
+  color: var(--accent);
+}
 .tr-missing {
   opacity: 0.55;
 }

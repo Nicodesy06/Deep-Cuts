@@ -21,6 +21,19 @@ function useRows(ids: string[]) {
   return rows;
 }
 
+/** Lets the player's next/previous walk a suggestion list (one entry per track). */
+function useNeighbours(ids: string[], rows: Map<string, TrackRow>) {
+  const { neighbourRef } = useApp();
+  useEffect(() => {
+    const order = [...new Set(ids)];
+    neighbourRef.current = (id, delta) => {
+      const i = order.indexOf(id);
+      return i < 0 ? undefined : rows.get(order[i + delta]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join(","), rows, neighbourRef]);
+}
+
 function EnergyPanel() {
   const { t, dataVersion, bump, openLibrary } = useApp();
   const act = useAction();
@@ -186,14 +199,16 @@ function StylesLine() {
 }
 
 function GenrePanel() {
-  const { t, bump, play } = useApp();
+  const { t, bump, play, nowPlaying } = useApp();
   const act = useAction();
   const [minShare, setMinShare] = useState(0.6);
   const [source, setSource] = useState<"labels" | "styles">("labels");
   const [rep, setRep] = useState<LabelReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const rows = useRows(rep?.suggestions.map((s) => s.trackId) ?? []);
+  const genreIds = rep?.suggestions.slice(0, 500).map((s) => s.trackId) ?? [];
+  const rows = useRows(genreIds);
+  useNeighbours(genreIds, rows);
   const run = async () => {
     setBusy(true);
     const r = await act(() => (source === "styles" ? api.dnaStyleGenreSuggestions(minShare - 0.2) : api.dnaGenreSuggestions(minShare)));
@@ -254,7 +269,7 @@ function GenrePanel() {
                 {rep.suggestions.slice(0, 500).map((s) => {
                   const r = rows.get(s.trackId);
                   return (
-                    <tr key={s.trackId}>
+                    <tr key={s.trackId} className={nowPlaying?.id === s.trackId ? "row-playing" : undefined}>
                       <td>
                         <input
                           type="checkbox"
@@ -297,13 +312,15 @@ function GenrePanel() {
 }
 
 function TagPanel() {
-  const { t, bump, dataVersion } = useApp();
+  const { t, bump, dataVersion, play, nowPlaying } = useApp();
   const act = useAction();
   const [rep, setRep] = useState<LabelReport | null>(null);
   const [pending, setPending] = useState<[string, string, string, number | null][]>([]);
   const [busy, setBusy] = useState(false);
   const [tagNames, setTagNames] = useState<Map<string, string>>(new Map());
-  const rows = useRows(pending.slice(0, 300).map((p) => p[0]));
+  const tagIds = pending.slice(0, 300).map((p) => p[0]);
+  const rows = useRows(tagIds);
+  useNeighbours(tagIds, rows);
   useEffect(() => {
     api.pendingTagSuggestions().then(setPending, () => setPending([]));
     api.listTags().then((ts) => setTagNames(new Map(ts.map((x) => [x.id, x.name]))), () => {});
@@ -357,7 +374,14 @@ function TagPanel() {
                 {pending.slice(0, 300).map(([track, tag, name, conf]) => {
                   const r = rows.get(track);
                   return (
-                    <tr key={track + tag}>
+                    <tr key={track + tag} className={nowPlaying?.id === track ? "row-playing" : undefined}>
+                      <td>
+                        {r && (
+                          <button className="icon-btn small" onClick={() => play(r, r.previewMs ?? 0)} aria-label={t("player.play")} title={t("player.play")}>
+                            ▶
+                          </button>
+                        )}
+                      </td>
                       <td>{r?.artist}</td>
                       <td>{r?.title}</td>
                       <td>#{name}</td>
