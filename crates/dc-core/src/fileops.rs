@@ -418,7 +418,7 @@ fn copy_verified(from: &Path, to: &Path) -> Result<()> {
     let result = (|| -> Result<()> {
         let want = file_hash(from)?;
         std::fs::copy(from, &partial)?;
-        std::fs::File::open(&partial)?.sync_all()?;
+        crate::util::sync_file(&partial)?;
         if file_hash(&partial)? != want {
             return Err(Error::Invalid(format!(
                 "copy of {} could not be verified",

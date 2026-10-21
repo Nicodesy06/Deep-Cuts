@@ -366,12 +366,37 @@ pub fn path_key(p: &Path) -> String {
         .into_owned()
 }
 
+/// `path_key` for a path that no longer exists: the nearest existing
+/// ancestor is canonicalised and the missing components are appended, so a
+/// vanished folder matches the stored (canonical) paths of its files even
+/// through symlinks such as macOS's /var -> /private/var.
+pub fn gone_path_key(p: &Path) -> String {
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = p.to_path_buf();
+    loop {
+        if let Ok(c) = dunce::canonicalize(&cur) {
+            let mut out = c;
+            for t in tail.iter().rev() {
+                out.push(t);
+            }
+            return out.to_string_lossy().into_owned();
+        }
+        match (cur.file_name().map(|n| n.to_os_string()), cur.parent()) {
+            (Some(name), Some(parent)) => {
+                tail.push(name);
+                cur = parent.to_path_buf();
+            }
+            _ => return path_key(p),
+        }
+    }
+}
+
 /// A watched path disappeared (file or folder): mark the file at that path
 /// and every file under it (whole path components only, so `/music/a` does
 /// not match `/music/ab`) as missing, if it is really gone from disk.
 /// Decisions and tags stay; a file that comes back is relinked on import.
 pub fn mark_missing_under(conn: &Connection, gone: &Path) -> Result<usize> {
-    let key = path_key(gone);
+    let key = gone_path_key(gone);
     let sep = std::path::MAIN_SEPARATOR;
     let prefix = if key.ends_with(sep) {
         key.clone()

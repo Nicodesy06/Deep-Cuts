@@ -384,3 +384,26 @@ fn renamed_folder_marks_children_and_relinks() {
         .unwrap();
     assert_eq!((missing, keep), (0, 301));
 }
+
+/// A vanished folder reached through a symlink (macOS: /var -> /private/var)
+/// still matches the canonical paths stored for its files.
+#[cfg(unix)]
+#[test]
+fn vanished_folder_behind_symlink_matches_stored_paths() {
+    let tmp = tempfile::tempdir().unwrap();
+    let real = tmp.path().join("real");
+    std::fs::create_dir_all(real.join("crate")).unwrap();
+    std::os::unix::fs::symlink(&real, tmp.path().join("alias")).unwrap();
+    tone(&real.join("crate/a.wav"), 120.0);
+    let mut conn = db::open(&tmp.path().join("lib.db")).unwrap();
+    let via_alias = tmp.path().join("alias/crate");
+    library::import_paths(
+        &mut conn,
+        std::slice::from_ref(&via_alias),
+        None,
+        &mut |_| {},
+    )
+    .unwrap();
+    std::fs::remove_dir_all(real.join("crate")).unwrap();
+    assert_eq!(library::mark_missing_under(&conn, &via_alias).unwrap(), 1);
+}

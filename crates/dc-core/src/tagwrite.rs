@@ -475,7 +475,7 @@ pub(crate) fn rewrite_file(
                 "injected failure before replacing the file".into(),
             ));
         }
-        std::fs::File::open(&staged)?.sync_all()?;
+        crate::util::sync_file(&staged)?;
         // From here the database must follow the file: note it first, so a
         // failed refresh or a crash is reconciled at the next start.
         mark_pending_refresh(conn, &file_id, track_id, path_str)?;
@@ -553,7 +553,7 @@ fn mark_pending_refresh(
     let body = serde_json::json!({ "fileId": file_id, "trackId": track_id, "path": path });
     let p = dir.join(format!("{file_id}.json"));
     std::fs::write(&p, serde_json::to_vec(&body)?)?;
-    std::fs::File::open(&p)?.sync_all()?;
+    crate::util::sync_file(&p)?;
     Ok(())
 }
 

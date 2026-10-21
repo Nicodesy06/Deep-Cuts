@@ -59,3 +59,12 @@ pub fn atomic<T>(
         f(conn)
     }
 }
+
+/// Flush a file's contents to disk. Opened for writing: Windows refuses to
+/// flush a read-only handle ("Access is denied").
+pub fn sync_file(path: &std::path::Path) -> std::io::Result<()> {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)?
+        .sync_all()
+}
