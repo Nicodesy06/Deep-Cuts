@@ -1,5 +1,7 @@
 //! Text search by description ("dark rolling techno with a deep bass") with
-//! LAION-CLAP, `laion/larger_clap_music` (Apache-2.0). An optional download:
+//! LAION-CLAP, `laion/larger_clap_general` (Apache-2.0; trained on music,
+//! speech and general audio — the Hugging Face `larger_clap_music` weights
+//! give nearly identical embeddings for every input, see AI_VALIDATION.md). An optional download:
 //! the audio encoder (fp32) and the text encoder (int8, dynamic
 //! quantisation) exported to ONNX by `scripts/export_clap_onnx.py`, plus the
 //! model's RoBERTa tokenizer, hosted as assets of a Deep Cuts GitHub release.
@@ -15,12 +17,12 @@
 use crate::error::{Error, Result};
 use std::path::PathBuf;
 
-pub const MODEL: &str = "laion-clap-music";
-pub const MODEL_VERSION: &str = "1";
+pub const MODEL: &str = "laion-clap-general";
+pub const MODEL_VERSION: &str = "2";
 pub const LICENSE: &str =
-    "Apache-2.0 — LAION, laion/larger_clap_music (exported to ONNX for Deep Cuts)";
+    "Apache-2.0 — LAION, laion/larger_clap_general (exported to ONNX for Deep Cuts)";
 pub const SIZE_MB: u32 = 400;
-const BASE: &str = "https://github.com/Nicodesy06/Deep-Cuts/releases/download/models-clap-1";
+const BASE: &str = "https://github.com/Nicodesy06/Deep-Cuts/releases/download/models-clap-2";
 pub const AUDIO_FILE: &str = "clap_audio.onnx";
 pub const TEXT_FILE: &str = "clap_text.onnx";
 pub const TOKENIZER_FILE: &str = "clap_tokenizer.json";
@@ -28,11 +30,11 @@ pub const TOKENIZER_FILE: &str = "clap_tokenizer.json";
 pub const FILES: &[(&str, &str)] = &[
     (
         AUDIO_FILE,
-        "d128853b59387ca880741b69b7db8945bc705854ba424239d285b1b5becb8ff3",
+        "f7309a2dcb78e4d973bfe80bb17fe85d5993b118fc4c499c891abbe6d9be4faf",
     ),
     (
         TEXT_FILE,
-        "81d2c60b9563cdecb2bea15e8fe84b542509baaa7c9edaad68fa751ffd710a9a",
+        "a62cd414ed10a9478a482306e73f6e5425f70112e08491f689d1d640d9812414",
     ),
     (
         TOKENIZER_FILE,

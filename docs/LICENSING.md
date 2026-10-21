@@ -50,10 +50,10 @@ third-party notices with the installers. This is listed under Phase 9.
 * MAEST (`discogs-maest-30s-pw-2.onnx`, Alonso-Jiménez, Serra & Bogdanov, ISMIR 2023; MTG):
   **CC BY-NC-SA 4.0**, a separate opt-in ("accurate styles", 332 MB) from the same server, also
   BLAKE3-checked.
-* LAION-CLAP `laion/larger_clap_music` (LAION, **Apache-2.0**) for text search. Exported to ONNX
+* LAION-CLAP `laion/larger_clap_general` (LAION, **Apache-2.0**) for text search. Exported to ONNX
   by `scripts/export_clap_onnx.py` in `.github/workflows/models.yml` (pinned Hugging Face
   revision) and attached, with the model card and tokenizer, to this repository's pre-release
-  `models-clap-1`; the app downloads it from there on request and checks BLAKE3 hashes. Apache-2.0
+  `models-clap-2`; the app downloads it from there on request and checks BLAKE3 hashes. Apache-2.0
   allows this redistribution; the model card travels with the files. The tokenizer is read with
   Hugging Face `tokenizers` (Apache-2.0).
 

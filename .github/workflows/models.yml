@@ -1,8 +1,8 @@
 name: Models
 
-# Exports the optional CLAP text search model (laion/larger_clap_music,
+# Exports the optional CLAP text search model (laion/larger_clap_general,
 # Apache-2.0) to ONNX with scripts/export_clap_onnx.py and attaches the
-# files to the pre-release "models-clap-1", where the app downloads them
+# files to the pre-release "models-clap-2", where the app downloads them
 # (crates/dc-core/src/clap.rs pins their BLAKE3 hashes). Runs on a branch
 # push whose commit message contains "[models]".
 on:
@@ -17,8 +17,8 @@ jobs:
     if: contains(github.event.head_commit.message, '[models]')
     runs-on: ubuntu-24.04
     env:
-      HF_REV: a0b4534a14f58e20944452dff00a22a06ce629d1
-      TAG: models-clap-1
+      HF_REV: ada0c23a36c4e8582805bb38fec3905903f18b41
+      TAG: models-clap-2
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -29,11 +29,11 @@ jobs:
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch==2.11.0
           pip install transformers==5.20.2 onnx==1.23.2 onnxruntime==1.31.0 onnxscript==0.7.2 numpy==2.5.4 blake3
-      - name: Fetch laion/larger_clap_music
+      - name: Fetch laion/larger_clap_general
         run: |
           mkdir -p hf
           for f in config.json preprocessor_config.json tokenizer_config.json special_tokens_map.json tokenizer.json vocab.json merges.txt pytorch_model.bin README.md; do
-            curl -fsSL --retry 4 -o "hf/$f" "https://huggingface.co/laion/larger_clap_music/resolve/$HF_REV/$f"
+            curl -fsSL --retry 4 -o "hf/$f" "https://huggingface.co/laion/larger_clap_general/resolve/$HF_REV/$f"
           done
       - name: Export and check
         run: |
@@ -45,7 +45,7 @@ jobs:
           python -c "import blake3,os;[print(f, blake3.blake3(open('assets/'+f,'rb').read()).hexdigest()) for f in sorted(os.listdir('assets'))]" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish
         run: |
-          notes="LAION-CLAP (laion/larger_clap_music, revision $HF_REV, Apache-2.0 — LAION) exported to ONNX for Deep Cuts' optional text search: audio encoder (fp32) and text encoder (int8 dynamic quantisation), plus the model's tokenizer and model card. Built by .github/workflows/models.yml from commit ${GITHUB_SHA}."
+          notes="LAION-CLAP (laion/larger_clap_general, revision $HF_REV, Apache-2.0 — LAION) exported to ONNX for Deep Cuts' optional text search: audio encoder (fp32) and text encoder (int8 dynamic quantisation), plus the model's tokenizer and model card. Built by .github/workflows/models.yml from commit ${GITHUB_SHA}."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" assets/* --clobber
           else

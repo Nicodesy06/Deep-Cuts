@@ -1,5 +1,27 @@
 # Analysis & AI validation protocol
 
+## Text search: LAION-CLAP (added 2026-10-21, optional)
+
+`laion/larger_clap_general` (LAION, Apache-2.0) embeds audio and text in one space. Deep Cuts'
+front-end (`clap.rs`) reproduces `ClapFeatureExtractor` to 2e-3 dB; Rust embeddings of real
+tracks match PyTorch with cosine ≥ 0.9999996; the int8 text encoder stays within cosine 0.98 of
+fp32 with no loss on the test below. A track is described by three 10 s windows (30/50/70 %).
+
+**Checkpoint choice.** The music-specific `laion/larger_clap_music` on Hugging Face was tried
+first and rejected: with the reference PyTorch code (transformers 4.46 and 5.20) every input,
+white noise and a pure tone included, gets nearly the same embedding (mean cosine 0.96 between
+tracks) and all text matches are ≈ 0.01. The export script now refuses a checkpoint that cannot
+tell white noise from a tone. `larger_clap_general` and `larger_clap_music_and_speech` pass that
+check; on the genre test below the general model scored higher (mean Precision@10 19.6 % vs
+13.0 %) and is the one offered.
+
+Zero-shot genre retrieval on GiantSteps Key (604 tracks, 23 Beatport genres, query
+"`<genre>` music", `deepcuts clap-eval`): mean **Precision@10 19.6 %** against a mean chance
+level of 4.3 %. Strong on Drum & Bass (100 %), Trance (60 %), Tech House (50 %), Dubstep and Pop
+Rock (40 %); 0 % on Progressive House, Electro House, Minimal and Breaks. Using the best query as
+a genre classifier gives 16.6 % (majority class 14.6 %): it is a search aid for descriptions,
+not a sub-genre classifier. 1.0 s per track on a 4-core CPU.
+
 ## Accurate styles: MAEST (added 2026-10-21, optional)
 
 MAEST-30s (MTG, CC BY-NC-SA 4.0, `discogs-maest-30s-pw-2`) predicts the same 400 Discogs styles

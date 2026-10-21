@@ -1,4 +1,4 @@
-"""Export LAION-CLAP (laion/larger_clap_music, Apache-2.0) to two ONNX files
+"""Export LAION-CLAP (laion/larger_clap_general, Apache-2.0) to two ONNX files
 for Deep Cuts' optional text search: an audio encoder and a text encoder,
 both ending in the 512-dim joint projection, L2-normalised (as
 `get_audio_features` / `get_text_features`).
