@@ -39,3 +39,17 @@ The 400 Discogs style names (from the metadata of Discogs-EffNet, Music
 Technology Group, UPF). The model itself is **not** included: it is licensed
 CC BY-NC-SA 4.0 (non-commercial) and the app downloads it from
 essentia.upf.edu only after the user accepts that licence (BLAKE3-checked).
+
+## Optional downloads (not in this folder)
+
+- **MAEST** `discogs-maest-30s-pw-2.onnx` (MTG, CC BY-NC-SA 4.0): "accurate styles",
+  downloaded from essentia.upf.edu on request, BLAKE3-checked.
+- **LAION-CLAP** `laion/larger_clap_music` (Apache-2.0): `clap_audio.onnx` (fp32),
+  `clap_text.onnx` (int8 dynamic quantisation; cosine to fp32 ≥ 0.9997 on test
+  phrases) and `clap_tokenizer.json`, exported by `scripts/export_clap_onnx.py`
+  in `.github/workflows/models.yml` and attached to the GitHub pre-release
+  `models-clap-1` with the model card. The CI export is byte-identical to a
+  local export with the same pinned versions.
+- **Beat This!** `final0` (JKU, MIT) can be exported with
+  `scripts/export_beat_this_onnx.py` for `deepcuts beat-eval`; it is not shipped
+  (see docs/AI_VALIDATION.md).

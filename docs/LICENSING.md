@@ -43,7 +43,26 @@ third-party notices with the installers. This is listed under Phase 9.
   shows the licence and downloads it from the MTG server only when the user chooses it, then
   checks a fixed BLAKE3 hash. Its use for paid work may count as commercial; the MTG offers
   other licences on request. Style names (`models/discogs_styles.txt`) are the Discogs taxonomy
-  labels from the model's metadata.
+  labels from the model's metadata. The same download includes the MTG classification heads
+  on its embedding (danceability, moods, voice/instrumental, engagement, approachability),
+  MSD-MusiCNN and the emoMusic arousal/valence head — all hosted by Essentia under the same
+  **CC BY-NC-SA 4.0** terms.
+* MAEST (`discogs-maest-30s-pw-2.onnx`, Alonso-Jiménez, Serra & Bogdanov, ISMIR 2023; MTG):
+  **CC BY-NC-SA 4.0**, a separate opt-in ("accurate styles", 332 MB) from the same server, also
+  BLAKE3-checked.
+* LAION-CLAP `laion/larger_clap_music` (LAION, **Apache-2.0**) for text search. Exported to ONNX
+  by `scripts/export_clap_onnx.py` in `.github/workflows/models.yml` (pinned Hugging Face
+  revision) and attached, with the model card and tokenizer, to this repository's pre-release
+  `models-clap-1`; the app downloads it from there on request and checks BLAKE3 hashes. Apache-2.0
+  allows this redistribution; the model card travels with the files. The tokenizer is read with
+  Hugging Face `tokenizers` (Apache-2.0).
+
+## Evaluated and not shipped
+
+* Beat This! (Foscarin, Schlüter & Widmer, ISMIR 2024; JKU Linz; code and weights **MIT**):
+  `crates/dc-core/src/beatnet.rs` reproduces its front-end and post-processing and
+  `scripts/export_beat_this_onnx.py` exports `final0`, but the model is not bundled because it did
+  not beat the existing tempo estimator on Beatport tempo labels (see `docs/AI_VALIDATION.md`).
 
 ## Evaluation corpora and learned parameters
 

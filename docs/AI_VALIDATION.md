@@ -1,5 +1,55 @@
 # Analysis & AI validation protocol
 
+## Accurate styles: MAEST (added 2026-10-21, optional)
+
+MAEST-30s (MTG, CC BY-NC-SA 4.0, `discogs-maest-30s-pw-2`) predicts the same 400 Discogs styles
+as EffNet with an audio transformer on 30 s patches. Its input is the same mel front-end
+standardised with the model's mean/std (2.0676 / 1.2683, from its preprocessor config); with that
+the ONNX graph matches Essentia's `TensorflowPredictMAEST` to 2e-7.
+
+Measured once on the first 150 tracks of the GiantSteps Key test list (143 with a mapped
+genre), same mapping and Electronic-only ranking as for EffNet:
+
+| Method (same 143 tracks) | Top-1 | Top-3 |
+|---|---|---|
+| Discogs-EffNet, Essentia reference | 37.8 % | 80.4 % |
+| MAEST, Essentia reference (all patches) | 62.9 % | 90.2 % |
+| **MAEST as run by Deep Cuts (≤ 3 central patches)** | **60.8 %** | **88.1 %** |
+
+Cost: about 3 s per 30 s patch on a loaded 4-core CPU (13 s per track for the whole style pack
+during this measurement, versus well under 1 s with EffNet), hence opt-in. The subset is small:
+the difference (23 points on 143 tracks) is far larger than its sampling error, the exact
+figures are not.
+
+## Beat This! beat tracker (evaluated 2026-10-21): not adopted
+
+Beat This! `final0` (JKU, MIT) runs through ONNX Runtime with its reference front-end
+(`beatnet.rs`, unit-tested against torchaudio values; ONNX vs PyTorch 2e-6) and its "minimal"
+post-processing. Tempo from its beats (`deepcuts beat-eval`):
+
+| Corpus | Estimator | Acc1 | Acc2 | Exact (±0.05) |
+|---|---|---|---|---|
+| GiantSteps Tempo v2 (661) | production dc-dsp 1.3.0 | 65.8 % | 88.2 % | 16.0 % |
+| | Beat This!, median interval | 83.2 % | 92.1 % | 3.2 % |
+| Beatport BPM, half A subset (276, development) | production dc-dsp 1.3.0 | **91.3 %** | **97.1 %** | **86.2 %** |
+| | Beat This!, median interval | 84.4 % | 95.3 % | 10.9 % |
+| | Beat This!, mean of steady intervals | 84.8 % | 95.7 % | 48.9 % |
+| | production moved to Beat This!'s octave | 86.2 % | 97.1 % | 81.5 % |
+
+GiantSteps' perceptual labels favour Beat This!'s octave choice, but on the Beatport labels a DJ
+library uses (the development set chosen beforehand for tempo decisions) every variant is worse
+than the current estimator, so the tempo and the beat grid are unchanged and the 83 MB model is
+not bundled. No beat or downbeat annotations were available to measure its grids directly.
+
+## Not integrated (assessed 2026-10-21)
+
+* **Demucs / HT-Demucs** (Meta, MIT; stem separation): no maintained ONNX export of the hybrid
+  transformer model (its complex STFT/iSTFT path does not export cleanly), and separating every track of a library on a CPU is a heavy
+  batch job (not measured here) for little gain in library management. Stems are better produced on demand by the DJ software that plays them.
+* **All-In-One** (Kim & Nam, MIT; beats, downbeats, sections and labels): depends on Demucs
+  stems and on NATTEN neighbourhood-attention kernels, which have no ONNX Runtime equivalent.
+  Beat tracking was evaluated with Beat This! instead (above).
+
 ## Optional Discogs style model: Discogs-EffNet (added 2026-10-21)
 
 Discogs-EffNet (MTG, UPF; CC BY-NC-SA 4.0, downloaded by the user, not shipped) predicts 400

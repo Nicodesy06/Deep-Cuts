@@ -68,8 +68,12 @@ jobs:
 
             Your music files are never modified unless you explicitly write tags; the library lives in your user data folder. Checklist for testing on real hardware and DJ software: `docs/TEST_PLAN.md`.
 
+            Optional model downloads (offered inside the app, none required): Discogs styles + mood/feel/emotion pack (MTG, non-commercial licence, 26 MB + heads), "accurate styles" with MAEST (MTG, non-commercial, 332 MB) and text search by description with LAION-CLAP (Apache-2.0, about 400 MB). Measurements: `docs/AI_VALIDATION.md`.
+
             ---
 
             **Windows** — scarica `Deep.Cuts_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
+
+            Modelli facoltativi scaricabili dall'app: stili Discogs + mood/emozione (MTG, licenza non commerciale), "stili accurati" MAEST (MTG, non commerciale, 332 MB), ricerca per descrizione LAION-CLAP (Apache-2.0, circa 400 MB).
 
             **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel (senza il modello audio locale). Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
