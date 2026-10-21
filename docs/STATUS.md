@@ -12,7 +12,8 @@
 | **Online auto-tagger** (One Tagger-like): MusicBrainz, Deezer, iTunes, Discogs (personal token); fuzzy match with duration check, originals preferred over compilations, per-field selection, review before writing, undoable | `autotag`, Auto-tag dialog | `tests/autotag_apply.rs`, `tests/autotag_live.rs` (network, ignored by default, passing) |
 | **Local audio model** (PANNs MobileNetV1, AudioSet): genre, mood, vocals, instruments per track; **character** (bass weight, rhythmic drive, groove steadiness); GPU through CUDA / DirectML / CoreML, CPU fallback; can be switched off | `ml`, `dna::character`, Music DNA, track details | `tests/ml.rs`, CI `genre-eval`, GUI check |
 
-Audit and fixes after the first release (`FEATURE_AUDIT.md`): the model's embedding now gives
+Released as **v0.1.1** (pre-release: Windows x64, macOS Apple silicon, macOS Intel without the
+model). Audit and fixes after the first release (`FEATURE_AUDIT.md`): the model's embedding now gives
 each track a 32-dim sound vector used by similar tracks and by genre/tag suggestions (Beatport
 test set: genre suggestions 34 % → 42 % top-1, same-genre share in the top 10 30 % → 36 %); a
 Beatport genre classifier was trained and measured (36 %) and is not shipped; the Intel Mac build
