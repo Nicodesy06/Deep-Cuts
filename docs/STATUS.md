@@ -19,7 +19,7 @@ can be applied as genres, and replace the sound vector for similarity and label 
 Fixed: most UI settings (BPM range, export mapping, model toggle, key notation, auto-tagger options)
 were rejected by the backend and silently not saved; a test now checks every key the UI writes.
 
-v0.2.0: the Discogs pack also gives feel descriptors (danceability, moods, voice, engagement),
+v0.2.0 (released with installers for macOS, Windows and Linux; website: https://nicodesy06.github.io/Deep-Cuts/): the Discogs pack also gives feel descriptors (danceability, moods, voice, engagement),
 MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88 % top-1/top-3 vs
 38 % / 80 % for EffNet on the same 143 tracks; slower); optional **text search by description**
 (LAION-CLAP, Discover › Describe; Precision@10 20 % on genre queries, chance 4 %); My Tags read
