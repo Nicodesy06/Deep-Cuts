@@ -65,7 +65,9 @@ pub fn read(path: &Path) -> Result<FileMetadata> {
         m.artist = clean(tag.artist());
         m.album = clean(tag.album());
         m.genre = clean(tag.genre());
-        m.comment = clean(tag.comment());
+        // Vorbis comments (FLAC, OGG) map COMMENT to ItemKey::Description.
+        m.comment =
+            clean(tag.comment()).or_else(|| clean_str(tag.get_string(ItemKey::Description)));
         m.album_artist = clean_str(tag.get_string(ItemKey::AlbumArtist));
         m.label = clean_str(tag.get_string(ItemKey::Label))
             .or_else(|| clean_str(tag.get_string(ItemKey::Publisher)));

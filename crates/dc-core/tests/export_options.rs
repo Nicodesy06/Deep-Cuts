@@ -79,6 +79,7 @@ fn mapping_chapters_and_virtualdj_filters() {
             genre_with_subgenre: true,
         },
         chapters: true,
+        my_tag_playlists: true,
     };
     let lib = djlib::whole_library_with(&conn, opts).unwrap();
     let ta = lib.tracks.iter().find(|t| t.row.id == a).unwrap();

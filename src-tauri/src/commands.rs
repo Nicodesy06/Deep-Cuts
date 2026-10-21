@@ -810,6 +810,42 @@ pub async fn match_playlist_file(
     .await
 }
 
+/// Import an M3U/M3U8 file as a playlist (missing files imported first).
+#[tauri::command]
+pub async fn import_m3u(
+    state: State<'_, AppState>,
+    path: String,
+) -> Res<dc_core::m3uimport::M3uImport> {
+    let r = blocking(state.db_path.clone(), move |c| {
+        dc_core::m3uimport::import(c, std::path::Path::new(&path))
+    })
+    .await?;
+    if !r.new_track_ids.is_empty() {
+        with_conn!(state, |c| jobs::enqueue_analysis(
+            &c,
+            &r.new_track_ids,
+            false
+        ))?;
+    }
+    Ok(r)
+}
+
+/// Read Rekordbox My Tags from the comments of every track.
+#[tauri::command]
+pub fn mytag_scan(state: State<'_, AppState>) -> Res<dc_core::mytag::MyTagReport> {
+    with_conn!(state, |c| dc_core::mytag::scan_library(&c))
+}
+
+/// One M3U8 per My Tag into a folder; returns the number of files.
+#[tauri::command]
+pub fn mytag_export_m3u8(state: State<'_, AppState>, dir: String) -> Res<usize> {
+    with_conn!(state, |c| dc_core::mytag::export_m3u8(
+        &c,
+        std::path::Path::new(&dir)
+    )
+    .map(|v| v.len()))
+}
+
 #[tauri::command]
 pub fn create_matched_playlist(
     state: State<'_, AppState>,

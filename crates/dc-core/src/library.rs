@@ -272,6 +272,10 @@ pub struct ImportReport {
     pub relinked: usize,
     pub failed: Vec<ImportFailure>,
     pub added_track_ids: Vec<String>,
+    /// Existing tracks whose file changed (re-read metadata).
+    pub updated_track_ids: Vec<String>,
+    /// Rekordbox My Tags found in the comments of added/changed files.
+    pub my_tags: Option<crate::mytag::MyTagReport>,
     pub elapsed_ms: i64,
     pub cancelled: bool,
 }
@@ -460,6 +464,7 @@ pub fn import_paths(
                     update_file_row(&tx, file_id, &s, meta, hash, now)?;
                     apply_file_metadata(&tx, &track_id, meta)?;
                     refresh_fts(&tx, &track_id)?;
+                    report.updated_track_ids.push(track_id);
                     report.updated += 1;
                 }
                 (Ok((meta, hash)), None) => {
@@ -517,6 +522,20 @@ pub fn import_paths(
             done,
             total,
         });
+    }
+    if crate::mytag::enabled_on_import(conn) {
+        let ids: Vec<String> = report
+            .added_track_ids
+            .iter()
+            .chain(&report.updated_track_ids)
+            .cloned()
+            .collect();
+        if !ids.is_empty() {
+            let r = crate::mytag::import_for_tracks(conn, &ids)?;
+            if r.tracks > 0 {
+                report.my_tags = Some(r);
+            }
+        }
     }
     report.elapsed_ms = now_ms() - started;
     audit(

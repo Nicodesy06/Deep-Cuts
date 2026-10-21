@@ -78,6 +78,15 @@ enum Cmd {
         #[arg(long)]
         create: bool,
     },
+    /// Import an M3U/M3U8 file as a playlist (files not in the library are
+    /// imported first; My Tags in their comments are read)
+    ImportM3u { file: PathBuf },
+    /// Rekordbox My Tags in comments: `mytags scan` reads them from every
+    /// track's comment, `mytags export <dir>` writes one M3U8 per My Tag
+    Mytags {
+        action: String,
+        dir: Option<PathBuf>,
+    },
     /// Export to a DJ app: the whole library with playlists (no --query),
     /// or the tracks matching --query as one playlist. Target: .xml/.nml
     /// file, _Serato_ folder, or a folder for .vdjfolder playlists.
@@ -517,6 +526,42 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             let rep = dc_core::djlib::import_from(&mut conn, &app, &path)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
         }
+        Cmd::ImportM3u { file } => {
+            let r = dc_core::m3uimport::import(&mut conn, &file)?;
+            println!(
+                "\"{}\": {} entries, {} already in the library, {} imported, {} not found",
+                r.name,
+                r.entries,
+                r.in_library,
+                r.imported,
+                r.missing.len()
+            );
+            for m in &r.missing {
+                println!("  missing: {m}");
+            }
+            if let Some(t) = r.my_tags {
+                println!("My Tags: {} tracks, {} new tags", t.tracks, t.tags);
+            }
+        }
+        Cmd::Mytags { action, dir } => match (action.as_str(), dir) {
+            ("scan", _) => {
+                let r = dc_core::mytag::scan_library(&conn)?;
+                println!(
+                    "{} tracks with My Tags; {} new tags, {} new assignments",
+                    r.tracks, r.tags, r.assignments
+                );
+            }
+            ("export", Some(dir)) => {
+                for f in dc_core::mytag::export_m3u8(&conn, &dir)? {
+                    println!("{}", f.display());
+                }
+            }
+            _ => {
+                return Err(dc_core::Error::Invalid(
+                    "usage: mytags scan | mytags export <dir>".into(),
+                ));
+            }
+        },
         Cmd::MatchPlaylist { file, create } => {
             let rep = dc_core::playlist_match::read_and_match(&conn, &file)?;
             for r in &rep.rows {

@@ -18,6 +18,34 @@ const PLATFORMS: { name: string; app?: DjApp; importFrom?: Target; exportTo?: Ta
   { name: "djay Pro", notes: "sync.djayNotes" },
 ];
 
+function MyTagToggles() {
+  const { t, toast } = useApp();
+  const [s, setS] = useState<Record<string, string>>({});
+  useEffect(() => {
+    api.getSettings().then(setS, () => {});
+  }, []);
+  const toggle = (key: string, label: string) => (
+    <label className="toggle">
+      <input
+        type="checkbox"
+        checked={s[key] !== "false"}
+        onChange={(e) => {
+          const v = e.target.checked ? "true" : "false";
+          setS({ ...s, [key]: v });
+          api.setSetting(key, v).catch((err) => toast(String(err), "error"));
+        }}
+      />
+      {label}
+    </label>
+  );
+  return (
+    <div className="stack">
+      {toggle("myTagsFromComments", t("mytag.onImport"))}
+      {toggle("exportMyTagPlaylists", t("mytag.inExports"))}
+    </div>
+  );
+}
+
 export function SyncExport() {
   const { t, toast, bump, dataVersion } = useApp();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -127,6 +155,27 @@ export function SyncExport() {
               {t("match.button")}
             </button>
             <p className="hint">{t("match.buttonHint")}</p>
+            <button
+              className="btn"
+              onClick={async () => {
+                const r = await open({ multiple: false, title: t("m3u.choose"), filters: [{ name: "M3U", extensions: ["m3u", "m3u8"] }] });
+                if (typeof r !== "string") return;
+                try {
+                  const x = await api.importM3u(r);
+                  toast(
+                    t("m3u.done", { name: x.name, total: x.entries, inLib: x.inLibrary, imported: x.imported, missing: x.missing.length, tags: x.myTags?.assignments ?? 0 }),
+                    x.missing.length ? "info" : "ok",
+                  );
+                  if (x.missing.length) console.warn("missing files", x.missing);
+                } catch (e) {
+                  toast(String(e), "error");
+                }
+                bump();
+              }}
+            >
+              {t("m3u.button")}
+            </button>
+            <p className="hint">{t("m3u.hint")}</p>
           </div>
         </section>
         <section className="panel">
@@ -174,6 +223,42 @@ export function SyncExport() {
           </div>
         </section>
       </div>
+      <section className="panel">
+        <h2>{t("mytag.title")}</h2>
+        <p className="hint">{t("mytag.hint")}</p>
+        <div className="row wrap">
+          <button
+            className="btn"
+            onClick={async () => {
+              try {
+                const r = await api.myTagScan();
+                toast(t("mytag.scanned", { tracks: r.tracks, tags: r.tags, assignments: r.assignments }), "ok");
+              } catch (e) {
+                toast(String(e), "error");
+              }
+              bump();
+            }}
+          >
+            {t("mytag.scan")}
+          </button>
+          <button
+            className="btn ghost"
+            onClick={async () => {
+              const dir = await open({ directory: true, multiple: false, title: t("mytag.exportDir") });
+              if (typeof dir !== "string") return;
+              try {
+                const n = await api.myTagExportM3u8(dir);
+                toast(t("mytag.exported", { n, dir }), "ok");
+              } catch (e) {
+                toast(String(e), "error");
+              }
+            }}
+          >
+            {t("mytag.export")}
+          </button>
+        </div>
+        <MyTagToggles />
+      </section>
       <ExportMappingPanel />
       <section className="panel">
         <h2>{t("write.title")}</h2>

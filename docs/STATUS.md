@@ -12,6 +12,11 @@
 | **Online auto-tagger** (One Tagger-like): MusicBrainz, Deezer, iTunes, Discogs (personal token); fuzzy match with duration check, originals preferred over compilations, per-field selection, review before writing, undoable | `autotag`, Auto-tag dialog | `tests/autotag_apply.rs`, `tests/autotag_live.rs` (network, ignored by default, passing) |
 | **Local audio model** (PANNs MobileNetV1, AudioSet): genre, mood, vocals, instruments per track; **character** (bass weight, rhythmic drive, groove steadiness); GPU through CUDA / DirectML / CoreML, CPU fallback; can be switched off | `ml`, `dna::character`, Music DNA, track details | `tests/ml.rs`, CI `genre-eval`, GUI check |
 
+After v0.1.1: Rekordbox My Tags in comments (`/* a / b */`) are read automatically when files are
+imported or change, and by "Scan all comments"; M3U/M3U8 playlists (e.g. from Rekordbox) import as
+playlists, adding missing files; every DJ export gets a "My Tag" folder with one playlist per tag,
+and one M3U8 per tag can be written. Fixed: FLAC/OGG comments were not read at all.
+
 Released as **v0.1.1** (pre-release: Windows x64, macOS Apple silicon, macOS Intel without the
 model). Audit and fixes after the first release (`FEATURE_AUDIT.md`): the model's embedding now gives
 each track a 32-dim sound vector used by similar tracks and by genre/tag suggestions (Beatport

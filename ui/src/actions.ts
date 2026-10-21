@@ -28,6 +28,7 @@ export async function importFolders(t: T, toast: Toast, bump: () => void, paths?
       }),
       rep.failed.length ? "info" : "ok",
     );
+    if (rep.myTags && rep.myTags.tracks > 0) toast(t("mytag.found", { tracks: rep.myTags.tracks, tags: rep.myTags.tags }), "ok");
     if (rep.failed.length) console.warn("import failures", rep.failed);
   } catch (e) {
     toast(String(e), "error");

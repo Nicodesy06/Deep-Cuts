@@ -27,6 +27,7 @@ pub mod jobs;
 pub mod keys;
 pub mod keystudy;
 pub mod library;
+pub mod m3uimport;
 pub mod map;
 pub mod metadata;
 pub mod ml;

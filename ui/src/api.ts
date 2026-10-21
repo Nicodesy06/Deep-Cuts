@@ -448,8 +448,25 @@ export interface ImportReport {
   relinked: number;
   failed: { path: string; error: string }[];
   addedTrackIds: string[];
+  myTags?: MyTagReport | null;
   elapsedMs: number;
   cancelled: boolean;
+}
+
+export interface MyTagReport {
+  tracks: number;
+  tags: number;
+  assignments: number;
+}
+
+export interface M3uImport {
+  playlistId: string | null;
+  name: string;
+  entries: number;
+  inLibrary: number;
+  imported: number;
+  missing: string[];
+  myTags: MyTagReport | null;
 }
 
 export interface ImportProgress {
@@ -702,6 +719,9 @@ export const api = {
   prefixPlaylists: (ids: string[], prefix: string) => invoke<number>("prefix_playlists", { ids, prefix }),
   trackPlaylists: (id: string) => invoke<PlaylistOccurrence[]>("track_playlists", { id }),
   matchPlaylistFile: (path: string) => invoke<MatchReport>("match_playlist_file", { path }),
+  importM3u: (path: string) => invoke<M3uImport>("import_m3u", { path }),
+  myTagScan: () => invoke<MyTagReport>("mytag_scan"),
+  myTagExportM3u8: (dir: string) => invoke<number>("mytag_export_m3u8", { dir }),
   createMatchedPlaylist: (name: string, trackIds: string[]) => invoke<string>("create_matched_playlist", { name, trackIds }),
   csvRead: (path: string) => invoke<CsvSheet>("csv_read", { path }),
   csvPreview: (path: string, mapping: CsvMapping) => invoke<CsvPreview>("csv_preview", { path, mapping }),

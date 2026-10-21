@@ -74,6 +74,10 @@ pub struct ExportOptions {
     pub mapping: FieldMapping,
     /// Export each chapter of a set as its own playlist next to the set.
     pub chapters: bool,
+    /// One playlist per Rekordbox My Tag in a "My Tag" folder (Rekordbox
+    /// cannot import My Tag values, but a playlist per tag lets you select
+    /// its tracks and set the My Tag in one step).
+    pub my_tag_playlists: bool,
 }
 
 impl ExportOptions {
@@ -87,7 +91,15 @@ impl ExportOptions {
             .ok()
             .flatten()
             .is_none_or(|v| v != "false");
-        ExportOptions { mapping, chapters }
+        let my_tag_playlists = library::get_setting(conn, "exportMyTagPlaylists")
+            .ok()
+            .flatten()
+            .is_none_or(|v| v != "false");
+        ExportOptions {
+            mapping,
+            chapters,
+            my_tag_playlists,
+        }
     }
 }
 
@@ -324,6 +336,19 @@ pub fn whole_library_with(conn: &Connection, opts: ExportOptions) -> Result<Expo
             name: name.clone(),
             tracks,
         });
+    }
+    if b.opts.my_tag_playlists {
+        for (name, ids) in crate::mytag::tag_tracks(conn)? {
+            let mut tracks = Vec::with_capacity(ids.len());
+            for t in &ids {
+                tracks.push(b.idx(t)?);
+            }
+            b.lib.playlists.push(XPlaylist {
+                folders: vec![crate::mytag::PARENT.to_string()],
+                name,
+                tracks,
+            });
+        }
     }
     Ok(b.lib)
 }

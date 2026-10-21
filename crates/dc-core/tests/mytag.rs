@@ -4,7 +4,7 @@ mod common;
 
 use common::*;
 use dc_core::query::{TrackQuery, query_tracks};
-use dc_core::{db, library, rekordbox};
+use dc_core::{db, djlib, library, m3uimport, mytag, rekordbox};
 
 #[test]
 fn my_tags_from_rekordbox_comments() {
@@ -69,4 +69,113 @@ fn my_tags_from_rekordbox_comments() {
         .my_tags
         .unwrap();
     assert_eq!((mt.tags, mt.assignments), (0, 0), "{mt:?}");
+}
+
+#[test]
+fn my_tags_from_file_comments_m3u8_import_and_tag_playlists() {
+    if !has_ffmpeg() {
+        eprintln!("ffmpeg not available: skipping");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = Spec {
+        bpm: 124.0,
+        tonic: 0,
+        minor: false,
+        seconds: 3.0,
+        first_beat_s: 0.0,
+    };
+    let wav = make_track(tmp.path(), "src.wav", &spec);
+    let music = tmp.path().join("music");
+    let more = tmp.path().join("more");
+    std::fs::create_dir_all(&music).unwrap();
+    std::fs::create_dir_all(more.join("sub")).unwrap();
+    let flac = ["-c:a", "flac"];
+    assert!(ffmpeg_encode(
+        &wav,
+        &music.join("a.flac"),
+        &flac,
+        &[
+            ("comment", "/* Peak Time / Dark */ big room"),
+            ("title", "A")
+        ]
+    ));
+    assert!(ffmpeg_encode(
+        &wav,
+        &music.join("b.flac"),
+        &flac,
+        &[("title", "B")]
+    ));
+    assert!(ffmpeg_encode(
+        &wav,
+        &more.join("sub").join("c.flac"),
+        &flac,
+        &[("comment", "/* dark */"), ("title", "C")]
+    ));
+
+    // Folder import reads the My Tags in the file comments.
+    let mut conn = db::open(&tmp.path().join("lib.db")).unwrap();
+    let rep =
+        library::import_paths(&mut conn, std::slice::from_ref(&music), None, &mut |_| {}).unwrap();
+    let mt = rep.my_tags.unwrap();
+    assert_eq!((mt.tracks, mt.tags, mt.assignments), (1, 2, 2), "{mt:?}");
+    let q = |conn: &rusqlite::Connection, s: &str| {
+        query_tracks(
+            conn,
+            &TrackQuery {
+                query: s.into(),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .total
+    };
+    assert_eq!(q(&conn, "tag:Dark"), 1);
+    assert_eq!(q(&conn, "tag:\"My Tag\""), 1);
+
+    // An M3U8 (relative path, a library track, a missing file) becomes a
+    // playlist; the new file is imported and its My Tag read.
+    let list = more.join("Friday.m3u8");
+    std::fs::write(
+        &list,
+        format!(
+            "#EXTM3U\n#EXTINF:3,X - C\nsub/c.flac\n{}\nmissing.mp3\n",
+            music.join("a.flac").display()
+        ),
+    )
+    .unwrap();
+    let r = m3uimport::import(&mut conn, &list).unwrap();
+    assert_eq!((r.entries, r.in_library, r.imported), (3, 1, 1), "{r:?}");
+    assert_eq!(r.missing.len(), 1);
+    assert_eq!(r.name, "Friday");
+    let pl = r.playlist_id.unwrap();
+    let ids = library::playlist_track_ids(&conn, &pl).unwrap();
+    let titles: Vec<String> = ids
+        .iter()
+        .map(|i| library::get_track(&conn, i).unwrap().title.unwrap())
+        .collect();
+    assert_eq!(titles, vec!["C", "A"]);
+    assert_eq!(q(&conn, "tag:Dark"), 2);
+
+    // One playlist per My Tag: M3U8 files and a "My Tag" folder in DJ exports.
+    let out = tmp.path().join("out");
+    let files = mytag::export_m3u8(&conn, &out).unwrap();
+    let names: Vec<String> = files
+        .iter()
+        .map(|f| f.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, vec!["My Tag - Dark.m3u8", "My Tag - Peak Time.m3u8"]);
+    let dark = std::fs::read_to_string(&files[0]).unwrap();
+    assert!(dark.contains("c.flac") && dark.contains("a.flac"), "{dark}");
+    let lib = djlib::whole_library(&conn).unwrap();
+    let p = lib
+        .playlists
+        .iter()
+        .find(|p| p.folders == ["My Tag"] && p.name == "Dark")
+        .unwrap();
+    assert_eq!(p.tracks.len(), 2);
+
+    // Scanning the whole library again adds nothing new.
+    let again = mytag::scan_library(&conn).unwrap();
+    assert_eq!(again.assignments, 0, "{again:?}");
 }
