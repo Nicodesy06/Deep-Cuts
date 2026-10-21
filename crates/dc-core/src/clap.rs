@@ -20,7 +20,7 @@ pub const MODEL_VERSION: &str = "1";
 pub const LICENSE: &str =
     "Apache-2.0 — LAION, laion/larger_clap_music (exported to ONNX for Deep Cuts)";
 pub const SIZE_MB: u32 = 400;
-const BASE: &str = "https://github.com/nicodesy06/deep-cuts/releases/download/models-clap-1";
+const BASE: &str = "https://github.com/Nicodesy06/Deep-Cuts/releases/download/models-clap-1";
 pub const AUDIO_FILE: &str = "clap_audio.onnx";
 pub const TEXT_FILE: &str = "clap_text.onnx";
 pub const TOKENIZER_FILE: &str = "clap_tokenizer.json";
