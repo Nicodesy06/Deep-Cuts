@@ -107,7 +107,7 @@ export function GenreSourceDialog({ onClose }: { onClose: () => void }) {
               <strong>{t("styles.licenseTitle")}</strong> {st?.license}
             </p>
             <p className="hint">{t("styles.licenseHint", { mb: st?.sizeMb ?? 18 })}</p>
-            <label className="toggle choice">
+            <label className="toggle choice mt">
               <input type="checkbox" checked={accurate} onChange={(e) => setAccurate(e.target.checked)} disabled={busy} />
               <span>
                 <strong>{t("styles.accurate")}</strong>
