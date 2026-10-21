@@ -37,7 +37,7 @@ network requests; the CLI covers scripting). Rekordbox `master.db` (encrypted) i
 | Change | Measured |
 |---|---|
 | **Key**: reference-tuning estimate + new front-end and learned profiles (chosen on GiantSteps-MTG-Keys) | GiantSteps Key MIREX **64.8 % → 67.5 %**, exact **55.5 % → 59.3 %** |
-| **BPM precision**: 16-beat comb + snap to whole BPM when the signal supports it (chosen on half of the Beatport-labelled set) | Study: exact BPM on the other half **84.0 % → 89.1 %** (together with an octave change that was not adopted); the adopted combination is re-measured in CI |
+| **BPM precision**: 16-beat comb + snap to whole BPM when the signal supports it (chosen on half of the Beatport-labelled set) | Exact BPM (±0.05) on the held-out Beatport half **84.0 % → 86.9 %**, Accuracy1/2 unchanged there and on GiantSteps (CI run 39540659685) |
 | Tempo octave prior | Not adopted again: +2.6 Acc1 on Beatport labels but −4 Acc2 on GiantSteps |
 
 GiantSteps Tempo labels turned out to be perceptual and imprecise (the two published versions differ

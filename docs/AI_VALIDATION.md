@@ -32,9 +32,16 @@ tracks):
 
 The study also picked a stronger octave prior again (floor 0.1). As in the first tempo study it
 loses Accuracy2 on GiantSteps Tempo v2 (88.2 % → 84.1 %: more tempi not even octave-related), so
-**only the precision stage is adopted**; the octave decision is unchanged. The adopted combination
-is reported as "Production (this build)" by `deepcuts tempo-study --use` on the same hold-out half
-and on GiantSteps in the next evaluation run.
+**only the precision stage is adopted**; the octave decision is unchanged. The shipped combination,
+measured in CI run `39540659685`:
+
+| dc-dsp 1.3.0 (shipped) vs 1.2.0 | Accuracy1 | Accuracy2 | Exact (±0.05 BPM) | MAE on Acc1 hits |
+|---|---|---|---|---|
+| Beatport BPM, half B (hold-out) | 92.5 % → 92.5 % | 98.0 % → 98.0 % | **84.0 % → 86.9 %** | 0.030 → 0.027 BPM |
+| GiantSteps Tempo v2 | 65.8 % → 65.8 % | 88.2 % → 88.2 % | (labels not precise) | |
+
+Full analyser on GiantSteps (`deepcuts eval`, same run): key MIREX 67.5 %, exact 59.3 %; tempo
+Accuracy1 65.8 %, Accuracy2 88.2 % (v2 labels).
 
 ## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20; unchanged in 1.2.0)
 
