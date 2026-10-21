@@ -1,7 +1,7 @@
 {
   "name": "deep-cuts",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deep Cuts \u2014 free, local, AI-ready DJ library intelligence",
   "license": "GPL-3.0-or-later",
   "scripts": {
