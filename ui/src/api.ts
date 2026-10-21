@@ -250,6 +250,13 @@ export interface AutotagTrack {
   errors: string[];
 }
 
+export interface TrackCharacter {
+  bass: number | null;
+  drive: number | null;
+  steadiness: number | null;
+  model: { group: string; label: string; score: number; rank: number }[];
+}
+
 export interface WriteReport {
   written: number;
   unchanged: number;
@@ -728,6 +735,9 @@ export const api = {
   autotagRun: (ids: string[], options: AutotagOptions) => invoke<AutotagTrack[]>("autotag_run", { ids, options }),
   autotagCancel: () => invoke<void>("autotag_cancel"),
   autotagApply: (proposals: AutotagProposal[], keepBackup: boolean) => invoke<{ fields: number; artwork: WriteReport }>("autotag_apply", { proposals, keepBackup }),
+  trackCharacter: (id: string) => invoke<TrackCharacter>("track_character", { id }),
+  modelStatus: () => invoke<{ file: string | null; enabled: boolean; device: string | null; error: string | null }>("model_status"),
+  modelSuggestTags: () => invoke<number>("model_suggest_tags"),
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   undo: () => invoke<BatchInfo | null>("undo"),

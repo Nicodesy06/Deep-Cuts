@@ -482,3 +482,47 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
     groups.sort_by_key(|g| std::cmp::Reverse(g.tracks.len()));
     Ok(groups)
 }
+
+// ---------------------------------------------------------------------------
+// Track character: measured bass / groove descriptors + model outputs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Character {
+    /// 1–10 rank in the library of the share of energy below 150 Hz.
+    pub bass: Option<i64>,
+    /// 1–10 rank of the onset rate (busy, driving percussion = high).
+    pub drive: Option<i64>,
+    /// 1–10 rank of the beat periodicity strength (steady, locked groove = high).
+    pub steadiness: Option<i64>,
+    /// Audio model outputs (genre, mood, vocals, instruments).
+    pub model: Vec<crate::ml::ModelTag>,
+    pub model_device: Option<String>,
+}
+
+/// 1–10 position of `v` among `all` (ties share the lower rank).
+fn decile(all: &[f32], v: f32) -> i64 {
+    if all.is_empty() {
+        return 5;
+    }
+    let below = all.iter().filter(|x| **x < v).count();
+    ((below as f64 / all.len() as f64) * 10.0)
+        .floor()
+        .clamp(0.0, 9.0) as i64
+        + 1
+}
+
+pub fn character(conn: &Connection, track_id: &str) -> Result<Character> {
+    let all = crate::features::all(conn)?;
+    let mine = all.get(track_id).copied();
+    let col = |i: usize| -> Vec<f32> { all.values().map(|v| v[i]).collect() };
+    let rank = |i: usize| mine.map(|m| decile(&col(i), m[i]));
+    Ok(Character {
+        bass: rank(8),
+        drive: rank(10),
+        steadiness: rank(12),
+        model: crate::ml::for_track(conn, track_id)?,
+        model_device: None,
+    })
+}

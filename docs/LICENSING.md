@@ -24,6 +24,18 @@ Before every release, regenerate this table with `cargo tree -e normal --format 
 `npx license-checker-rseidelsohn --production` (or `cargo deny` with a licence policy) and ship
 third-party notices with the installers. This is listed under Phase 9.
 
+## Bundled model and inference runtime
+
+* `models/panns_mobilenetv1.onnx`: PANNs MobileNetV1 weights by Kong et al. (Zenodo 3987831),
+  **CC BY 4.0** — attribution in `models/README.md`, the About page and the shipped notices. Model
+  code (audioset_tagging_cnn) **MIT**. Converted by `scripts/export_panns_onnx.py`.
+* `models/audioset_labels.txt`: AudioSet ontology class names, Google, **CC BY-SA 4.0** (data file,
+  shipped unmodified with attribution; CC BY-SA 4.0 is one-way compatible with GPLv3).
+* ONNX Runtime (Microsoft, **MIT**) via the `ort` crate (MIT/Apache-2.0); prebuilt binaries
+  downloaded at build time from pyke's mirror of the official releases. DirectML (MIT) on Windows;
+  CUDA/cuDNN only when the user builds with `gpu-cuda` and has NVIDIA's runtime installed (not
+  redistributed by us).
+
 ## Evaluation corpora and learned parameters
 
 Audio of GiantSteps Key, GiantSteps Tempo and GiantSteps-MTG-Keys is downloaded only on CI

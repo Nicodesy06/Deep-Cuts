@@ -29,6 +29,7 @@ pub mod keystudy;
 pub mod library;
 pub mod map;
 pub mod metadata;
+pub mod ml;
 pub mod mytag;
 pub mod paths;
 pub mod playlist_match;

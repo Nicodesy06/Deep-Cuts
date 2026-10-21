@@ -11,6 +11,8 @@ on:
       - "crates/dc-core/src/eval.rs"
       - "crates/dc-core/src/keystudy.rs"
       - "crates/dc-core/src/tempostudy.rs"
+      - "crates/dc-core/src/ml.rs"
+      - "models/**"
       - "scripts/fetch_giantsteps.sh"
       - ".github/workflows/eval.yml"
 
@@ -126,6 +128,11 @@ jobs:
           ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v1.md --name "GiantSteps Tempo original (test)"
           cat eval-out/tempo-study-holdout.md eval-out/tempo-study-test-v2.md eval-out/tempo-study-test-v1.md eval-out/tempo-study-dev.md >> "$GITHUB_STEP_SUMMARY"
           cat eval-out/tempo-choice.json
+
+      - name: Audio model genre agreement (Beatport genres)
+        run: |
+          ./target/release/deepcuts genre-eval dev --genres gs-mtg/annotations/beatport_metadata.txt --out eval-out/genre-eval.md --name "GiantSteps-MTG-Keys, Beatport genres"
+          cat eval-out/genre-eval.md >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:

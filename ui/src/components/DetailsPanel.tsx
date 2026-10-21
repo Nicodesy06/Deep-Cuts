@@ -5,7 +5,7 @@ import { api, type Decision, type TrackDetail, type TrackRow } from "../api";
 import { formatBpm, formatDuration, sourceLabel } from "../format";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
-import { CueEditor, HistorySection, PlaylistsSection, TagsSection } from "./TrackExtras";
+import { CharacterSection, CueEditor, HistorySection, PlaylistsSection, TagsSection } from "./TrackExtras";
 import { GridEditor } from "./GridEditor";
 import { KeyChip } from "./TrackTable";
 
@@ -227,6 +227,7 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
 
       {d && <TagsSection d={d} onChanged={onChanged} />}
       {d && <PlaylistsSection trackId={d.track.id} />}
+      {d && <CharacterSection trackId={d.track.id} />}
 
       <div className="section-title">{t("details.metadata")}</div>
       {d &&

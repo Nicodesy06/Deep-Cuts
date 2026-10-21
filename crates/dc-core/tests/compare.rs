@@ -77,6 +77,7 @@ fn compare_with_imported_values_and_bpm_range() {
     let p = library::track_path(&conn, &id("b.wav")).unwrap();
     let opts = analysis::AnalyzeOptions {
         bpm_range: Some((60.0, 120.0)),
+        ..Default::default()
     };
     let a = analysis::analyze_file_with(&p, &|| false, &opts).unwrap();
     let t = a.result.tempo.unwrap();

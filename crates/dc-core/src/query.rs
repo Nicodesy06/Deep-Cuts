@@ -10,6 +10,7 @@
 //! * numeric fields accept `120`, `120-126`, `>120`, `>=120`, `<9`, `<=9`
 //! * `key:8A` (any notation: Am, A minor, 1m), `key:8A+` = harmonically compatible,
 //!   `key:8A++` = compatible or an energy move (+2 / +7)
+//! * `ai:techno`, `ai:"female singing"`: audio model labels (top three of their group)
 //! * `none` matches empty values: `genre:none`, `bpm:none`, `key:none`
 //! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`, `archived:yes`,
 //!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
@@ -290,6 +291,15 @@ impl Parser {
                 value,
                 1.0,
             ),
+            // ai:techno / ai:"female singing": among the track's top three
+            // labels of its group in the audio model's output.
+            "ai" => {
+                let p = self.param(Value::Text(value.to_string()));
+                Ok(format!(
+                    "EXISTS (SELECT 1 FROM model_tags m WHERE m.track_id = t.id AND m.rank <= 3 \
+                     AND m.score >= 0.05 AND m.label LIKE {p} || '%' COLLATE NOCASE)"
+                ))
+            }
             "key" if value.eq_ignore_ascii_case("none") => Ok("t.key_camelot IS NULL".into()),
             "key" => {
                 // key:8A+ = compatible, key:8A++ = compatible or an energy

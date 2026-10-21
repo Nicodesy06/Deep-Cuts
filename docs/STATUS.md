@@ -1,5 +1,21 @@
 # Status report
 
+## Increment 6 — Online tagging, exports, cue templates, audio model (2026-10-21)
+
+| Feature | Where | Verification |
+|---|---|---|
+| **BPM range** setting (fold the estimate by octaves into 60–120 … 98–195) and **comparison with Rekordbox/other imported values** (exact / close / octave / other; key same / fifth / relative / parallel) | `analysis::tempo`, `compare`, Settings, Analysis Queue | `tempo::tests`, `tests/compare.rs`, GUI check |
+| **Key notation rewrite** in file tags (original, Camelot, Open Key, musical); Camelot **energy moves** +2 / +7 labelled and searchable (`key:8A++`) | `tagwrite`, `similarity`, `query` | `tests/key_notation.rs`, `query::tests` |
+| **Cue templates and anchors** (first beat, main, n-th breakdown/drop, outro, end, bar offsets) | `cues`, Cue template dialog | `tests/cue_templates.rs`, GUI check |
+| **Exports**: smart crates as VirtualDJ filter rules, field mapping for the exported comment/genre, set chapters as separate crates, **HTML and PDF** track lists | `rules`, `djlib`, `vdj`, `printable` | `rules::tests`, `tests/export_options.rs` |
+| **Rekordbox My Tag** imported from the comment convention (`/* a / b */`) into a "My Tag" tag category | `mytag`, Rekordbox import | `tests/mytag.rs` |
+| **Online auto-tagger** (One Tagger-like): MusicBrainz, Deezer, iTunes, Discogs (personal token); fuzzy match with duration check, originals preferred over compilations, per-field selection, review before writing, undoable | `autotag`, Auto-tag dialog | `tests/autotag_apply.rs`, `tests/autotag_live.rs` (network, ignored by default, passing) |
+| **Local audio model** (PANNs MobileNetV1, AudioSet): genre, mood, vocals, instruments per track; **character** (bass weight, rhythmic drive, groove steadiness); GPU through CUDA / DirectML / CoreML, CPU fallback; can be switched off | `ml`, `dna::character`, Music DNA, track details | `tests/ml.rs`, CI `genre-eval`, GUI check |
+
+Not done: reading My Tag directly from Rekordbox 6/7's encrypted `master.db` (needs the database
+key; left to the owner's decision), and checks on real Windows/macOS hardware and in real DJ apps
+(see the checklist in `TEST_PLAN.md`).
+
 ## Increment 5 — Library tools, DJ software interop, Music DNA, automation (2026-10-21)
 
 Goal of this increment: every planned local feature in a usable state before improving the analysis.

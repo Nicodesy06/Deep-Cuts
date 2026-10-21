@@ -14,6 +14,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0006_archive.sql"),
     include_str!("migrations/0007_energy.sql"),
     include_str!("migrations/0008_recipes.sql"),
+    include_str!("migrations/0009_model_tags.sql"),
 ];
 
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;

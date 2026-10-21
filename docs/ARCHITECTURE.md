@@ -45,8 +45,9 @@
 | Pure DSP first, ONNX later | A real, testable analyser in the first build. Model weights need licence and accuracy validation before they ship. | Shipping a model on day one with unvalidated accuracy |
 
 **Python** is not used at runtime. It stays an option for offline research and model conversion (training,
-evaluation, ONNX export). Inference will run in Rust via ONNX Runtime (`ort` crate, CUDA / CoreML / CPU
-execution providers), so users never install Python.
+evaluation, ONNX export). Inference runs in Rust via ONNX Runtime (`ort` crate; CUDA / DirectML / CoreML /
+CPU execution providers, `dc-core::ml`), so users never install Python. The first model is PANNs
+MobileNetV1 (AudioSet tags), stored per track in `model_tags` (schema v9).
 
 ## Data model (schema v2: `crates/dc-core/src/migrations/0001_init.sql` + `0002_phase2.sql`)
 

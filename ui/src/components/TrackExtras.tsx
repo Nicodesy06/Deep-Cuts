@@ -1,6 +1,7 @@
 // Details-panel sections: tags, cue editor, change history.
 import { useEffect, useState } from "react";
-import { api, type Cue, type PlaylistOccurrence, type Tag, type TrackDetail, type TrackRow } from "../api";
+import { api, type Cue, type PlaylistOccurrence, type Tag, type TrackCharacter, type TrackDetail, type TrackRow } from "../api";
+import type { MsgKey } from "../i18n";
 import { formatDuration, sourceLabel } from "../format";
 import { useAction, useApp } from "../store";
 
@@ -204,6 +205,57 @@ export function HistorySection({ d }: { d: TrackDetail }) {
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+/** Measured bass/groove descriptors and the audio model's outputs. */
+export function CharacterSection({ trackId }: { trackId: string }) {
+  const { t, dataVersion } = useApp();
+  const [c, setC] = useState<TrackCharacter | null>(null);
+  useEffect(() => {
+    api.trackCharacter(trackId).then(setC, () => setC(null));
+  }, [trackId, dataVersion]);
+  if (!c || (c.bass == null && c.model.length === 0)) return null;
+  const groups = ["genre", "mood", "vocals", "instrument"];
+  return (
+    <>
+      <div className="section-title">{t("character.title")}</div>
+      {c.bass != null && (
+        <div className="character-measured">
+          {(["bass", "drive", "steadiness"] as const).map((k) => (
+            <div key={k} className="char-row" title={t(`character.${k}Hint` as MsgKey)}>
+              <span>{t(`character.${k}` as MsgKey)}</span>
+              <span className="eb-track">
+                <span className="eb-fill" style={{ width: `${(c[k] ?? 0) * 10}%` }} />
+              </span>
+              <span className="num">{c[k]}/10</span>
+            </div>
+          ))}
+          <div className="hint">{t("character.measuredHint")}</div>
+        </div>
+      )}
+      {c.model.length > 0 && (
+        <div className="character-model">
+          {groups.map((g) => {
+            const top = c.model.filter((m) => m.group === g).slice(0, 3);
+            if (top.length === 0) return null;
+            return (
+              <div key={g} className="char-group">
+                <span className="muted small">{t(`character.g.${g}` as MsgKey)}</span>
+                <span className="chips">
+                  {top.map((m) => (
+                    <span key={m.label} className="chip" title={`${Math.round(m.score * 100)} %`}>
+                      {m.label} <span className="muted">{Math.round(m.score * 100)}%</span>
+                    </span>
+                  ))}
+                </span>
+              </div>
+            );
+          })}
+          <div className="hint">{t("character.modelHint")}</div>
+        </div>
+      )}
     </>
   );
 }

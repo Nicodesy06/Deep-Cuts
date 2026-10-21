@@ -2064,3 +2064,8 @@ tr.rejected td {
 .chip.match-missing { color: var(--muted); }
 .match-pick { width: 100%; min-width: 280px; }
 input.narrow { width: 64px; }
+
+.char-row { display: grid; grid-template-columns: 130px 1fr 44px; gap: 8px; align-items: center; font-size: 12px; margin: 3px 0; }
+.char-row .eb-track { height: 6px !important; width: 100% !important; background: var(--bg-2); border-radius: 3px; overflow: hidden; display: block; }
+.char-row .eb-fill { display: block; height: 100%; background: var(--chart); }
+.char-group { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }

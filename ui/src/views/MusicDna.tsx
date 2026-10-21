@@ -1,5 +1,6 @@
 // Music DNA: energy rank, genre/tag suggestions learned from the user's own
-// labels (with measured accuracy), and auto groups. No pre-trained model.
+// labels (with measured accuracy), auto groups, and the local audio model
+// (AudioSet tagger) whose outputs become reviewable tag suggestions.
 import { useEffect, useState } from "react";
 import { api, type DnaGroup, type LabelReport, type TrackRow } from "../api";
 import type { MsgKey } from "../i18n";
@@ -51,6 +52,54 @@ function EnergyPanel() {
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function ModelPanel() {
+  const { t, dataVersion, bump, openLibrary, toast } = useApp();
+  const act = useAction();
+  const [st, setSt] = useState<{ file: string | null; enabled: boolean; device: string | null; error: string | null } | null>(null);
+  useEffect(() => {
+    api.modelStatus().then(setSt, () => setSt(null));
+  }, [dataVersion]);
+  return (
+    <section className="panel">
+      <div className="row space">
+        <h2>{t("model.title")}</h2>
+        <button
+          className="btn small"
+          disabled={!st?.device}
+          onClick={async () => {
+            const n = await act(() => api.modelSuggestTags());
+            if (n != null) {
+              bump();
+              toast(t("model.suggested", { n }), "ok");
+            }
+          }}
+        >
+          {t("model.suggest")}
+        </button>
+      </div>
+      <p className="hint">{t("model.hint")}</p>
+      {st && (
+        <p className="small">
+          {!st.file
+            ? t("model.missing")
+            : !st.enabled
+              ? t("model.off")
+              : st.device
+                ? t("model.running", { device: st.device })
+                : (st.error ?? "")}
+        </p>
+      )}
+      <div className="row wrap">
+        {["ai:techno", "ai:house", "ai:\"female singing\"", "ai:rapping", "ai:\"happy music\"", "ai:synthesizer"].map((q) => (
+          <button key={q} className="chip mono" onClick={() => openLibrary({ query: q })}>
+            {q}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
@@ -320,6 +369,7 @@ export function MusicDna() {
         <span className="muted">{t("dna.subtitle")}</span>
       </header>
       <EnergyPanel />
+      <ModelPanel />
       <GenrePanel />
       <TagPanel />
       <GroupsPanel />

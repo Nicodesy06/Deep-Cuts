@@ -67,6 +67,10 @@ export function Settings() {
                 <option value="maximum">{t("queue.maximum")}</option>
               </select>
             </label>
+            <label className="toggle">
+              <input type="checkbox" checked={settings.aiModel !== "off"} onChange={(e) => setSetting("aiModel", e.target.checked ? "on" : "off")} />
+              {t("model.setting")}
+            </label>
             <p className="hint">{t("settings.hardware")}</p>
             <label className="field col">
               <span className="field-label">{t("bpmRange.label")}</span>

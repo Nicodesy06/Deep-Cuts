@@ -112,6 +112,8 @@ pub struct Analysis {
     pub waveform: Vec<u8>,
     /// Acoustic fingerprint (`fingerprint` module), None for short tracks.
     pub fingerprint: Option<Vec<u16>>,
+    /// Audio tagging model probabilities (crate::ml), when the model ran.
+    pub model_probs: Option<Vec<f32>>,
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -138,10 +140,12 @@ fn first_beat(ms: f64, bpm: f64) -> f64 {
 }
 
 /// User options that change the analysis result.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct AnalyzeOptions {
     /// BPM range (see `tempo::RANGE_PRESETS`); None = automatic.
     pub bpm_range: Option<(f64, f64)>,
+    /// Audio tagging model (crate::ml) run on the decoded audio.
+    pub tagger: Option<std::sync::Arc<crate::ml::Tagger>>,
 }
 
 impl AnalyzeOptions {
@@ -151,7 +155,10 @@ impl AnalyzeOptions {
             .ok()
             .flatten()
             .and_then(|s| tempo::parse_range(&s));
-        AnalyzeOptions { bpm_range }
+        AnalyzeOptions {
+            bpm_range,
+            tagger: crate::ml::shared(conn),
+        }
     }
 }
 
@@ -184,6 +191,11 @@ pub fn analyze_file_with(
     }
     let bandwidth = bandwidth::measure(&mono, info.sample_rate);
     let x = audio::resample(&mono, info.sample_rate, SR);
+    // The model failing never fails the analysis (it is optional).
+    let model_probs = opts
+        .tagger
+        .as_ref()
+        .and_then(|t| t.tag_signal(&mono, info.sample_rate).ok());
     drop(mono);
 
     // --- onset envelope + spectral statistics ----------------------------
@@ -349,6 +361,7 @@ pub fn analyze_file_with(
         },
         waveform,
         fingerprint,
+        model_probs,
     })
 }
 
@@ -594,6 +607,9 @@ fn store_inner(tx: &Connection, track_id: &str, a: &Analysis, elapsed_ms: i64) -
     };
     crate::cues::store_suggestions(tx, track_id, &a.result)?;
     crate::features::store(tx, track_id, &a.result)?;
+    if let Some(p) = &a.model_probs {
+        crate::ml::store(tx, track_id, p)?;
+    }
     Ok(())
 }
 

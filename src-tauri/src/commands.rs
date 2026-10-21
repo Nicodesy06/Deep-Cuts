@@ -579,6 +579,58 @@ pub fn virtualdj_filter(query: String) -> Res<VdjFilter> {
 }
 
 #[tauri::command]
+pub async fn track_character(
+    state: State<'_, AppState>,
+    id: String,
+) -> Res<dc_core::dna::Character> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::dna::character(c, &id)
+    })
+    .await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStatus {
+    file: Option<String>,
+    enabled: bool,
+    device: Option<String>,
+    error: Option<String>,
+}
+
+/// Whether the audio model is present, enabled and on which device.
+#[tauri::command]
+pub async fn model_status(state: State<'_, AppState>) -> Res<ModelStatus> {
+    blocking(state.db_path.clone(), move |c| {
+        let enabled = library::get_setting(c, "aiModel")?.as_deref() != Some("off");
+        let file = dc_core::ml::find_model().map(|p| p.to_string_lossy().into_owned());
+        let (device, error) = if enabled && file.is_some() {
+            match dc_core::ml::shared(c) {
+                Some(t) => (Some(t.device.clone()), None),
+                None => (None, Some("the model could not be loaded".to_string())),
+            }
+        } else {
+            (None, None)
+        };
+        Ok(ModelStatus {
+            file,
+            enabled,
+            device,
+            error,
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn model_suggest_tags(state: State<'_, AppState>) -> Res<usize> {
+    blocking(state.db_path.clone(), move |c| {
+        dc_core::ml::suggest_tags(c, None)
+    })
+    .await
+}
+
+#[tauri::command]
 pub fn queue_summary(state: State<'_, AppState>) -> Res<jobs::QueueSummary> {
     with_conn!(state, |c| jobs::summary(&c))
 }

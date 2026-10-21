@@ -107,6 +107,9 @@ pub fn run() {
             });
         })
         .setup(move |app| {
+            if let Ok(dir) = app.path().resource_dir() {
+                dc_core::ml::set_bundled_dir(dir.join("models"));
+            }
             let state = app.state::<AppState>();
             state.start_pool(app.handle(), &profile);
             watch::start(app.handle());
@@ -138,6 +141,9 @@ pub fn run() {
             commands::set_playlist_order,
             commands::enqueue_analysis,
             commands::queue_summary,
+            commands::track_character,
+            commands::model_status,
+            commands::model_suggest_tags,
             commands::autotag_run,
             commands::autotag_cancel,
             commands::autotag_apply,

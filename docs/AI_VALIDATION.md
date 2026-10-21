@@ -1,5 +1,18 @@
 # Analysis & AI validation protocol
 
+## Audio model: PANNs MobileNetV1 (added 2026-10-21)
+
+Runs during analysis on three 10 s windows (from 25 %, 50 %, 75 % of the track), mean of the
+class probabilities. Device: CUDA (build with `--features gpu-cuda`), DirectML on Windows, CoreML
+on macOS, otherwise CPU; the device in use is shown on the Music DNA page.
+
+* **Genre**: agreement of the top AudioSet genre with Beatport genres (mapped to AudioSet's broad
+  classes; Beatport genres without an AudioSet counterpart are counted as "unmapped") is measured
+  on the CI corpus by `deepcuts genre-eval`. Result: see the "Genre agreement" note below once the
+  CI run has been read.
+* **Mood, vocals, instruments**: computed and shown as probabilities, **not validated** on a
+  music-library reference set. They are suggestions for review, never written automatically.
+
 ## dc-dsp 1.3.0 (measured 2026-10-21): key with tuning estimate, exact BPM
 
 **Key.** The study grid gained a reference-tuning estimate (deviation from the 440 Hz grid as a

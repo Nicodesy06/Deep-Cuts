@@ -214,6 +214,17 @@ enum Cmd {
         #[arg(long, default_value = "")]
         name: String,
     },
+    /// Agreement of the audio model's genre with reference genres
+    /// (tab-separated metadata with ID and "BP GENRE" columns).
+    GenreEval {
+        audio: PathBuf,
+        #[arg(long)]
+        genres: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        name: String,
+    },
     /// Tempo-estimator design study (same protocol as key-study).
     TempoStudy {
         audio: PathBuf,
@@ -278,6 +289,15 @@ fn run(cli: Cli) -> dc_core::Result<()> {
             out.as_deref(),
             name,
         );
+    }
+    if let Cmd::GenreEval {
+        audio,
+        genres,
+        out,
+        name,
+    } = &cli.cmd
+    {
+        return genre_eval(audio, genres, out.as_deref(), name);
     }
     if let Cmd::TempoStudy {
         audio,
@@ -865,6 +885,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
         | Cmd::HelpQuery
         | Cmd::Eval { .. }
         | Cmd::KeyStudy { .. }
+        | Cmd::GenreEval { .. }
         | Cmd::TempoStudy { .. } => {
             unreachable!()
         }
@@ -1363,6 +1384,96 @@ fn load_tempo_refs(tempo: &std::path::Path, files: &[PathBuf]) -> Vec<(PathBuf, 
             (bpm > 0.0).then(|| (f.clone(), bpm))
         })
         .collect()
+}
+
+fn genre_eval(
+    audio: &std::path::Path,
+    genres: &std::path::Path,
+    out: Option<&std::path::Path>,
+    name: &str,
+) -> dc_core::Result<()> {
+    use dc_core::ml;
+    use rayon::prelude::*;
+    let text = std::fs::read_to_string(genres)?;
+    let mut lines = text.lines();
+    let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
+    let col = header
+        .iter()
+        .position(|h| h.trim() == "BP GENRE")
+        .ok_or_else(|| dc_core::Error::Invalid("no 'BP GENRE' column".into()))?;
+    let table: std::collections::HashMap<String, String> = lines
+        .filter_map(|l| {
+            let c: Vec<&str> = l.split('\t').collect();
+            Some((
+                c.first()?.trim().to_string(),
+                c.get(col)?.trim().to_string(),
+            ))
+        })
+        .collect();
+    let files = library::collect_audio_files(&[audio.to_path_buf()]);
+    let refs: Vec<(PathBuf, String)> = files
+        .into_iter()
+        .filter_map(|f| {
+            let stem = f.file_stem()?.to_str()?.split('.').next()?.to_string();
+            let g = table.get(&stem)?.clone();
+            Some((f, g))
+        })
+        .collect();
+    let tagger = std::sync::Arc::new(ml::Tagger::load_default()?);
+    let started = Instant::now();
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let samples: Vec<(Vec<f32>, String)> = refs
+        .par_iter()
+        .filter_map(|(f, g)| {
+            let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if n.is_multiple_of(100) {
+                eprintln!("{n}/{}", refs.len());
+            }
+            let mut mono: Vec<f32> = Vec::new();
+            let (info, _) = dc_core::audio::decode_stream(f, &|| false, |info, frames| {
+                let ch = info.channels;
+                mono.extend(
+                    frames
+                        .chunks_exact(ch)
+                        .map(|x| x.iter().sum::<f32>() / ch as f32),
+                );
+            })
+            .ok()?;
+            let p = tagger.tag_signal(&mono, info.sample_rate).ok()?;
+            Some((p, g.clone()))
+        })
+        .collect();
+    let e = ml::genre_eval(&samples);
+    let pct = |a: usize, b: usize| {
+        if b == 0 {
+            "-".to_string()
+        } else {
+            format!("{:.1} %", a as f64 * 100.0 / b as f64)
+        }
+    };
+    let mut md = format!(
+        "# Audio model genre agreement{}\n\nModel `{}` on {} ({}) · tracks: {} · comparable genres: {} · {:.0} s\n\n**Agreement: {}** (specific genre = the mapped reference genre).\n\n| Reference genre | Tracks | Agree | Most frequent model genre |\n|---|---|---|---|\n",
+        if name.is_empty() {
+            String::new()
+        } else {
+            format!(" — {name}")
+        },
+        ml::MODEL,
+        tagger.device,
+        std::env::consts::OS,
+        e.tracks,
+        e.comparable,
+        started.elapsed().as_secs_f64(),
+        pct(e.agree, e.comparable)
+    );
+    for (g, n, a, top) in &e.per_genre {
+        md += &format!("| {g} | {n} | {} | {top} |\n", pct(*a, *n));
+    }
+    println!("{md}");
+    if let Some(out) = out {
+        export::write_atomic(out, md.as_bytes())?;
+    }
+    Ok(())
 }
 
 fn tempo_study(
