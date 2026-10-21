@@ -27,9 +27,18 @@ jobs:
           # leaves out the local audio model (everything else is the same).
           - os: macos-latest
             args: "--target x86_64-apple-darwin -- --no-default-features"
+          # Prebuilt ONNX Runtime needs glibc >= 2.38: Ubuntu 24.04 or newer.
+          - os: ubuntu-24.04
+            args: "--bundles deb,appimage"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev patchelf
 
       - uses: actions/setup-node@v5
         with:
@@ -66,6 +75,8 @@ jobs:
 
             **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`; the Intel build has no local audio model — genre/mood suggestions from the model are missing there)** — open the DMG and drag Deep Cuts to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"`).
 
+            **Linux (x86-64, Ubuntu 24.04 / Debian 13 / Fedora 40 or newer)** — `.deb` (`sudo apt install ./Deep.Cuts_*_amd64.deb`) or the `.AppImage` (`chmod +x`, then run).
+
             Your music files are never modified unless you explicitly write tags; the library lives in your user data folder. Checklist for testing on real hardware and DJ software: `docs/TEST_PLAN.md`.
 
             Optional model downloads (offered inside the app, none required): Discogs styles + mood/feel/emotion pack (MTG, non-commercial licence, 26 MB + heads), "accurate styles" with MAEST (MTG, non-commercial, 332 MB) and text search by description with LAION-CLAP (Apache-2.0, about 400 MB). Measurements: `docs/AI_VALIDATION.md`.
@@ -73,6 +84,8 @@ jobs:
             ---
 
             **Windows** — scarica `Deep.Cuts_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
+
+            **Linux** — `.deb` (`sudo apt install ./Deep.Cuts_*_amd64.deb`) oppure `.AppImage` (`chmod +x` e avvia); serve una distribuzione recente (Ubuntu 24.04 o successive).
 
             Modelli facoltativi scaricabili dall'app: stili Discogs + mood/emozione (MTG, licenza non commerciale), "stili accurati" MAEST (MTG, non commerciale, 332 MB), ricerca per descrizione LAION-CLAP (Apache-2.0, circa 400 MB).
 

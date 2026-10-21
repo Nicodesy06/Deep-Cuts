@@ -1,0 +1,36 @@
+name: Site
+
+# Publishes site/ (landing page and guide) with GitHub Pages. The download
+# buttons read the latest release from the GitHub API in the browser, so the
+# site does not need rebuilding when a new version is released.
+on:
+  push:
+    branches: ["claude/festive-heisenberg-63bdpo", "main"]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

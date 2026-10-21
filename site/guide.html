@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guide — Deep Cuts</title>
+  <meta name="description" content="How to install and use Deep Cuts: first steps, triage, search language, keyboard shortcuts, analysis, AI models, export to Rekordbox, Traktor, Serato and VirtualDJ, safety and troubleshooting.">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta property="og:title" content="Deep Cuts — Guide">
+  <meta property="og:image" content="assets/og.jpg">
+  <link rel="icon" href="assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Deep Cuts home"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav id="site-nav" class="site-nav" aria-label="Main">
+      <a href="./#why">Why</a>
+      <a href="./#features">Features</a>
+      <a href="./#measured">Measured</a>
+      <a href="guide.html" aria-current="page">Guide</a>
+      <a href="https://github.com/Nicodesy06/Deep-Cuts">GitHub</a>
+      <a class="btn btn-primary btn-small" href="./#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+    <div class="guide-hero">
+      <span class="label">Guide · Deep Cuts <span data-version>v0.2.0</span></span>
+      <h1 class="h2" style="margin-top:20px">Everything you need to know.</h1>
+      <p class="lead muted">From the first install to a set in your DJ software. Read it top to bottom once, then come back to the part you need.</p>
+    </div>
+
+    <div class="guide-layout">
+      <nav class="toc" aria-label="On this page">
+        <ol>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#first-steps">First steps</a></li>
+          <li><a href="#tour">The interface</a></li>
+          <li><a href="#triage">Triage &amp; shortcuts</a></li>
+          <li><a href="#search">Search language</a></li>
+          <li><a href="#analysis">Analysis</a></li>
+          <li><a href="#ai">AI &amp; optional models</a></li>
+          <li><a href="#sets">Discover &amp; sets</a></li>
+          <li><a href="#export">To your DJ software</a></li>
+          <li><a href="#health">Library health</a></li>
+          <li><a href="#safety">Safety, backups, privacy</a></li>
+          <li><a href="#trouble">Troubleshooting</a></li>
+          <li><a href="#source">Build from source &amp; CLI</a></li>
+        </ol>
+      </nav>
+
+      <article class="doc">
+
+        <section id="install" aria-labelledby="h-install">
+          <h2 id="h-install">Install</h2>
+          <p>Download the file for your system from the <a href="./#download">download section</a>. The installers are not code-signed yet, so the operating system asks for confirmation the first time.</p>
+
+          <h3>macOS</h3>
+          <ol>
+            <li>Open the <code>.dmg</code> (<code>aarch64</code> for Apple silicon M1–M4, <code>x64</code> for Intel) and drag <strong>Deep Cuts</strong> into Applications.</li>
+            <li>The first time, right-click the app › <strong>Open</strong> › <strong>Open</strong>. After that it opens normally.</li>
+            <li>If macOS still refuses, run in Terminal: <code>xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"</code></li>
+          </ol>
+          <p class="muted">The Intel build has every feature except the local audio models, because ONNX Runtime does not provide Intel Mac binaries.</p>
+
+          <h3>Windows</h3>
+          <ol>
+            <li>Run <code>Deep.Cuts_…_x64-setup.exe</code> (or the <code>.msi</code>).</li>
+            <li>On “Windows protected your PC”, click <strong>More info</strong> › <strong>Run anyway</strong>.</li>
+          </ol>
+
+          <h3>Linux</h3>
+          <p>Debian, Ubuntu and derivatives:</p>
+<pre><code>sudo apt install ./Deep.Cuts_*_amd64.deb</code></pre>
+          <p>Any recent 64-bit distribution, with the AppImage:</p>
+<pre><code>chmod +x Deep.Cuts_*_amd64.AppImage
+./Deep.Cuts_*_amd64.AppImage</code></pre>
+          <p class="muted">The audio models need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 40 or later). Audio preview uses GStreamer; the <code>.deb</code> installs its plugins.</p>
+        </section>
+
+        <section id="first-steps" aria-labelledby="h-first">
+          <h2 id="h-first">First steps</h2>
+          <ol>
+            <li><strong>Import.</strong> In Library, click <strong>Import folder…</strong> or drop folders anywhere on the window. Subfolders are included. MP3, WAV, AIFF, FLAC, ALAC/AAC (M4A) and OGG are read; files are never modified.</li>
+            <li><strong>Choose how genres are suggested.</strong> Before the first analysis Deep Cuts asks once: the optional Discogs styles model, only your own labels, or both. You can change it later in Settings.</li>
+            <li><strong>Let it analyse.</strong> New tracks are analysed in the background (Settings › Analyze new tracks automatically). Follow progress in <strong>Analysis Queue</strong>. Closing the app is safe: the queue resumes.</li>
+            <li><strong>Start triaging.</strong> Select a track, press <kbd>Enter</kbd> to preview from its hot region, then <kbd>K</kbd> keep, <kbd>M</kbd> maybe or <kbd>P</kbd> pass.</li>
+            <li><strong>Bring your history.</strong> Coming from Rekordbox, Traktor, Serato or VirtualDJ? Use <strong>Sync &amp; Export</strong> › Import to bring in playlists, ratings, cues and comments.</li>
+          </ol>
+          <div class="note"><p><strong>Analysis profile</strong> (Settings): Light uses one worker, Balanced half the CPU cores, Maximum all cores but one.</p></div>
+        </section>
+
+        <section id="tour" aria-labelledby="h-tour">
+          <h2 id="h-tour">The interface</h2>
+          <figure>
+            <div class="shot"><img src="assets/screens/library.webp" width="1440" height="900" loading="lazy" alt="Library view: sidebar on the left, playlists, track table, details panel and player."></div>
+            <figcaption>Sidebar pages on the left, playlists and Smart Crates next to the track table, details on the right, player at the bottom.</figcaption>
+          </figure>
+          <table>
+            <thead><tr><th scope="col">Page</th><th scope="col">What it is for</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Dashboard</strong></td><td>Statistics computed from your library: BPM, keys, loudness, genres, formats, decisions.</td></tr>
+              <tr><td><strong>Library</strong></td><td>All tracks, playlists and Smart Crates; preview, decide, tag, edit, analyse. The details panel shows the source of every value.</td></tr>
+              <tr><td><strong>Discover</strong></td><td>Similar tracks, search by description, and a map of your library.</td></tr>
+              <tr><td><strong>Music DNA</strong></td><td>Energy 1–10, the local audio model, genre and tag suggestions learned from your labels, automatic groups.</td></tr>
+              <tr><td><strong>Smart Crates</strong></td><td>Saved searches that update themselves; exported as rules or playlists.</td></tr>
+              <tr><td><strong>Set Builder</strong></td><td>Order a set, see transitions, chapters, next-track suggestions, export.</td></tr>
+              <tr><td><strong>Library Health</strong></td><td>Missing files, duplicates, suspected transcodes, broken playlists, unused files.</td></tr>
+              <tr><td><strong>Tag Editor</strong></td><td>Your tag vocabulary: hierarchy, synonyms, categories and Quick Tag slots.</td></tr>
+              <tr><td><strong>Sync &amp; Export</strong></td><td>Import from and export to DJ software, M3U8, CSV, HTML and PDF; Rekordbox My Tags.</td></tr>
+              <tr><td><strong>Analysis Queue</strong></td><td>Progress, errors and the analysis profile.</td></tr>
+              <tr><td><strong>Settings</strong></td><td>Language, analysis, AI models, BPM range, key notation, watch folders, backups.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="triage" aria-labelledby="h-triage">
+          <h2 id="h-triage">Triage &amp; keyboard shortcuts</h2>
+          <p>On macOS use <kbd>⌘</kbd> where the table says Ctrl. Shortcuts are ignored while you type in a field.</p>
+          <h3>Library</h3>
+          <table>
+            <thead><tr><th scope="col">Keys</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>↑</kbd> <kbd>↓</kbd> (with <kbd>Shift</kbd> to extend)</td><td>Move through the list and select</td></tr>
+              <tr><td><kbd>Enter</kbd> · <kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>Preview from the hot region · from the start</td></tr>
+              <tr><td><kbd>K</kbd> <kbd>M</kbd> <kbd>P</kbd> <kbd>U</kbd></td><td>Keep, Maybe, Pass, clear decision</td></tr>
+              <tr><td><kbd>1</kbd>–<kbd>5</kbd> · <kbd>0</kbd></td><td>Rating · clear rating</td></tr>
+              <tr><td><kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd></td><td>Toggle a Quick Tag (set the slots in Tag Editor)</td></tr>
+              <tr><td><kbd>A</kbd></td><td>Analyse the selected tracks</td></tr>
+              <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></td><td>Move a track inside a playlist or set</td></tr>
+              <tr><td>Ctrl+<kbd>F</kbd> · Ctrl+<kbd>A</kbd></td><td>Search · select all</td></tr>
+              <tr><td>Ctrl+<kbd>Z</kbd> · Ctrl+<kbd>Shift</kbd>+<kbd>Z</kbd> or Ctrl+<kbd>Y</kbd></td><td>Undo · redo (decisions, edits, tags, fixes)</td></tr>
+            </tbody>
+          </table>
+          <h3>Player</h3>
+          <table>
+            <thead><tr><th scope="col">Keys</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+              <tr><td><kbd>←</kbd> <kbd>→</kbd> (with <kbd>Shift</kbd>: 30 s)</td><td>Seek 10 s</td></tr>
+              <tr><td><kbd>H</kbd> · <kbd>I</kbd> · <kbd>O</kbd></td><td>Hot region · intro · outro</td></tr>
+              <tr><td><kbd>N</kbd> · <kbd>B</kbd></td><td>Next · previous track</td></tr>
+              <tr><td><kbd>C</kbd></td><td>Add a cue point at the playhead</td></tr>
+            </tbody>
+          </table>
+          <p>Turn on <strong>Auto-advance</strong> above the table to jump to the next track after each decision.</p>
+        </section>
+
+        <section id="search" aria-labelledby="h-search">
+          <h2 id="h-search">Search language</h2>
+          <p>The same language works in the search bar, in Smart Crates, in Discover and in the CLI.</p>
+<pre><code>rolling bpm:122-126 key:8A+ genre:"tech house" -decision:pass (label:a OR label:b)</code></pre>
+          <table>
+            <thead><tr><th scope="col">Write</th><th scope="col">Finds</th></tr></thead>
+            <tbody>
+              <tr><td><code>words</code> · <code>"a phrase"</code></td><td>Full text over title, artist, version, remixer, album, label, genre, comment, notes and path</td></tr>
+              <tr><td><code>artist:foo</code> <code>title:"exact"</code></td><td>One field: artist, title, album, label, genre, subgenre, version, remixer, comment, notes, path, format</td></tr>
+              <tr><td><code>bpm:124</code> <code>bpm:122-126</code> <code>bpm:&gt;120</code></td><td>Numbers, ranges and comparisons; also <code>year</code>, <code>rating</code>, <code>duration</code>, <code>lufs</code>, <code>energy</code></td></tr>
+              <tr><td><code>key:8A</code> <code>key:Am</code> <code>key:8A+</code> <code>key:8A++</code></td><td>A key; <code>+</code> harmonically compatible on the Camelot wheel; <code>++</code> also energy moves +2 / +7</td></tr>
+              <tr><td><code>decision:keep|pass|maybe|none</code></td><td>Triage state</td></tr>
+              <tr><td><code>tag:name</code> <code>fav:yes</code> <code>added:7d</code></td><td>Tags, favourites, recently added</td></tr>
+              <tr><td><code>missing:yes</code> <code>analyzed:no</code> <code>artwork:no</code> <code>transcode:yes</code></td><td>Housekeeping</td></tr>
+              <tr><td><code>genre:none</code></td><td>Empty value (works for any field)</td></tr>
+              <tr><td><code>AND</code> (implicit), <code>OR</code>, <code>NOT</code> / <code>-term</code>, <code>( … )</code></td><td>Combine conditions</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Smart Crates</strong> save a query and update themselves. <strong>Recipes</strong> (Library) add actions to a query, such as setting a tag, and can run automatically on newly imported tracks; each run is one undoable step.</p>
+        </section>
+
+        <section id="analysis" aria-labelledby="h-analysis">
+          <h2 id="h-analysis">Analysis</h2>
+          <p>Analysis runs on your CPU and never changes your files. For each track Deep Cuts measures:</p>
+          <ul>
+            <li><strong>Tempo</strong> and beat phase (for the beatgrid), refined to the exact BPM.</li>
+            <li><strong>Key</strong>, shown in Camelot, Open Key or musical notation (Settings › Key notation).</li>
+            <li><strong>Loudness</strong> (EBU R128 LUFS), peak, crest and dynamics.</li>
+            <li><strong>Character</strong>: brightness, low end, onset density, bass weight, rhythmic drive, groove steadiness.</li>
+            <li><strong>Energy 1–10</strong>, a rank within your own library (Music DNA).</li>
+            <li>Waveform, hot region, intro and outro, phrase-aligned cue suggestions, acoustic fingerprint and audio bandwidth.</li>
+          </ul>
+          <h3>BPM range</h3>
+          <p>Like Rekordbox and Traktor, Settings › BPM range moves the detected tempo by doubling or halving only, so drum &amp; bass stays at 174 instead of 87 when you choose 88–175. Re-analyse to apply it to existing tracks; BPM values you edited yourself are never overwritten.</p>
+          <h3>How accurate is it?</h3>
+          <p>On a held-out set of Beatport-labelled tracks the tempo is within 4 % for 92.5 % of tracks and within 0.05 BPM for 86.9 %; the key reaches a MIREX score of 67.5 % on GiantSteps Key. Methods and per-genre results: <a href="https://github.com/Nicodesy06/Deep-Cuts/blob/HEAD/docs/AI_VALIDATION.md">AI_VALIDATION.md</a>. Always trust your ears over any number.</p>
+        </section>
+
+        <section id="ai" aria-labelledby="h-ai">
+          <h2 id="h-ai">AI &amp; optional models</h2>
+          <p>All models run on your computer. On Windows they use DirectML and on Apple silicon Core ML when a GPU is available, otherwise the CPU. Nothing is uploaded.</p>
+          <table>
+            <thead><tr><th scope="col">Model</th><th scope="col">Gives you</th><th scope="col">How to get it</th></tr></thead>
+            <tbody>
+              <tr><td><strong>PANNs</strong><br><span class="muted">CC BY 4.0, included</span></td><td>Broad genre, mood, vocals and instruments; the “sound” used by similar tracks</td><td>Included. Settings › Run the local audio AI model.</td></tr>
+              <tr><td><strong>Discogs styles</strong><br><span class="muted">MTG, CC BY-NC-SA, 26 MB + classifiers</span></td><td>400 Discogs styles, danceability, moods, voice/instrumental, arousal and valence</td><td>Asked before the first analysis, or Settings › Genre suggestions › Change…</td></tr>
+              <tr><td><strong>Accurate styles (MAEST)</strong><br><span class="muted">MTG, CC BY-NC-SA, 332 MB</span></td><td>The same 400 styles, far more accurate on electronic sub-genres; several seconds per track</td><td>Same dialog, tick “Accurate styles (MAEST)”.</td></tr>
+              <tr><td><strong>LAION-CLAP</strong><br><span class="muted">Apache-2.0, about 400 MB</span></td><td>Search by description</td><td>Discover › Describe › Download, then Index.</td></tr>
+            </tbody>
+          </table>
+          <div class="note"><p>The MTG models are licensed for non-commercial use. Using them for paid work may count as commercial; the MTG offers other licences on request.</p></div>
+          <h3>Suggestions you stay in control of</h3>
+          <p>Music DNA suggests genres and tags from the tracks you have already labelled, and shows how often those suggestions are right on your own library. Nothing is applied until you review it, rejected suggestions are not offered again, and applying is undoable.</p>
+          <h3>Search by description</h3>
+          <p>Write in plain English, for example <em>“warm piano house with female vocals”</em>. Broad descriptions of instruments, voice, mood and energy work best; fine sub-genre names are often confused. The scope field below the search limits results with any query, e.g. <code>-decision:pass bpm:120-128</code>.</p>
+        </section>
+
+        <section id="sets" aria-labelledby="h-sets">
+          <h2 id="h-sets">Discover &amp; sets</h2>
+          <figure>
+            <div class="shot"><img src="assets/screens/setbuilder.webp" width="1440" height="900" loading="lazy" alt="Set Builder with energy and BPM curves and suggestions."></div>
+          </figure>
+          <h3>Similar tracks</h3>
+          <p>Right-click a track › Find similar, or play a track and open Discover. Sliders weigh tempo, harmony, energy, timbre, rhythm, dynamics and sound; each match explains its tempo change and key relation. <strong>Use as seed</strong> keeps exploring from a result; <strong>Create playlist</strong> saves the best matches.</p>
+          <h3>Set Builder</h3>
+          <ul>
+            <li>Pick a playlist or create a set; choose an <strong>energy shape</strong> and press <strong>Magic Sort</strong>. Lock tracks to keep their place.</li>
+            <li>Weak transitions are flagged; each row shows the key relation and BPM change to the next track.</li>
+            <li>Split the set into <strong>chapters</strong>; the side panel suggests next tracks for the current chapter.</li>
+            <li>Export the set as Rekordbox XML, M3U8, PDF or HTML.</li>
+          </ul>
+        </section>
+
+        <section id="export" aria-labelledby="h-export">
+          <h2 id="h-export">To your DJ software</h2>
+          <p>Open <strong>Sync &amp; Export</strong>. “What to export” chooses the whole library with all playlists and folders, or a selection as one playlist. Imports take a backup of the Deep Cuts library first. The DJ software's own database is never modified.</p>
+          <h3>Rekordbox</h3>
+          <ol>
+            <li>Click <strong>Export Rekordbox XML</strong> and save the file.</li>
+            <li>In Rekordbox: Preferences › Advanced › Database › <em>rekordbox xml</em> › choose the file.</li>
+            <li>In the Rekordbox sidebar open <em>rekordbox xml</em>, right-click playlists › Import.</li>
+          </ol>
+          <p>To bring Rekordbox data in: Rekordbox › File › Export Collection in xml format, then <strong>Import Rekordbox XML…</strong> in Deep Cuts (tracks, BPM, key, ratings, comments, beatgrid, cues, loops, playlists).</p>
+          <h3>Rekordbox My Tags</h3>
+          <p>If Rekordbox writes My Tags into comments (<code>/* Tag / Tag */</code>), Deep Cuts reads them on import as tags under “My Tag”. Rekordbox cannot import My Tag values back, so Deep Cuts exports one playlist (or M3U8) per My Tag: import it in Rekordbox, select all its tracks and set the My Tag.</p>
+          <h3>Traktor</h3>
+          <p>Export an NML collection (tracks, playlists, folders, BPM, key, rating, comments, grid, cues and loops). In Traktor: File › Import Another Collection. Traktor's <code>collection.nml</code> is never touched.</p>
+          <h3>Serato</h3>
+          <p>Choose the <code>_Serato_</code> folder on the drive that holds the music; crates and folders are written there. Serato reads BPM and key from the files' tags, so use <strong>Write tags to files</strong> for those tracks first.</p>
+          <h3>VirtualDJ</h3>
+          <p>Export playlists as <code>.vdjfolder</code> files into a folder you choose, for example <code>VirtualDJ/Playlists</code>. Import reads <code>database.xml</code> and playlists (metadata, BPM, key, grid, hot cues).</p>
+          <h3>Other formats</h3>
+          <p>M3U8 and CSV export, HTML and PDF track lists, CSV metadata import with column mapping, and <strong>Rebuild an external playlist</strong>: a Spotify CSV (e.g. from Exportify), an Apple Music text export, an M3U or an “Artist - Title” list matched to your own files, with a review step and the list of missing tracks.</p>
+        </section>
+
+        <section id="health" aria-labelledby="h-health">
+          <h2 id="h-health">Library health</h2>
+          <ul>
+            <li><strong>Missing files</strong>: moved files are relinked automatically when you re-import the folder that now holds them (matched by content).</li>
+            <li><strong>Duplicates</strong>: identical files, same artist and title, and the same recording by sound across formats. <strong>Merge</strong> keeps one copy, re-points playlists and moves the others to a trash folder.</li>
+            <li><strong>Suspected transcodes</strong>: lossless files whose spectrum stops far below what the format carries, usually made from an MP3. It is a measurement, not proof: listen and decide.</li>
+            <li><strong>Smart Fixes</strong>: promo text and URLs, track-number prefixes, SHOUTED CAPS, feat. separators, genre spelling, version and remixer extraction, all with a preview.</li>
+          </ul>
+        </section>
+
+        <section id="safety" aria-labelledby="h-safety">
+          <h2 id="h-safety">Safety, backups, privacy</h2>
+          <ul>
+            <li>Your audio files are only read, unless you choose <strong>Write tags to files</strong> (dry run, copies of the originals, read-back check) or rename/move files.</li>
+            <li>Every edit, decision, tag and fix can be undone; each track has a change history.</li>
+            <li>The library database is backed up daily (last 10 kept), before imports from DJ software and before every restore. Settings › Backups.</li>
+            <li>Nothing is deleted: duplicates go to a trash folder you review.</li>
+          </ul>
+          <h3>Where your library lives</h3>
+          <table>
+            <tbody>
+              <tr><th scope="row">Windows</th><td><code>%APPDATA%\DeepCuts</code></td></tr>
+              <tr><th scope="row">macOS</th><td><code>~/Library/Application Support/DeepCuts</code></td></tr>
+              <tr><th scope="row">Linux</th><td><code>~/.local/share/DeepCuts</code></td></tr>
+            </tbody>
+          </table>
+          <p>Set the environment variable <code>DEEPCUTS_HOME</code> to use another folder.</p>
+          <h3>Privacy</h3>
+          <p>No account, no telemetry, no cloud. The network is used only when you start it: downloading an optional model, or the online auto-tagger, which sends artist, title, version and duration of the selected tracks to MusicBrainz, Deezer, iTunes or Discogs (with your token), as you choose.</p>
+        </section>
+
+        <section id="trouble" aria-labelledby="h-trouble">
+          <h2 id="h-trouble">Troubleshooting</h2>
+          <details>
+            <summary>macOS says the app is damaged or cannot be opened</summary>
+            <div><p>It is the missing code signature. Right-click › Open › Open, or run <code>xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"</code>.</p></div>
+          </details>
+          <details>
+            <summary>No audio preview on Linux</summary>
+            <div><p>Install the GStreamer plugins: <code>sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav</code>.</p></div>
+          </details>
+          <details>
+            <summary>The AI suggestions are missing</summary>
+            <div><p>Check Settings › Run the local audio AI model, then re-analyse (Music DNA shows how many tracks lack model results). On Intel Macs the audio models are not available.</p></div>
+          </details>
+          <details>
+            <summary>A model download fails</summary>
+            <div><p>The MTG server is sometimes busy; Deep Cuts retries a few times. Try again later. Each file is checked against a fixed hash, so a broken download is never used.</p></div>
+          </details>
+          <details>
+            <summary>BPM is half or double what I expect</summary>
+            <div><p>Choose a BPM range in Settings that matches your genres and re-analyse, or edit the BPM: your own value is kept.</p></div>
+          </details>
+          <details>
+            <summary>Something else</summary>
+            <div><p>Open an issue on <a href="https://github.com/Nicodesy06/Deep-Cuts/issues">GitHub</a> with your system, the Deep Cuts version (Settings › About) and the steps that lead to the problem.</p></div>
+          </details>
+        </section>
+
+        <section id="source" aria-labelledby="h-source">
+          <h2 id="h-source">Build from source &amp; CLI</h2>
+          <p>Requirements: Rust (stable) and Node.js 22; on Linux also <code>libwebkit2gtk-4.1-dev librsvg2-dev</code>.</p>
+<pre><code>git clone https://github.com/Nicodesy06/Deep-Cuts.git
+cd Deep-Cuts
+npm install
+npm run dev       # desktop app with hot reload
+npm run build     # installers in target/release/bundle
+npm test          # UI and Rust tests</code></pre>
+          <p>The <code>deepcuts</code> command-line tool works on the same library: import, search, decide, analyze, tag, fix, write-tags, rename, import-dj, export-dj, match-playlist, undo, export, stats.</p>
+<pre><code>cargo run -p dc-cli --release -- --help
+deepcuts search 'bpm:122-126 key:8A+ -decision:pass'</code></pre>
+        </section>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap grid">
+    <div class="col-a">
+      <a class="brand" href="./"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
+      <p>Free, private, local DJ library manager. GPL-3.0-or-later, © <span data-year>2026</span> Deep Cuts contributors.</p>
+    </div>
+    <div class="col-b">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts">Source code</a></li>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts/releases">Releases</a></li>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts/issues">Report a problem</a></li>
+      </ul>
+    </div>
+    <div class="col-c">
+      <h4>Credits</h4>
+      <p>Rekordbox, Traktor, Serato and VirtualDJ are trademarks of their owners; Deep Cuts is not affiliated with them.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

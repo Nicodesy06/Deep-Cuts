@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deep Cuts — DJ library manager, local and free</title>
+  <meta name="description" content="Deep Cuts analyses, triages, organises and exports your DJ library on your own computer. BPM, key, energy, similar tracks, search by description, Rekordbox, Traktor, Serato and VirtualDJ. Free, open source, offline.">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Deep Cuts — your DJ library, analysed on your own computer">
+  <meta property="og:description" content="Free and open source. No account, no cloud. Measured BPM and key, similar tracks, search by description, export to Rekordbox, Traktor, Serato and VirtualDJ.">
+  <meta property="og:image" content="assets/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Deep Cuts home"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav id="site-nav" class="site-nav" aria-label="Main">
+      <a href="#why">Why</a>
+      <a href="#features">Features</a>
+      <a href="#measured">Measured</a>
+      <a href="guide.html">Guide</a>
+      <a href="https://github.com/Nicodesy06/Deep-Cuts">GitHub</a>
+      <a class="btn btn-primary btn-small" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="eyebrow label">
+        <span>Free</span><span>Open source</span><span>Offline</span><span>macOS · Windows · Linux</span>
+      </div>
+      <h1 id="hero-title" class="display">Your DJ library,<br>finally in order.</h1>
+      <p class="lead">Deep Cuts analyses, triages, organises and exports your music on your own computer. No account. No subscription. Nothing uploaded.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#download" data-primary-dl>
+          <span data-primary-label>Download</span><span class="meta"></span>
+        </a>
+        <a class="btn" href="#download">All platforms</a>
+        <a class="btn" href="guide.html">Read the guide</a>
+      </div>
+      <p class="hero-note">Current version <span data-version>v0.2.0</span>. Installers are not code-signed yet: the <a href="guide.html#install">guide</a> shows the one extra click.</p>
+
+      <figure class="hero-shot">
+        <div class="shot">
+          <img src="assets/screens/library.webp" width="1440" height="900" alt="The Deep Cuts library: a track list with BPM, Camelot key, time and genre; the selected track's details with tags, playlists and measured character; the preview player with waveform and hot region at the bottom.">
+        </div>
+        <figcaption>Library with track details and the preview player. Real screenshot, demo library.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Facts -->
+  <section class="facts" aria-label="Key facts">
+    <div class="wrap">
+      <dl>
+        <div><dt>0</dt><dd><strong>accounts, uploads or trackers.</strong> Your library and your decisions stay in a database on your computer.</dd></div>
+        <div><dt class="num">98%</dt><dd><strong>BPM right or an octave off</strong> on a held-out set of Beatport-labelled tracks; 92.5 % within 4 % of the label.</dd></div>
+        <div><dt class="num">67.5%</dt><dd><strong>key score (MIREX)</strong> on the GiantSteps Key benchmark, 604 electronic tracks.</dd></div>
+        <div><dt class="num">40 ms</dt><dd><strong>to open a 100,000-track library</strong> view; searches in 1–120 ms.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- Why -->
+  <section id="why" aria-labelledby="why-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="grid">
+          <span class="label">01 — Why Deep Cuts</span>
+          <h2 id="why-title" class="h2">Built for DJs who care about their music, and their data.</h2>
+        </div>
+      </div>
+      <div class="reasons">
+        <article class="reason">
+          <span class="idx">01</span>
+          <h3 class="h3">Private by design</h3>
+          <p>Everything runs on your machine: analysis, AI models, search. No account, no telemetry. The only network calls are the ones you start yourself, like a model download or the optional online auto-tagger.</p>
+        </article>
+        <article class="reason">
+          <span class="idx">02</span>
+          <h3 class="h3">Measured, not promised</h3>
+          <p>Every analysis and AI feature is tested on public benchmarks before it ships, and the numbers are published, weaknesses included. Features that did not beat the existing method were left out.</p>
+        </article>
+        <article class="reason">
+          <span class="idx">03</span>
+          <h3 class="h3">Speaks your DJ software</h3>
+          <p>Import and export Rekordbox XML, Traktor NML, Serato crates and VirtualDJ, with BPM, key, cues, loops and beatgrids where the format has them. Rekordbox My Tags too.</p>
+        </article>
+        <article class="reason">
+          <span class="idx">04</span>
+          <h3 class="h3">Your files stay untouched</h3>
+          <p>Imports are read-only. Tags are written to files only when you ask, with a dry run and copies of the originals. Nothing is ever deleted, every edit can be undone, and the library is backed up daily.</p>
+        </article>
+        <article class="reason">
+          <span class="idx">05</span>
+          <h3 class="h3">Fast on big libraries</h3>
+          <p>A virtualised table built for 100,000+ tracks, a powerful search language and background analysis that survives restarts. The signal analysis of a five-minute MP3 takes under a second.</p>
+        </article>
+        <article class="reason">
+          <span class="idx">06</span>
+          <h3 class="h3">Free and open</h3>
+          <p>GPL-3.0 licensed, no paid tier, no lock-in. Your library lives in an open SQLite database, and a command-line tool works on the same data.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="grid">
+          <span class="label">02 — Features</span>
+          <h2 id="features-title" class="h2">From a messy folder to a set you trust.</h2>
+          <p class="lead muted">Import, listen, decide, find what fits, and take it to the booth.</p>
+        </div>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Library &amp; triage</span>
+          <h3 class="h3">Listen fast. Decide faster.</h3>
+          <p>Keep, Maybe or Pass with one key, rate with 1–5, and let auto-advance move you through new music. The details panel shows where every value came from: the file, Rekordbox, the analysis or you.</p>
+          <ul class="ticks">
+            <li>Preview with waveform, intro, outro and the measured hot region</li>
+            <li>Search like <code>bpm:122-126 key:8A+ -decision:pass</code></li>
+            <li>Smart Crates, hierarchical tags and Quick Tags on the keyboard</li>
+            <li>Undo and redo for every edit, decision and fix</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/library.webp" width="1440" height="900" loading="lazy" alt="Library view with track details and the preview player."></div>
+        </figure>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Analysis</span>
+          <h3 class="h3">BPM, key, loudness and energy, on your CPU.</h3>
+          <p>Tempo with beat phase, key in Camelot, Open Key or musical notation, EBU R128 loudness, brightness, low end, density and a 1–10 energy rank within your own library. A BPM range setting settles half-time and double-time the way Rekordbox and Traktor do.</p>
+          <ul class="ticks">
+            <li>Phrase-aligned cue suggestions, loops and a beatgrid editor</li>
+            <li>Duplicate detection by acoustic fingerprint, across formats</li>
+            <li>Fake-lossless and transcode suspects, by measured bandwidth</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/dna.webp" width="1440" height="900" loading="lazy" alt="Music DNA page: energy distribution from 1 to 10, the local audio model and genre and tag suggestions."></div>
+        </figure>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Discover</span>
+          <h3 class="h3">Find the next track by sound.</h3>
+          <p>Similar tracks combine measured features with how alike a local audio model hears two tracks; you choose what matters with sliders for tempo, harmony, energy, timbre, rhythm and sound.</p>
+          <ul class="ticks">
+            <li>Harmonic and tempo notes for every match</li>
+            <li>A discovery map of your whole library</li>
+            <li>One click from a result to a playlist</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/discover.webp" width="1440" height="900" loading="lazy" alt="Discover page: a seed track, weight sliders and the closest tracks with scores, BPM and key relations."></div>
+        </figure>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Search by description</span>
+          <h3 class="h3">Type what you hear in your head.</h3>
+          <p>“Hypnotic minimal techno with a rolling bassline.” An optional LAION-CLAP model compares your words with the sound of every track, on your computer. Best for broad descriptions; it is a search aid, not a sub-genre classifier.</p>
+          <ul class="ticks">
+            <li>Optional download, Apache-2.0 licence</li>
+            <li>Limit results with any search query</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/describe.webp" width="1440" height="900" loading="lazy" alt="Describe tab: a text query and the tracks ranked by how well their sound matches it."></div>
+        </figure>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Set Builder</span>
+          <h3 class="h3">Shape the night before you play it.</h3>
+          <p>Order a set by energy shape, see weak transitions, split it into chapters and get next-track suggestions ranked by harmonic and tempo compatibility. Export straight to Rekordbox XML, M3U8, PDF or HTML.</p>
+          <ul class="ticks">
+            <li>Magic Sort with locked tracks</li>
+            <li>Energy and BPM curves of the whole set</li>
+            <li>Build a set from a single track</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/setbuilder.webp" width="1440" height="900" loading="lazy" alt="Set Builder: energy and BPM curves, the ordered set with transition notes and suggested next tracks."></div>
+        </figure>
+      </div>
+
+      <div class="feature grid">
+        <div class="text">
+          <span class="label">Sync &amp; export</span>
+          <h3 class="h3">Out to the booth, in one step.</h3>
+          <p>Everything you organise travels to your DJ software, playlists and folders included. Imports from other software take a backup first, and their own databases are never modified.</p>
+          <ul class="ticks">
+            <li>Rekordbox XML, Traktor NML, Serato crates, VirtualDJ</li>
+            <li>M3U8 and CSV, HTML and PDF track lists</li>
+            <li>Rebuild Spotify or Apple Music playlists from your own files</li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <div class="shot"><img src="assets/screens/sync.webp" width="1440" height="900" loading="lazy" alt="Sync and Export page with import and export options and the Rekordbox My Tags panel."></div>
+        </figure>
+      </div>
+
+      <h3 class="h3" style="margin-top:40px">And everything else a library needs</h3>
+      <div class="also">
+        <div><h4>Library Health</h4><p>Missing files, duplicates, suspected transcodes, broken playlists and unused files, with a safe merge that moves extras to a trash folder.</p></div>
+        <div><h4>Music DNA</h4><p>Genre and tag suggestions learned from your own labels, with their accuracy measured on your library.</p></div>
+        <div><h4>Optional style models</h4><p>400 Discogs styles, moods, danceability and arousal/valence from MTG models you can download (non-commercial licence).</p></div>
+        <div><h4>Bulk tools</h4><p>Find &amp; replace with regex, CSV import with column mapping, rename and move files from tags, cover art, recipes.</p></div>
+        <div><h4>Smart Fixes</h4><p>Clean promo text, shouted capitals, feat. separators, genre spelling and remixer fields, with a preview.</p></div>
+        <div><h4>Watch folders &amp; backups</h4><p>New music imported automatically; daily snapshots, manual backups and restore with a safety copy.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Measured -->
+  <section id="measured" aria-labelledby="measured-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="grid">
+          <span class="label">03 — Measured</span>
+          <h2 id="measured-title" class="h2">Numbers, not adjectives.</h2>
+          <p class="muted">Measured on public research corpora, chosen on a development set and checked once on held-out tracks. Full protocol and per-genre results in <a href="https://github.com/Nicodesy06/Deep-Cuts/blob/HEAD/docs/AI_VALIDATION.md">AI_VALIDATION.md</a>.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col">Result</th><th scope="col">What it measures</th><th scope="col">Test set</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="big">92.5%</td><td>BPM right within 4 %; 98.0 % counting half and double tempo; 86.9 % within 0.05 BPM</td><td>Beatport-labelled tracks, held-out half (550)</td></tr>
+            <tr><td class="big">67.5%</td><td>Key, MIREX weighted score; 59.3 % exactly right</td><td>GiantSteps Key (604)</td></tr>
+            <tr><td class="big">61%</td><td>Optional MAEST styles: right Beatport genre first; 88 % within the top three (EffNet: 38 % and 80 %)</td><td>GiantSteps Key subset (143)</td></tr>
+            <tr><td class="big">42%</td><td>Optional Discogs-EffNet styles: right genre first; 75 % within the top three</td><td>GiantSteps Key (565)</td></tr>
+            <tr><td class="big">36%</td><td>Similar tracks of the same genre among the top 10, with the sound model (30 % without)</td><td>Beatport-labelled tracks</td></tr>
+            <tr><td class="big">20%</td><td>Search by description: right genre in the top 10 for a genre query (chance: 4 %)</td><td>GiantSteps Key (604)</td></tr>
+          </tbody>
+          <caption>Weak spots are published too: sub-genres such as Progressive House or Tech House remain hard for every model tested.</caption>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="grid">
+          <span class="label">04 — Download</span>
+          <h2 id="download-title" class="h2">Free. For every desktop.</h2>
+        </div>
+      </div>
+      <div class="release-line">
+        <span class="h3">Deep Cuts <span data-version>v0.2.0</span></span>
+        <span class="muted small" data-date></span>
+        <a class="small" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-notes>Release notes</a>
+        <a class="small" href="https://github.com/Nicodesy06/Deep-Cuts/releases">All versions</a>
+      </div>
+      <div class="downloads">
+        <article class="dl-card" data-os="mac">
+          <header><h3>macOS</h3></header>
+          <p class="reqs">Apple silicon (M1–M4) runs the local audio models with Core ML; the Intel build has everything except the audio models.</p>
+          <div class="files">
+            <a class="btn btn-primary" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="mac-arm"><span>Apple silicon <span class="meta-type">.dmg</span></span><span class="meta"></span></a>
+            <a class="btn" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="mac-intel"><span>Intel <span class="meta-type">.dmg</span></span><span class="meta"></span></a>
+          </div>
+        </article>
+        <article class="dl-card" data-os="windows">
+          <header><h3>Windows</h3></header>
+          <p class="reqs">Windows 10 or 11, 64-bit. The audio models use DirectML on your GPU when available.</p>
+          <div class="files">
+            <a class="btn btn-primary" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="win-exe"><span>Installer <span class="meta-type">.exe</span></span><span class="meta"></span></a>
+            <a class="btn" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="win-msi"><span>MSI package</span><span class="meta"></span></a>
+          </div>
+        </article>
+        <article class="dl-card" data-os="linux">
+          <header><h3>Linux</h3></header>
+          <p class="reqs">64-bit, recent distributions (Ubuntu 24.04, Debian 13, Fedora 40 or newer).</p>
+          <div class="files">
+            <a class="btn btn-primary" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="linux-deb"><span>Debian / Ubuntu <span class="meta-type">.deb</span></span><span class="meta"></span></a>
+            <a class="btn" href="https://github.com/Nicodesy06/Deep-Cuts/releases" data-dl="linux-appimage"><span>AppImage</span><span class="meta"></span></a>
+          </div>
+        </article>
+      </div>
+      <p class="hero-note">The installers are not code-signed yet. macOS: right-click the app › Open the first time. Windows: “More info” › “Run anyway”. <a href="guide.html#install">Step-by-step</a>. Prefer to build it yourself? <a href="guide.html#source">Build from source</a>.</p>
+    </div>
+  </section>
+
+  <!-- Guide teaser -->
+  <section id="learn" aria-labelledby="learn-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="grid">
+          <span class="label">05 — Guide</span>
+          <h2 id="learn-title" class="h2">Everything you need to know.</h2>
+        </div>
+      </div>
+      <nav class="cards" aria-label="Guide sections">
+        <a href="guide.html#install"><span class="idx">01</span><h3 class="h3">Install</h3><p>macOS, Windows and Linux, including the first launch of an unsigned app.</p></a>
+        <a href="guide.html#first-steps"><span class="idx">02</span><h3 class="h3">First steps</h3><p>Import a folder, let the analysis run, start triaging.</p></a>
+        <a href="guide.html#search"><span class="idx">03</span><h3 class="h3">Search &amp; shortcuts</h3><p>The search language and every keyboard shortcut.</p></a>
+        <a href="guide.html#export"><span class="idx">04</span><h3 class="h3">To your DJ software</h3><p>Rekordbox, Traktor, Serato and VirtualDJ, step by step.</p></a>
+      </nav>
+
+      <div style="margin-top:72px">
+        <h3 class="h3" style="margin-bottom:16px">Questions</h3>
+        <details>
+          <summary>Does Deep Cuts change my music files?</summary>
+          <div><p>No. Importing only reads them. Tags are written to files only when you choose “Write tags to files”, with a dry run, copies of the originals and a read-back check. Duplicates are never deleted, only moved to a trash folder you can review.</p></div>
+        </details>
+        <details>
+          <summary>Does it work with Rekordbox?</summary>
+          <div><p>Yes, through Rekordbox XML in both directions: tracks, BPM, key, ratings, comments, beatgrid, cues, loops and playlists. Deep Cuts never writes Rekordbox's own database. My Tags written into comments are read on import, and one playlist per My Tag can be exported.</p></div>
+        </details>
+        <details>
+          <summary>Is my music or data sent anywhere?</summary>
+          <div><p>No. There is no account and no telemetry. The network is used only when you start it: downloading an optional model, or the online auto-tagger, which sends artist, title, version and duration of the tracks you select to the catalogues you choose.</p></div>
+        </details>
+        <details>
+          <summary>What does it cost?</summary>
+          <div><p>Nothing. Deep Cuts is free software under GPL-3.0. Some optional AI models from the Music Technology Group (UPF) carry a non-commercial licence; the app shows it before downloading.</p></div>
+        </details>
+        <details>
+          <summary>Which audio formats are supported?</summary>
+          <div><p>MP3, WAV, AIFF, FLAC, ALAC and AAC (M4A) and OGG.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap grid">
+    <div class="col-a">
+      <a class="brand" href="./"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
+      <p>Free, private, local DJ library manager. GPL-3.0-or-later, © <span data-year>2026</span> Deep Cuts contributors.</p>
+    </div>
+    <div class="col-b">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts">Source code</a></li>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts/releases">Releases</a></li>
+        <li><a href="https://github.com/Nicodesy06/Deep-Cuts/issues">Report a problem</a></li>
+        <li><a href="guide.html">Guide</a></li>
+      </ul>
+    </div>
+    <div class="col-c">
+      <h4>Credits</h4>
+      <p>Models: PANNs (Kong et al., CC BY 4.0), LAION-CLAP (Apache-2.0), Discogs-EffNet and MAEST (MTG–UPF, CC BY-NC-SA 4.0). Rekordbox, Traktor, Serato and VirtualDJ are trademarks of their owners; Deep Cuts is not affiliated with them.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
