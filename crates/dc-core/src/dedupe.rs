@@ -222,17 +222,24 @@ pub fn merge(
                 let name = src.file_name().and_then(|n| n.to_str()).unwrap_or("track");
                 let dst = free_path(&trash_dir, name, &taken);
                 taken.push(dst.clone());
-                match history::change(
+                // All or nothing: if one file cannot be moved the whole
+                // merge is cancelled (the transaction rolls back and files
+                // already moved are put back), so no track is archived and
+                // no playlist re-pointed for a file that stayed in place.
+                history::change(
                     tx,
                     b,
                     Kind::FilePath,
                     other,
                     &fid,
                     State::set(Some(&dst.to_string_lossy())),
-                ) {
-                    Ok(_) => rep.files_moved += 1,
-                    Err(e) => rep.failed.push(format!("{path}: {e}")),
-                }
+                )
+                .map_err(|e| {
+                    Error::Invalid(format!(
+                        "merge cancelled, nothing was changed: could not move {path}: {e}"
+                    ))
+                })?;
+                rep.files_moved += 1;
             }
             history::change(
                 tx,

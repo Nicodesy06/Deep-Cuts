@@ -207,16 +207,135 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// Move one file on disk. Never overwrites a different existing file.
-/// Idempotent: if the file is already at `to` (and gone from `from`), it is
-/// a no-op, so an interrupted undo/redo can simply be repeated.
-pub fn move_on_disk(from: &Path, to: &Path) -> Result<()> {
-    let from_exists = from.exists();
-    if !from_exists && to.exists() {
-        return Ok(());
+// ---------------------------------------------------------------------------
+// Recoverable moves.
+//
+// SQLite and the file system are two separate transactional resources: a SQL
+// rollback cannot undo a rename. Every move therefore goes through a small
+// journal stored next to the library database (`<db>.fileops/`):
+//
+//   1. the source is identified (size + full BLAKE3) and a journal entry is
+//      written and synced *before* the disk is touched;
+//   2. the file is moved (same volume: no-overwrite link/rename; other volume:
+//      copy to a `.deepcuts-partial.*` file, sync, verify the full hash,
+//      atomic rename, then remove the source);
+//   3. the database row is updated inside the caller's transaction;
+//   4. when that transaction commits the journal entries are removed; when it
+//      fails, the moves are reversed (`settle(false)`).
+//
+// A crash between 2 and 4 leaves the journal: `recover` (run when the
+// database is opened) puts each file back where the committed database says
+// it is, and removes abandoned partial copies.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct JournalEntry {
+    file_id: String,
+    src: String,
+    dst: String,
+    size: u64,
+    hash: String,
+    /// "prepared" (nothing moved yet) or "moved".
+    stage: String,
+    /// Temporary copy used for a cross-volume move.
+    partial: Option<String>,
+}
+
+thread_local! {
+    /// Journal files of moves done inside the current transaction.
+    static PENDING: std::cell::RefCell<Vec<PathBuf>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Journal directory for a connection (next to the database file).
+fn journal_dir(conn: &Connection) -> PathBuf {
+    match conn.path().filter(|p| !p.is_empty()) {
+        Some(p) => PathBuf::from(format!("{p}.fileops")),
+        None => std::env::temp_dir().join(format!(
+            "deepcuts-fileops-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        )),
     }
-    if !from_exists {
-        return Err(Error::NotFound(format!("{}", from.display())));
+}
+
+fn sync_dir(dir: &Path) {
+    // Directory fsync makes the rename durable on Unix; not available on Windows.
+    #[cfg(unix)]
+    if let Ok(d) = std::fs::File::open(dir) {
+        let _ = d.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = dir;
+}
+
+fn write_journal(path: &Path, e: &JournalEntry) -> Result<()> {
+    use std::io::Write;
+    let tmp = path.with_extension("tmp");
+    {
+        let mut f = std::fs::File::create(&tmp)?;
+        f.write_all(&serde_json::to_vec(e)?)?;
+        f.sync_all()?;
+    }
+    std::fs::rename(&tmp, path)?;
+    if let Some(d) = path.parent() {
+        sync_dir(d);
+    }
+    Ok(())
+}
+
+fn read_journal(path: &Path) -> Option<JournalEntry> {
+    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+}
+
+/// Size and full BLAKE3 hash of a file.
+pub fn file_hash(path: &Path) -> Result<(u64, String)> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(path)?;
+    let mut h = blake3::Hasher::new();
+    let mut buf = vec![0u8; 1 << 20];
+    let mut size = 0u64;
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+        size += n as u64;
+    }
+    Ok((size, h.finalize().to_hex().to_string()))
+}
+
+/// Does `path` hold exactly the expected content?
+fn holds(path: &Path, expected: &(u64, String)) -> bool {
+    std::fs::metadata(path).is_ok_and(|m| m.len() == expected.0)
+        && file_hash(path).is_ok_and(|h| &h == expected)
+}
+
+/// Move one file on disk. Never overwrites an existing file (other than the
+/// same file, e.g. a case-only rename). When the source is already gone the
+/// move only counts as done if the destination holds exactly `expected`
+/// (size and full hash), so an interrupted move can be repeated safely but
+/// a different file at the destination is never accepted.
+pub fn move_on_disk(from: &Path, to: &Path, expected: Option<&(u64, String)>) -> Result<()> {
+    if fault::hit("move", from) {
+        return Err(Error::Invalid(format!(
+            "injected failure moving {}",
+            from.display()
+        )));
+    }
+    if !from.exists() {
+        if to.exists() && expected.is_some_and(|e| holds(to, e)) {
+            return Ok(());
+        }
+        return Err(if to.exists() {
+            Error::Invalid(format!(
+                "{} is missing and {} holds a different file: nothing changed",
+                from.display(),
+                to.display()
+            ))
+        } else {
+            Error::NotFound(format!("{}", from.display()))
+        });
     }
     if to.exists() && !same_file(from, to) {
         return Err(Error::Invalid(format!(
@@ -227,22 +346,59 @@ pub fn move_on_disk(from: &Path, to: &Path) -> Result<()> {
     if let Some(parent) = to.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    if std::fs::rename(from, to).is_ok() {
+    // Same volume. A hard link fails if the destination exists, so a file
+    // created there since the check is never replaced.
+    if !same_file(from, to) && std::fs::hard_link(from, to).is_ok() {
+        if let Err(e) = std::fs::remove_file(from) {
+            let _ = std::fs::remove_file(to);
+            return Err(e.into());
+        }
+        if let Some(d) = to.parent() {
+            sync_dir(d);
+        }
         return Ok(());
     }
-    // Different volume: copy, verify, then remove the original.
-    std::fs::copy(from, to)?;
-    let ok = std::fs::metadata(from)?.len() == std::fs::metadata(to)?.len()
-        && library::quick_hash(from)? == library::quick_hash(to)?;
-    if !ok {
-        let _ = std::fs::remove_file(to);
-        return Err(Error::Invalid(format!(
-            "copy of {} could not be verified",
-            from.display()
-        )));
+    if (same_file(from, to) || !to.exists()) && std::fs::rename(from, to).is_ok() {
+        if let Some(d) = to.parent() {
+            sync_dir(d);
+        }
+        return Ok(());
     }
+    copy_verified(from, to)?;
     std::fs::remove_file(from)?;
     Ok(())
+}
+
+/// Cross-volume move, first half: copy to a temporary file next to the
+/// destination, sync it, compare the full hash with the source, then rename
+/// it into place. A failure removes the partial copy.
+fn copy_verified(from: &Path, to: &Path) -> Result<()> {
+    let dir = to.parent().unwrap_or(Path::new("."));
+    let partial = dir.join(format!(".deepcuts-partial.{}", crate::util::new_id()));
+    let result = (|| -> Result<()> {
+        let want = file_hash(from)?;
+        std::fs::copy(from, &partial)?;
+        std::fs::File::open(&partial)?.sync_all()?;
+        if file_hash(&partial)? != want {
+            return Err(Error::Invalid(format!(
+                "copy of {} could not be verified",
+                from.display()
+            )));
+        }
+        if to.exists() {
+            return Err(Error::Invalid(format!(
+                "refusing to overwrite {}",
+                to.display()
+            )));
+        }
+        std::fs::rename(&partial, to)?;
+        sync_dir(dir);
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&partial);
+    }
+    result
 }
 
 /// Path of a file row (history state for `Kind::FilePath`).
@@ -254,19 +410,211 @@ pub(crate) fn file_path(conn: &Connection, file_id: &str) -> Result<String> {
     )
 }
 
-/// Move a file and update its row (used by apply, undo and redo).
+/// Move a file and update its row (used by apply, undo and redo), with a
+/// journal entry so the move is reversed if the transaction fails or the
+/// process stops before it commits.
 pub(crate) fn set_file_path(conn: &Connection, file_id: &str, to: &str) -> Result<()> {
     let from = file_path(conn, file_id)?;
     if from == to {
         return Ok(());
     }
-    move_on_disk(Path::new(&from), Path::new(to))?;
-    let to_key = library::path_key(Path::new(to));
-    conn.execute(
+    let (src, dst) = (Path::new(&from), Path::new(to));
+    // Identity of the file being moved. If the source is already gone (a
+    // repeated undo/redo), the destination must hold the file the database
+    // describes (size + quick hash).
+    let expected = if src.exists() {
+        file_hash(src)?
+    } else {
+        let (size, quick): (i64, Option<String>) = conn.query_row(
+            "SELECT size, quick_hash FROM files WHERE id = ?1",
+            [file_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let ok = dst.exists()
+            && std::fs::metadata(dst).is_ok_and(|m| m.len() == size as u64)
+            && quick.is_some_and(|q| library::quick_hash(dst).is_ok_and(|h| h == q));
+        if !ok {
+            return Err(Error::Invalid(format!(
+                "{from} is missing and {to} is not the same file: nothing changed"
+            )));
+        }
+        file_hash(dst)?
+    };
+    let dir = journal_dir(conn);
+    std::fs::create_dir_all(&dir)?;
+    let jpath = dir.join(format!("{}.json", crate::util::new_id()));
+    let mut entry = JournalEntry {
+        file_id: file_id.to_string(),
+        src: from.clone(),
+        dst: to.to_string(),
+        size: expected.0,
+        hash: expected.1.clone(),
+        stage: "prepared".into(),
+        partial: None,
+    };
+    write_journal(&jpath, &entry)?;
+    if let Err(e) = move_on_disk(src, dst, Some(&expected)) {
+        let _ = std::fs::remove_file(&jpath);
+        return Err(e);
+    }
+    entry.stage = "moved".into();
+    write_journal(&jpath, &entry)?;
+    if fault::hit("crash-after-move", src) {
+        // Simulated process stop: the journal stays, nothing is reversed.
+        return Err(Error::Invalid("injected crash after move".into()));
+    }
+    let to_key = library::path_key(dst);
+    let updated = conn.execute(
         "UPDATE files SET path = ?1, missing = 0, last_seen = ?2 WHERE id = ?3",
         params![to_key, crate::util::now_ms(), file_id],
-    )?;
+    );
+    if let Err(e) = updated {
+        // Put the file back now: this item failed, the batch may go on.
+        if move_on_disk(dst, src, Some(&expected)).is_ok() {
+            let _ = std::fs::remove_file(&jpath);
+        }
+        return Err(e.into());
+    }
+    if conn.is_autocommit() {
+        // Not inside a transaction: the update is already durable.
+        let _ = std::fs::remove_file(&jpath);
+    } else {
+        PENDING.with(|p| p.borrow_mut().push(jpath));
+    }
     Ok(())
+}
+
+/// Fault injection for recovery tests (no effect unless a test sets it).
+#[doc(hidden)]
+pub mod fault {
+    use std::cell::RefCell;
+    use std::path::Path;
+
+    thread_local! {
+        static POINT: RefCell<Option<(String, String)>> = const { RefCell::new(None) };
+    }
+
+    /// Fail at `point` ("move" or "crash-after-move") for source paths
+    /// containing `path_part`.
+    pub fn set(point: &str, path_part: &str) {
+        POINT.with(|p| *p.borrow_mut() = Some((point.into(), path_part.into())));
+    }
+
+    pub fn clear() {
+        POINT.with(|p| *p.borrow_mut() = None);
+    }
+
+    pub(crate) fn hit(point: &str, path: &Path) -> bool {
+        POINT.with(|p| {
+            p.borrow().as_ref().is_some_and(|(pt, part)| {
+                pt == point && path.to_string_lossy().contains(part.as_str())
+            })
+        })
+    }
+}
+
+/// Called by `util::atomic` when its transaction ends: on commit the journal
+/// entries are dropped; on rollback the moves are reversed, newest first.
+/// An entry whose move cannot be reversed stays for `recover`.
+pub(crate) fn settle(committed: bool) {
+    let pending: Vec<PathBuf> = PENDING.with(|p| std::mem::take(&mut *p.borrow_mut()));
+    for j in pending.into_iter().rev() {
+        if committed {
+            let _ = std::fs::remove_file(&j);
+            continue;
+        }
+        let Some(e) = read_journal(&j) else { continue };
+        let expected = (e.size, e.hash.clone());
+        if move_on_disk(Path::new(&e.dst), Path::new(&e.src), Some(&expected)).is_ok() {
+            let _ = std::fs::remove_file(&j);
+        } else {
+            eprintln!(
+                "file move {} -> {} could not be reversed; it will be checked at the next start",
+                e.src, e.dst
+            );
+        }
+    }
+}
+
+/// Finish or reverse moves interrupted by a crash, using the committed
+/// database as the reference. Returns one message per entry handled.
+pub fn recover(conn: &Connection) -> Result<Vec<String>> {
+    let dir = journal_dir(conn);
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return Ok(Vec::new());
+    };
+    let mut msgs = Vec::new();
+    for ent in rd.flatten() {
+        let jpath = ent.path();
+        if jpath.extension().and_then(|x| x.to_str()) != Some("json") {
+            let _ = std::fs::remove_file(&jpath);
+            continue;
+        }
+        let Some(e) = read_journal(&jpath) else {
+            let _ = std::fs::remove_file(&jpath);
+            continue;
+        };
+        let expected = (e.size, e.hash.clone());
+        let (src, dst) = (Path::new(&e.src), Path::new(&e.dst));
+        if let Some(p) = &e.partial {
+            let _ = std::fs::remove_file(p);
+        }
+        // Abandoned cross-volume copies next to the destination.
+        if let Some(d) = dst.parent()
+            && let Ok(rd) = std::fs::read_dir(d)
+        {
+            for f in rd.flatten() {
+                if f.file_name()
+                    .to_string_lossy()
+                    .starts_with(".deepcuts-partial.")
+                {
+                    let _ = std::fs::remove_file(f.path());
+                }
+            }
+        }
+        let db_path: Option<String> = conn
+            .query_row("SELECT path FROM files WHERE id = ?1", [&e.file_id], |r| {
+                r.get(0)
+            })
+            .optional()?;
+        let at = |p: &Path| library::path_key(p);
+        let target = match db_path {
+            Some(p) if p == at(dst) => dst,
+            Some(p) if p == at(src) => src,
+            _ => {
+                msgs.push(format!(
+                    "interrupted move of {} could not be matched to the library; left as is",
+                    e.src
+                ));
+                let _ = std::fs::remove_file(&jpath);
+                continue;
+            }
+        };
+        let other = if target == dst { src } else { dst };
+        let msg = if holds(target, &expected) {
+            // The file is where the database says; a second full copy left
+            // by an interrupted cross-volume move is removed.
+            if other.exists() && holds(other, &expected) {
+                std::fs::remove_file(other)?;
+            }
+            format!("checked interrupted move of {}", e.src)
+        } else if holds(other, &expected) {
+            move_on_disk(other, target, Some(&expected))?;
+            format!(
+                "completed interrupted move: {} is back at {}",
+                e.src,
+                target.display()
+            )
+        } else {
+            format!(
+                "interrupted move of {}: file not found at either path; left for review",
+                e.src
+            )
+        };
+        msgs.push(msg);
+        let _ = std::fs::remove_file(&jpath);
+    }
+    Ok(msgs)
 }
 
 #[cfg(test)]

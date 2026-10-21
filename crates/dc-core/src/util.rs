@@ -41,9 +41,14 @@ pub fn atomic<T>(
 ) -> crate::Result<T> {
     if conn.is_autocommit() {
         let tx = write_tx(conn)?;
-        let v = f(&tx)?;
-        tx.commit()?;
-        Ok(v)
+        let result = f(&tx).and_then(|v| {
+            tx.commit()?;
+            Ok(v)
+        });
+        // File moves done inside the transaction are kept on commit and
+        // reversed on failure (see `fileops`).
+        crate::fileops::settle(result.is_ok());
+        result
     } else {
         f(conn)
     }

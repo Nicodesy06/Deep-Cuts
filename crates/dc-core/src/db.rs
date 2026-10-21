@@ -29,6 +29,10 @@ pub fn open(path: &Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
     configure(&conn)?;
     migrate(&conn)?;
+    // Finish or reverse file moves interrupted by a crash.
+    for m in crate::fileops::recover(&conn)? {
+        eprintln!("{m}");
+    }
     Ok(conn)
 }
 
