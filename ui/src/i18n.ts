@@ -197,7 +197,7 @@ const en = {
   "an.fullBand": "full",
   "an.bandwidthHint": "Frequency where the spectrum ends abruptly (an encoder low-pass). 'full' = no sharp cut-off found.",
   "an.energyCurve": "Energy over time (RMS per second)",
-  "an.disclaimer": "These are signal measurements, not AI judgments. Genre, mood and groove (Music DNA) are not inferred yet.",
+  "an.disclaimer": "These are signal measurements, not AI judgments. Genre, mood and sound labels from the audio models are under Character above and in Music DNA.",
 
   "dash.welcome": "Welcome to Cradex",
   "dash.welcomeBody": "Your DJ library, understood — locally. Start by importing a music folder or your Rekordbox collection.",
@@ -1221,7 +1221,7 @@ const it: Record<MsgKey, string> = {
   "an.fullBand": "piena",
   "an.bandwidthHint": "Frequenza a cui lo spettro si interrompe di colpo (filtro passa-basso di un encoder). 'piena' = nessun taglio netto trovato.",
   "an.energyCurve": "Energia nel tempo (RMS al secondo)",
-  "an.disclaimer": "Queste sono misure del segnale, non giudizi di un'AI. Genere, mood e groove (Music DNA) non vengono ancora stimati.",
+  "an.disclaimer": "Queste sono misure del segnale, non giudizi di un'AI. Le etichette di genere, mood e suono dei modelli audio sono in Carattere qui sopra e in Music DNA.",
 
   "dash.welcome": "Benvenuto in Cradex",
   "dash.welcomeBody": "La tua libreria DJ, compresa — in locale. Inizia importando una cartella musicale o la tua collezione Rekordbox.",

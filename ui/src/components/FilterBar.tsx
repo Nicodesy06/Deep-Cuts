@@ -348,7 +348,6 @@ function FilterEditor({ draft, onDraft, onSave, onCancel }: { draft: Filter; onD
           list={draft.kind === "genre" ? "filter-genres" : undefined}
           placeholder={t("filter.contains")}
           autoFocus
-          onKeyDown={(e) => e.key === "Enter" && onSave()}
         />
         {draft.kind === "genre" && (
           <datalist id="filter-genres">
@@ -363,7 +362,14 @@ function FilterEditor({ draft, onDraft, onSave, onCancel }: { draft: Filter; onD
   }
 
   return (
-    <div className="filter-editor" role="dialog" aria-label={t(`filter.kind.${draft.kind}` as MsgKey)}>
+    <div
+      className="filter-editor"
+      role="dialog"
+      aria-label={t(`filter.kind.${draft.kind}` as MsgKey)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT" && filterQuery(draft)) onSave();
+      }}
+    >
       <div className="section-title">{t(`filter.kind.${draft.kind}` as MsgKey)}</div>
       {body}
       <label className="toggle">

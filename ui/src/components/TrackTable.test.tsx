@@ -58,3 +58,13 @@ describe("grid helpers", () => {
     expect(tapBpm([0, 469, 938, 1500, 1875, 2344])).toBe(127.9);
   });
 });
+
+import { historyValue } from "./TrackExtras";
+describe("change history values", () => {
+  it("shows cues instead of JSON", () => {
+    expect(historyValue('{"kind":"loop","slot":null,"startMs":14806.9,"endMs":22191.5,"name":"Outro loop","locked":true}')).toBe("loop “Outro loop” 0:15–0:22");
+    expect(historyValue('{"kind":"hotcue","slot":0,"startMs":1000}')).toBe("hotcue A 0:01");
+    expect(historyValue("Tech House")).toBe("Tech House");
+    expect(historyValue(null)).toBe("∅");
+  });
+});

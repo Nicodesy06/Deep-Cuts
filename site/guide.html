@@ -146,6 +146,11 @@
 
           <h3>Step 1 — Bring your music in</h3>
           <p>Choose one of these, or several:</p>
+          <figure>
+            <a class="shot" href="assets/guide/dashboard.webp" aria-label="Open the full-size image"><img src="assets/guide/dashboard.webp" width="1200" height="527" loading="lazy" alt="Dashboard with totals and distributions of BPM, key and genres."></a>
+            <figcaption>After the import, the Dashboard sums up the library: totals, decisions, BPM, key, loudness, genres and formats. Click any bar to see those tracks.</figcaption>
+          </figure>
+
           <ul>
             <li><strong>A folder of music</strong>: Library › <strong>Import folder…</strong>, or drag folders onto the window. Subfolders are included. Formats: MP3, WAV, AIFF, FLAC, ALAC and AAC (M4A), OGG. A summary shows how many tracks were added, updated, unchanged, relinked or failed.</li>
             <li><strong>Your Rekordbox collection</strong>: in Rekordbox, File › Export Collection in xml format; then Dashboard or Sync &amp; Export › <strong>Import Rekordbox XML…</strong>. Tracks, BPM, key, ratings, comments, beatgrids, cues, loops and playlists come in.</li>
@@ -156,6 +161,11 @@
 
           <h3>Step 2 — Decide how genres are suggested</h3>
           <p>Before the first analysis, Cradex asks once how it should suggest genres:</p>
+          <figure class="fig-mid">
+            <a class="shot" href="assets/guide/model-choice.webp" aria-label="Open the full-size image"><img src="assets/guide/model-choice.webp" width="860" height="576" loading="lazy" alt="Dialog: how should Cradex suggest genres, with the three options and the licence."></a>
+            <figcaption>The genre choice is asked once. The optional style model is downloaded only if you pick it, and its licence is shown before.</figcaption>
+          </figure>
+
           <ul>
             <li><strong>Discogs styles model + my own labels</strong> (recommended): downloads a small model (26 MB) that recognises 400 Discogs styles, and also learns from the genres and tags you set yourself.</li>
             <li><strong>Discogs styles model only</strong>.</li>
@@ -187,17 +197,19 @@
         <section id="tour" aria-labelledby="h-tour">
           <h2 id="h-tour">4. The interface</h2>
           <figure>
-            <div class="shot"><img src="assets/screens/library.webp" width="1440" height="900" loading="lazy" alt="Library view: sidebar, playlists, track table, details panel and player."></div>
-            <figcaption>From left: page sidebar, collection and playlists, track table, details panel. The player runs along the bottom.</figcaption>
+            <a class="shot" href="assets/guide/overview.webp" aria-label="Open the full-size image"><img src="assets/guide/overview.webp" width="1200" height="750" loading="lazy" alt="The Library page with numbered areas: pages, collection, search, filters, track table, details panel, player."></a>
+            <figcaption>The Library page. The numbers match the list below.</figcaption>
           </figure>
-          <ul>
-            <li><strong>Sidebar</strong> — the pages of the app, plus Undo and Redo buttons at the bottom. The note “100% local · offline · no account” is a reminder that nothing is sent anywhere.</li>
-            <li><strong>Collection column</strong> (Library page) — All tracks, your playlists (manual playlists, sets and folders) and Smart Crates.</li>
-            <li><strong>Track table</strong> — search bar with the ＋ Filters row, track count and selection count, Auto-advance, Analyze and Import buttons.</li>
-            <li><strong>Details panel</strong> — everything about the selected track, or bulk editing when several are selected.</li>
-            <li><strong>Player</strong> — waveform with played part, hot region and cue markers; Intro / HOT / Outro jumps; Keep / Maybe / Pass; rating; volume.</li>
-            <li><strong>Notifications</strong> appear at the bottom right: results of imports, analysis, automatic imports from watch folders, and problems (for example a watched folder that cannot be read).</li>
-          </ul>
+          <ol class="callouts">
+            <li><strong>Pages</strong> — every part of the app; Undo / Redo at the bottom.</li>
+            <li><strong>Collection</strong> — All tracks, playlists, sets, folders and Smart Crates.</li>
+            <li><strong>Search</strong> — type words, a BPM, a key or a year.</li>
+            <li><strong>＋ Filters</strong> — add filters as bubbles, no syntax needed.</li>
+            <li><strong>Track table</strong> — click a header to sort; the <strong>+</strong> at its right end adds columns.</li>
+            <li><strong>Details panel</strong> — the selected track, or bulk editing for a selection.</li>
+            <li><strong>Player</strong> — waveform, Intro / HOT / Outro, Keep / Maybe / Pass, rating, volume.</li>
+          </ol>
+          <p><strong>Notifications</strong> appear at the bottom right: results of imports, analysis, automatic imports from watch folders, and problems (for example a watched folder that cannot be read).</p>
           <table>
             <thead><tr><th scope="col">Page</th><th scope="col">What it is for</th><th scope="col">Chapter</th></tr></thead>
             <tbody>
@@ -228,9 +240,19 @@
             <li><strong>Drag</strong> a selection onto a playlist in the left column to add it.</li>
             <li><strong>Double-click</strong> or <kbd>Enter</kbd> previews a track.</li>
           </ul>
+          <figure>
+            <a class="shot" href="assets/guide/columns.webp" aria-label="Open the full-size image"><img src="assets/guide/columns.webp" width="715" height="118" loading="lazy" alt="Column chooser opened from the plus button in the table header."></a>
+            <figcaption>Detail · The <strong>+</strong> at the right end of the column headers opens the list of columns: tick what you want to see, including My Tags, Energy, Favourite and Cues.</figcaption>
+          </figure>
+
 
           <h3>The context menu (right-click)</h3>
           <p>Actions on the selected tracks:</p>
+          <figure class="fig-mid">
+            <a class="shot" href="assets/guide/context-menu.webp" aria-label="Open the full-size image"><img src="assets/guide/context-menu.webp" width="610" height="570" loading="lazy" alt="Right-click menu on a track with play, find similar, decisions, analyse, playlists and tags."></a>
+            <figcaption>Detail · Right-click a track (or a selection) for every action that applies to it. The menu always stays inside the window.</figcaption>
+          </figure>
+
           <ul>
             <li>Keep / Maybe / Pass, ratings, favourite, analyse or re-analyse.</li>
             <li>New playlist from selection…, add to playlist, remove from this playlist, New set from selection….</li>
@@ -242,6 +264,17 @@
 
           <h3>The details panel</h3>
           <p>With one track selected, the panel shows, top to bottom:</p>
+          <div class="fig-row">
+          <figure>
+            <a class="shot" href="assets/guide/details.webp" aria-label="Open the full-size image"><img src="assets/guide/details.webp" width="308" height="600" loading="lazy" alt="Details panel of one track: title, BPM, key, decisions, rating, tags and character."></a>
+            <figcaption>One track selected: decisions, rating, tags, playlists and the measured character.</figcaption>
+          </figure>
+          <figure>
+            <a class="shot" href="assets/guide/multi-select.webp" aria-label="Open the full-size image"><img src="assets/guide/multi-select.webp" width="318" height="320" loading="lazy" alt="Details panel with 40 tracks selected: Keep, Maybe, Pass and bulk edit."></a>
+            <figcaption>Several tracks selected: decide or edit all of them at once — every selected track, not only those on screen.</figcaption>
+          </figure>
+          </div>
+
           <ul>
             <li><strong>Header</strong>: play button, title and artist, BPM, key, duration, format; Keep / Maybe / Pass; stars; favourite.</li>
             <li><strong>Tags</strong>: add and remove; experimental (AI-suggested) tags are marked.</li>
@@ -308,6 +341,11 @@
               <tr><td><kbd>C</kbd></td><td>Add a cue point at the playhead</td></tr>
             </tbody>
           </table>
+          <figure>
+            <a class="shot" href="assets/guide/player.webp" aria-label="Open the full-size image"><img src="assets/guide/player.webp" width="1200" height="68" loading="lazy" alt="Player bar with waveform, Intro, HOT, Outro, Keep, Maybe, Pass, stars and volume."></a>
+            <figcaption>Detail · The player: the light part of the waveform is the HOT region (the most energetic part), the marks are cues.</figcaption>
+          </figure>
+
 
           <h3>A triage routine that works</h3>
           <ol>
@@ -327,6 +365,21 @@
 
           <h3>Filters</h3>
           <p><strong>＋ Filters</strong> opens a list: BPM, Key, Genre, Artist, Label, My tag, Year, Rating, Energy, Length, Decision, Added and Status (not analysed, file missing, no cover, favourites, no genre/key/BPM). Pick one, fill in the small form (a range, a key on the Camelot grid with “+ compatible” or “+ energy moves”, a star count…) and press <em>Apply</em>. The filter appears as a bubble next to the button. Click a bubble to change it, × to remove it, <em>Clear filters</em> to remove all. Tick <em>Exclude these tracks instead</em> to turn a filter around (a red bubble). Filters combine with what you type and are remembered on this computer. <em>Save as Smart Crate</em> turns the current search and filters into a crate that keeps itself up to date.</p>
+          <figure>
+            <a class="shot" href="assets/guide/filter-bar.webp" aria-label="Open the full-size image"><img src="assets/guide/filter-bar.webp" width="715" height="130" loading="lazy" alt="Search bar with two filter bubbles: BPM 122–128 and Key 7A plus compatible."></a>
+            <figcaption>Detail · Two filters active: BPM 122–128 and key 7A with its compatible keys. Click a bubble to change it, × to remove it.</figcaption>
+          </figure>
+          <div class="fig-row">
+          <figure>
+            <a class="shot" href="assets/guide/filter-menu.webp" aria-label="Open the full-size image"><img src="assets/guide/filter-menu.webp" width="296" height="244" loading="lazy" alt="List of the available filters."></a>
+            <figcaption><strong>＋ Filters</strong> lists everything you can filter on.</figcaption>
+          </figure>
+          <figure>
+            <a class="shot" href="assets/guide/filter-key.webp" aria-label="Open the full-size image"><img src="assets/guide/filter-key.webp" width="405" height="322" loading="lazy" alt="Key filter with the Camelot grid and the compatible option."></a>
+            <figcaption>The key filter: pick a key on the Camelot wheel and whether compatible keys count too.</figcaption>
+          </figure>
+          </div>
+
 
           <h3>Shortcuts you can type</h3>
           <table>
@@ -427,6 +480,11 @@
 
           <h3>Smart Crates</h3>
           <p>A Smart Crate is a saved search that updates itself: add music that matches the rules and it appears in the crate automatically. Create one in Smart Crates › <strong>New Smart Crate</strong>, give it a name and write the rules in the search language; the number of matching tracks updates as you type. Crates appear in the Library's left column like playlists.</p>
+          <figure>
+            <a class="shot" href="assets/guide/smart-crates.webp" aria-label="Open the full-size image"><img src="assets/guide/smart-crates.webp" width="1200" height="547" loading="lazy" alt="Smart Crates page: new crate form, example rules and saved crates."></a>
+            <figcaption>Smart Crates: name, rules (clickable examples below the field) and the list of saved crates. The count updates as you type.</figcaption>
+          </figure>
+
           <p>When exported to DJ software, a Smart Crate becomes a playlist of the tracks that match <em>at the moment of export</em>: Rekordbox XML has no smart playlists, and the Traktor and Serato smart-list formats are not documented. For VirtualDJ, Cradex can translate the rule into a VirtualDJ filter: Smart Crates › VirtualDJ copies it, and you paste it into My Lists › Add Filter. Terms without a VirtualDJ equivalent are listed.</p>
 
           <h3>Recipes</h3>
@@ -458,6 +516,11 @@
             <li><strong>Quick Tag slots</strong>: assign tags to slots 1–9, then press <kbd>Shift</kbd>+digit in the Library to toggle the tag on the selected tracks while you preview.</li>
             <li><strong>Suggestions</strong>: tags proposed by Music DNA or the AI model wait here for you to accept or reject.</li>
           </ul>
+          <figure>
+            <a class="shot" href="assets/guide/tag-editor.webp" aria-label="Open the full-size image"><img src="assets/guide/tag-editor.webp" width="1200" height="840" loading="lazy" alt="Tag Editor: new tag form, Quick Tag slots and all tags by category."></a>
+            <figcaption>Tag Editor: create tags with a category and a parent, assign Quick Tag slots (Shift+1…9 in the Library) and see every tag with its count.</figcaption>
+          </figure>
+
 
           <h3>Rekordbox My Tags</h3>
           <p>Rekordbox can write My Tags into a track's comment as <code>/* Tag / Tag */</code> (Rekordbox setting that adds My Tags to comments). Cradex reads them, on import of files, M3U8 playlists or Rekordbox XML, and turns them into tags under a parent “My Tag”: searchable, usable in Smart Crates, and learned by tag suggestions.</p>
@@ -494,6 +557,11 @@
               <tr><td><strong>Energy curve</strong></td><td>RMS level per second, drawn under the details; used for the hot region, sections and cue anchors.</td></tr>
             </tbody>
           </table>
+          <figure class="fig-narrow">
+            <a class="shot" href="assets/guide/measured.webp" aria-label="Open the full-size image"><img src="assets/guide/measured.webp" width="322" height="450" loading="lazy" alt="Measured analysis values of a track: tempo, key, loudness, brightness and more."></a>
+            <figcaption>Detail · The measured values of one track (details panel, lower part).</figcaption>
+          </figure>
+
 
           <h3>Analysis Queue</h3>
           <ul>
@@ -502,6 +570,11 @@
             <li><strong>Find unanalyzed tracks</strong> queues everything that has no analysis yet.</li>
             <li>Failed jobs show the error (for example a damaged file). A file that cannot be decoded does not stop the queue.</li>
           </ul>
+          <figure>
+            <a class="shot" href="assets/guide/analysis-queue.webp" aria-label="Open the full-size image"><img src="assets/guide/analysis-queue.webp" width="1200" height="547" loading="lazy" alt="Analysis Queue with counters, profile, controls and the job list."></a>
+            <figcaption>The Analysis Queue: running, queued, done and failed jobs, the speed profile, Pause and Retry failed.</figcaption>
+          </figure>
+
 
           <h3>BPM range: half-time and double-time</h3>
           <p>A drum &amp; bass track at 174 BPM can also be heard at 87; a dubstep track at 140 at 70. Software picks one convention. Settings › <strong>BPM range</strong> works like Rekordbox and Traktor: the detected tempo is moved into the chosen range by doubling or halving only. Choose 88–175 if you play drum &amp; bass, 70–140 for dubstep, or Automatic (60–200, DJ-style preference). Re-analyse to apply the range to existing tracks; values you typed are kept.</p>
@@ -519,6 +592,11 @@
 
           <h3>Beatgrid editor</h3>
           <p>In the details panel, <strong>Beatgrid</strong> shows the grid over the waveform (zoomed at the playhead). Tools:</p>
+          <figure class="fig-narrow">
+            <a class="shot" href="assets/guide/cues-grid.webp" aria-label="Open the full-size image"><img src="assets/guide/cues-grid.webp" width="322" height="440" loading="lazy" alt="Cue points with suggested intro and outro, and the beatgrid controls."></a>
+            <figcaption>Detail · Cue suggestions from the analysis (accept them as memory or hot cues) and the beatgrid controls: nudge, set BPM, ÷2 / ×2, tap, loops.</figcaption>
+          </figure>
+
           <ul>
             <li><strong>Downbeat at playhead</strong>: play to the first kick of a bar, pause, click — the grid shifts so that beat is a downbeat.</li>
             <li><strong>Move the whole grid</strong>: nudge earlier or later in small steps.</li>
@@ -561,7 +639,8 @@
         <section id="dna" aria-labelledby="h-dna">
           <h2 id="h-dna">13. Music DNA</h2>
           <figure>
-            <div class="shot"><img src="assets/screens/dna.webp" width="1440" height="900" loading="lazy" alt="Music DNA page."></div>
+            <a class="shot" href="assets/guide/music-dna.webp" aria-label="Open the full-size image"><img src="assets/guide/music-dna.webp" width="1228" height="800" loading="lazy" alt="Music DNA page: relative energy bars, audio AI model status and genre suggestions."></a>
+            <figcaption>Music DNA: the relative energy of the library (click a bar to see those tracks), the local audio model and the suggestions learned from your own labels.</figcaption>
           </figure>
 
           <h3>Relative energy 1–10</h3>
@@ -578,6 +657,11 @@
 
           <h3>Tag suggestions</h3>
           <p>For every tag with at least 5 analysed tracks, Cradex proposes other tracks that sound like the tagged ones, with the precision measured on your tags. Suggestions wait for review; rejected ones are never offered again.</p>
+          <figure>
+            <a class="shot" href="assets/guide/dna-tags.webp" aria-label="Open the full-size image"><img src="assets/guide/dna-tags.webp" width="579" height="460" loading="lazy" alt="Tag suggestions list with a play button on each row and Accept and Reject buttons."></a>
+            <figcaption>Detail · Each suggestion has a ▶ button: listen, then Accept or Reject. The player’s next/previous follow this list; the track playing is highlighted.</figcaption>
+          </figure>
+
 
           <h3>Auto groups</h3>
           <p>Groups tracks that measure alike (tempo, loudness, brightness, bass, rhythm density, energy shape) and describes each group by what sets it apart — “faster, bass-heavy, busy”, “quieter, dark, deep breakdowns”. Choose the number of groups, then <em>Save as playlist</em>. Useful to discover structure in a large unsorted folder.</p>
@@ -618,7 +702,8 @@
 
           <h3>Similar tracks</h3>
           <figure>
-            <div class="shot"><img src="assets/screens/discover.webp" width="1440" height="900" loading="lazy" alt="Discover: seed track, weights and the closest tracks."></div>
+            <a class="shot" href="assets/guide/discover.webp" aria-label="Open the full-size image"><img src="assets/guide/discover.webp" width="1200" height="782" loading="lazy" alt="Discover: seed track, weight sliders and the closest tracks with scores."></a>
+            <figcaption>Similar tracks for the playing track. Sliders weigh tempo, harmony, energy, timbre, rhythm, dynamics and sound; each result shows its score and why.</figcaption>
           </figure>
           <p>Right-click a track › <strong>Find similar…</strong>, or play a track and open Discover (<em>Use the playing track</em>). Each result shows a score, the BPM change and the key relation, plus a small bar per dimension. Sliders set how much each dimension counts:</p>
           <table>
@@ -646,7 +731,8 @@
         <section id="sets" aria-labelledby="h-sets">
           <h2 id="h-sets">16. Set Builder</h2>
           <figure>
-            <div class="shot"><img src="assets/screens/setbuilder.webp" width="1440" height="900" loading="lazy" alt="Set Builder with energy and BPM curves and suggestions."></div>
+            <a class="shot" href="assets/guide/set-builder.webp" aria-label="Open the full-size image"><img src="assets/guide/set-builder.webp" width="1200" height="782" loading="lazy" alt="Set Builder with the energy and BPM curves, the ordered tracks and suggested next tracks."></a>
+            <figcaption>Set Builder: energy and BPM curves of the set, transitions marked by quality, and suggested next tracks on the right.</figcaption>
           </figure>
           <p>Set Builder prepares the <em>order</em> of a set. It does not mix or render audio.</p>
           <h3>Creating a set</h3>
@@ -677,6 +763,10 @@
 <!-- 17 ----------------------------------------------------------------- -->
         <section id="health" aria-labelledby="h-health">
           <h2 id="h-health">17. Library Health</h2>
+          <figure>
+            <a class="shot" href="assets/guide/library-health.webp" aria-label="Open the full-size image"><img src="assets/guide/library-health.webp" width="1200" height="782" loading="lazy" alt="Library Health: missing files, duplicate candidates and suspected transcodes."></a>
+            <figcaption>Library Health lists problems; nothing is deleted or rewritten automatically.</figcaption>
+          </figure>
           <p>Library Health finds problems. Nothing is ever deleted or rewritten automatically: you review and decide.</p>
           <h3>Missing files</h3>
           <p><strong>Check all files</strong> verifies that every file still exists. Moved files are relinked automatically when you re-import the folder that now contains them (matched by content, so decisions and cues follow). Moved a whole collection to another drive or computer? Use <strong>Relocate library</strong> (Settings): replace the start of the stored paths, e.g. <code>D:\Music</code> → <code>/Volumes/USB/Music</code>. The preview shows how many files are found at the new location; only the library changes, files are not moved; undoable.</p>
@@ -705,6 +795,11 @@
 
           <h3>Smart Fixes</h3>
           <p>Clean-up rules with a preview of every change; untick what you do not want, then apply. Limit to a search (e.g. <code>genre:none OR label:promo</code>) or run on the whole library.</p>
+          <figure>
+            <a class="shot" href="assets/guide/smart-fixes.webp" aria-label="Open the full-size image"><img src="assets/guide/smart-fixes.webp" width="1200" height="187" loading="lazy" alt="Smart Fixes rules with checkboxes and Preview fixes."></a>
+            <figcaption>Detail · Smart Fixes: tick the rules, optionally limit them to a search, then <em>Preview fixes</em>. Nothing changes until you apply.</figcaption>
+          </figure>
+
           <table>
             <thead><tr><th scope="col">Rule</th><th scope="col">Example</th></tr></thead>
             <tbody>
@@ -750,7 +845,8 @@
         <section id="export" aria-labelledby="h-export">
           <h2 id="h-export">19. To your DJ software</h2>
           <figure>
-            <div class="shot"><img src="assets/screens/sync.webp" width="1440" height="900" loading="lazy" alt="Sync and Export page."></div>
+            <a class="shot" href="assets/guide/sync-export.webp" aria-label="Open the full-size image"><img src="assets/guide/sync-export.webp" width="1200" height="782" loading="lazy" alt="Sync and Export page with import and export buttons."></a>
+            <figcaption>Sync &amp; Export: imports on the left (each one takes a backup first), exports on the right.</figcaption>
           </figure>
           <p>Sync &amp; Export moves your library in and out. <strong>What to export</strong> chooses the whole library (every playlist and folder) or a selection or search as one playlist. Imports from other software take a backup of the Cradex library first. The other software's own database is never modified.</p>
           <div class="note"><p>Each format is round-trip tested (export, re-import, compare field by field). Checks inside each DJ application and version are in progress: if a field does not arrive as expected, please <a href="https://github.com/Nicodesy06/Deep-Cuts/issues">report it</a>.</p></div>
@@ -806,6 +902,11 @@
           </ul>
           <h3>Backups</h3>
           <p>Settings › Backups lists snapshots of the library database (not of your audio files): a daily automatic backup (the last 10 are kept), one before every import from other DJ software, one before every restore, one before Start over, plus any you make with <strong>Back up now</strong>. <strong>Restore</strong> returns the library to that state — the current state is backed up first, so even a restore can be undone. <strong>Check database integrity</strong> runs SQLite's integrity check.</p>
+          <figure>
+            <a class="shot" href="assets/guide/backups.webp" aria-label="Open the full-size image"><img src="assets/guide/backups.webp" width="1200" height="413" loading="lazy" alt="Backups list with Back up now and Restore, and the Start over panel."></a>
+            <figcaption>Detail · Backups (automatic and manual, each restorable) and Start over, which empties the library after a backup and never touches your files.</figcaption>
+          </figure>
+
           <h3>Start over</h3>
           <p>Settings › <strong>Start over</strong> empties the Cradex library: tracks, playlists (including those imported from Rekordbox XML or M3U8), tags, decisions, cues, analysis and watch folders. Nothing is deleted from your computer: music, XML and M3U8 files stay where they are. Settings and downloaded models are kept. A backup is taken first, so Settings › Backups can bring everything back.</p>
           <h3>Where your library lives</h3>
@@ -825,6 +926,10 @@
 <!-- 22 ----------------------------------------------------------------- -->
         <section id="settings" aria-labelledby="h-settings">
           <h2 id="h-settings">22. Settings reference</h2>
+          <figure>
+            <a class="shot" href="assets/guide/settings.webp" aria-label="Open the full-size image"><img src="assets/guide/settings.webp" width="1200" height="782" loading="lazy" alt="Settings page: language, analysis options, BPM range, key notation and privacy."></a>
+            <figcaption>Settings: general options on the left, privacy and the location of your library on the right.</figcaption>
+          </figure>
           <table>
             <thead><tr><th scope="col">Setting</th><th scope="col">Effect</th></tr></thead>
             <tbody>

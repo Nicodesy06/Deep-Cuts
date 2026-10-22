@@ -192,7 +192,7 @@ export function CueEditor({ track, cues, onChanged }: { track: TrackRow; cues: C
 export function HistorySection({ d }: { d: TrackDetail }) {
   const { t } = useApp();
   if (d.history.length === 0) return null;
-  const show = (present: boolean, v: string | null) => (present ? (v ?? "∅") : "—");
+  const show = (present: boolean, v: string | null) => (present ? historyValue(v) : "—");
   return (
     <>
       <div className="section-title">{t("details.history")}</div>
@@ -207,6 +207,29 @@ export function HistorySection({ d }: { d: TrackDetail }) {
       </ul>
     </>
   );
+}
+
+/** History values of cues, grids etc. are stored as JSON: show them readably. */
+export function historyValue(v: string | null): string {
+  if (v == null) return "∅";
+  if (!v.startsWith("{")) return v;
+  try {
+    const o = JSON.parse(v) as Record<string, unknown>;
+    if (typeof o.startMs === "number") {
+      const at = formatDuration(o.startMs) + (typeof o.endMs === "number" ? `–${formatDuration(o.endMs)}` : "");
+      const name = typeof o.name === "string" && o.name ? ` “${o.name}”` : "";
+      const slot = typeof o.slot === "number" ? ` ${String.fromCharCode(65 + o.slot)}` : "";
+      return `${o.kind ?? "cue"}${slot}${name} ${at}`;
+    }
+    if (typeof o.bpm === "number") return `${o.bpm.toFixed(2)} BPM`;
+    return Object.entries(o)
+      .filter(([, x]) => x != null && typeof x !== "object")
+      .slice(0, 3)
+      .map(([k, x]) => `${k} ${x}`)
+      .join(", ");
+  } catch {
+    return v;
+  }
 }
 
 /** Measured bass/groove descriptors and the audio model's outputs. */

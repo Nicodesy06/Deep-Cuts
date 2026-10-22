@@ -26,6 +26,11 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
+v0.3.1 (released): context menus stay inside the window; the change history shows cues and loops
+readably instead of raw data; the Library toolbar no longer wraps when the details panel is open;
+Enter applies range filters; the analysis panel note no longer says Music DNA is missing. The
+guide has 25 annotated, zoomed screenshots taken from the app.
+
 v0.3.0 (released): the app is renamed Cradex (formerly Deep Cuts). An existing library in the old
 `DeepCuts` data folder is used where it is (nothing moved or copied); new installs use `Cradex`.
 `CRADEX_HOME`, `CRADEX_MODELS_DIR` and `CRADEX_SMOKE` replace the `DEEPCUTS_*` variables, which still

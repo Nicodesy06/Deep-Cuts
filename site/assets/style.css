@@ -297,3 +297,22 @@ details > div p { margin: 0 0 12px; }
 .downloads > * { min-width: 0; }
 .dl-card .files .btn { white-space: normal; text-align: left; }
 .dl-card .files .btn .meta { text-align: right; flex: none; }
+
+/* guide screenshots: framed, clickable to full size, captions */
+.doc .shot { display: block; border-radius: 12px; overflow: hidden; border: 1px solid #2a2c33; background: #0b0c10;
+  box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 24px 48px -24px rgba(0,0,0,.45); transition: transform .2s ease, box-shadow .2s ease; }
+.doc a.shot:hover { transform: translateY(-2px); box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 32px 60px -24px rgba(0,0,0,.55); }
+.doc a.shot:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+.doc .shot img { display: block; width: 100%; height: auto; }
+.doc figure { margin: 28px 0 32px; }
+.doc figcaption { font-size: 14px; line-height: 1.5; color: var(--muted); margin-top: 12px; max-width: 70ch; }
+.doc figure.fig-mid { max-width: 640px; }
+.doc figure.fig-narrow { max-width: 380px; }
+.fig-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; margin: 28px 0 32px; }
+.fig-row figure { margin: 0; }
+@media (max-width: 640px) { .fig-row { grid-template-columns: minmax(0, 1fr); } }
+/* numbered legend matching the callouts in the overview screenshot */
+.callouts { list-style: none; padding: 0; counter-reset: callout; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 24px; margin: 0 0 28px; }
+.doc .callouts li { counter-increment: callout; position: relative; padding-left: 40px; margin: 0; }
+.callouts li::before { content: counter(callout); position: absolute; left: 0; top: -1px; width: 28px; height: 28px; border-radius: 50%;
+  background: #c6ff3d; color: #000; border: 2px solid #000; font-weight: 800; font-size: 14px; display: grid; place-items: center; }

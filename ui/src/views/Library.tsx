@@ -3,6 +3,7 @@ import { ensureGenreSource } from "../components/GenreSourceDialog";
 import { api, type Decision, type Playlist, type Tag, type TrackRow } from "../api";
 import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
+import { PopupMenu } from "../components/PopupMenu";
 import { FilterBar, filtersQuery, type Filter } from "../components/FilterBar";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
@@ -523,7 +524,7 @@ export function Library() {
         />
       )}
       {plMenu && (
-        <div className="menu" style={{ left: Math.min(plMenu.x, window.innerWidth - 240), top: Math.min(plMenu.y, window.innerHeight - 320) }} role="menu">
+<PopupMenu x={plMenu.x} y={plMenu.y}>
           <button
             onClick={async () => {
               const name = await prompt(t("pl.renameQ"), plMenu.p.name);
@@ -566,11 +567,11 @@ export function Library() {
           >
             {t("pl.delete")}
           </button>
-        </div>
+        </PopupMenu>
       )}
 
       {menu && (
-        <div className="menu" style={{ left: Math.min(menu.x, window.innerWidth - 240), top: Math.min(menu.y, window.innerHeight - 380) }} role="menu">
+<PopupMenu x={menu.x} y={menu.y}>
           <button
             onClick={() => {
               const r = selectedRows[0];
@@ -696,7 +697,7 @@ export function Library() {
           <button onClick={() => doExport("csv")}>{t("export.csv")}</button>
           <button onClick={() => doExport("html")}>{t("export.html")}</button>
           <button onClick={() => doExport("pdf")}>{t("export.pdf")}</button>
-        </div>
+        </PopupMenu>
       )}
     </div>
   );

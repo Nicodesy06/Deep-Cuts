@@ -696,7 +696,8 @@ button.chip:hover {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 2px 6px 2px 12px;
-  flex: 1 1 260px;
+  flex: 1 1 180px;
+  min-width: 160px;
   max-width: 560px;
 }
 .search:focus-within {
@@ -719,6 +720,7 @@ button.chip:hover {
 }
 .count {
   white-space: nowrap;
+  font-size: 12px;
 }
 .toggle {
   display: inline-flex;
