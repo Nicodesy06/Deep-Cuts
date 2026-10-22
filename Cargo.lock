@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "cradex"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "dc-core",
  "notify",
@@ -825,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "dc-cli"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "clap",
  "dc-core",
@@ -835,7 +835,7 @@ dependencies = [
 
 [[package]]
 name = "dc-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "blake3",
  "chrono",
