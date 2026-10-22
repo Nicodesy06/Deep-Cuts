@@ -770,6 +770,7 @@ export const api = {
   dnaGroups: (k: number, scope: string) => invoke<DnaGroup[]>("dna_groups", { k, scope }),
   dnaUpdateEnergy: () => invoke<number>("dna_update_energy"),
   dnaApplyGenres: (proposals: ReplaceProposal[]) => invoke<number>("dna_apply_genres", { proposals }),
+  unreviewTagSuggestion: (trackId: string, tagId: string) => invoke<void>("unreview_tag_suggestion", { trackId, tagId }),
   pendingTagSuggestions: () => invoke<[string, string, string, number | null][]>("pending_tag_suggestions"),
   gridSet: (trackId: string, bpm: number, firstBeatMs: number) => invoke<void>("grid_set", { trackId, bpm, firstBeatMs }),
   gridClear: (trackId: string) => invoke<void>("grid_clear", { trackId }),

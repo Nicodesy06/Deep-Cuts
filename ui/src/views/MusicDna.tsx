@@ -6,6 +6,7 @@ import { api, type DnaGroup, type LabelReport, type StylesStatus, type TrackRow 
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
 import { GenreSourceDialog } from "../components/GenreSourceDialog";
+import { SwipeReview } from "../components/SwipeReview";
 import { formatBpm } from "../format";
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
@@ -349,6 +350,7 @@ function TagPanel() {
   const [rep, setRep] = useState<LabelReport | null>(null);
   const [pending, setPending] = useState<[string, string, string, number | null][]>([]);
   const [busy, setBusy] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [tagNames, setTagNames] = useState<Map<string, string>>(new Map());
   const tagIds = pending.slice(0, 300).map((p) => p[0]);
   const rows = useRows(tagIds);
@@ -399,7 +401,20 @@ function TagPanel() {
       )}
       {pending.length > 0 && (
         <>
-          <h3 className="mt">{t("dna.pending", { n: pending.length })}</h3>
+          <div className="swipe-start">
+            <div>
+              <h3>{t("dna.pending", { n: pending.length })}</h3>
+              <p className="hint">{t("swipe.startHint")}</p>
+            </div>
+            <button className="btn big" onClick={() => setReviewing(true)}>
+              ▶ {t("swipe.start")}
+            </button>
+          </div>
+          {reviewing && (
+            <SwipeReview items={pending.map(([track, tag, name, conf]) => ({ track, tag, name, conf }))} onClose={() => setReviewing(false)} />
+          )}
+          <details className="sugg-list">
+            <summary>{t("swipe.asList")}</summary>
           <div className="write-plan">
             <table className="grid-table small sugg-table">
               <tbody>
@@ -435,6 +450,7 @@ function TagPanel() {
               </tbody>
             </table>
           </div>
+          </details>
         </>
       )}
     </section>

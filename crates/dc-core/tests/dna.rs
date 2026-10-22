@@ -156,6 +156,32 @@ fn energy_suggestions_and_groups_follow_the_music() {
     tags::review_suggestion(&conn, &suggested[0], &peak, false).unwrap();
     let again = dna::tag_suggestions(&conn, 0.5, 5).unwrap();
     assert!(again.suggestions.iter().all(|s| s.track_id != suggested[0]));
+    // Undoing a review makes it pending again; undoing an accept removes the tag.
+    let pending = |c: &rusqlite::Connection| -> i64 {
+        c.query_row(
+            "SELECT count(*) FROM track_tags WHERE origin = 'ai' AND status = 'suggested'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    let before = pending(&conn);
+    tags::unreview_suggestion(&conn, &suggested[0], &peak).unwrap();
+    assert_eq!(pending(&conn), before + 1);
+    tags::review_suggestion(&conn, &suggested[0], &peak, true).unwrap();
+    let has_peak = |c: &rusqlite::Connection| -> i64 {
+        c.query_row(
+            "SELECT count(*) FROM track_tags WHERE track_id = ?1 AND tag_id = ?2 AND origin = 'user'",
+            [&suggested[0], &peak],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    assert_eq!(has_peak(&conn), 1);
+    tags::unreview_suggestion(&conn, &suggested[0], &peak).unwrap();
+    assert_eq!(has_peak(&conn), 0);
+    assert_eq!(pending(&conn), before + 1);
+    tags::review_suggestion(&conn, &suggested[0], &peak, false).unwrap();
 
     // Auto groups: two groups that split the styles.
     let groups = dna::auto_groups(&conn, 2, "").unwrap();

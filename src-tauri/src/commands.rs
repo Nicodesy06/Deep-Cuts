@@ -1444,6 +1444,15 @@ pub fn quick_tag(
 }
 
 #[tauri::command]
+pub fn unreview_tag_suggestion(
+    state: State<'_, AppState>,
+    track_id: String,
+    tag_id: String,
+) -> Res<()> {
+    with_conn!(state, |c| tags::unreview_suggestion(&c, &track_id, &tag_id))
+}
+
+#[tauri::command]
 pub fn review_tag_suggestion(
     state: State<'_, AppState>,
     track_id: String,

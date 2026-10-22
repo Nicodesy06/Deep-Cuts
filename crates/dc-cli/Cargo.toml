@@ -10,6 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
-dc-core = { version = "0.3.1", path = "../dc-core" }
+dc-core = { version = "0.3.2", path = "../dc-core" }
 rayon = "1.12.0"
 serde_json = "1.0.154"

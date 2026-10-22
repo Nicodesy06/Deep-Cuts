@@ -380,3 +380,30 @@ pub fn review_suggestion(
         Ok(())
     })
 }
+
+/// Undo `review_suggestion`: the suggestion is pending again and, if it had
+/// been accepted, the tag it added is removed (as an undoable step).
+pub fn unreview_suggestion(conn: &Connection, track_id: &str, tag_id: &str) -> Result<()> {
+    crate::util::atomic(conn, |tx| {
+        let status: Option<String> = tx
+            .query_row(
+                "SELECT status FROM track_tags WHERE track_id = ?1 AND tag_id = ?2 AND origin = 'ai'",
+                params![track_id, tag_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(status) = status else {
+            return Err(Error::NotFound(format!(
+                "suggestion {tag_id} for {track_id}"
+            )));
+        };
+        if status == "confirmed" {
+            assign(tx, &[track_id.to_string()], tag_id, false)?;
+        }
+        tx.execute(
+            "UPDATE track_tags SET status = 'suggested', updated_at = ?1 WHERE track_id = ?2 AND tag_id = ?3 AND origin = 'ai'",
+            params![now_ms(), track_id, tag_id],
+        )?;
+        Ok(())
+    })
+}

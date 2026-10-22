@@ -26,6 +26,11 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
+v0.3.2 (released): Music DNA › Tag suggestions can be reviewed card by card: each track plays from
+its HOT point as its card appears, → / swipe right accepts, ← / swipe left rejects, ↓ skips, Z undoes
+the last answer (a reviewed suggestion can now be returned to pending, removing the tag an accept
+added). Auto groups keep the best of eight k-means++ starts.
+
 v0.3.1 (released): context menus stay inside the window; the change history shows cues and loops
 readably instead of raw data; the Library toolbar no longer wraps when the details panel is open;
 Enter applies range filters; the analysis panel note no longer says Music DNA is missing. The

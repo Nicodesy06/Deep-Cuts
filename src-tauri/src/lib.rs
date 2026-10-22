@@ -239,6 +239,7 @@ pub fn run() {
             commands::tag_tracks,
             commands::quick_tag,
             commands::review_tag_suggestion,
+            commands::unreview_tag_suggestion,
             commands::fix_rules,
             commands::preview_fixes,
             commands::apply_fixes,

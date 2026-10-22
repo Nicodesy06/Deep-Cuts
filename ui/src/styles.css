@@ -2260,3 +2260,221 @@ input.narrow { width: 64px; }
 .fav-on {
   color: var(--pass);
 }
+
+/* ---------- swipe review (Music DNA › tag suggestions) ---------- */
+.swipe-start {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.swipe-start h3 {
+  margin: 0 0 4px;
+}
+.swipe-start .hint {
+  margin: 0;
+}
+.sugg-list {
+  margin-top: 12px;
+}
+.sugg-list summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.swipe-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px 14px;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+.swipe-top {
+  width: min(640px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.swipe-top h2 {
+  margin: 0 0 2px;
+  font-size: 20px;
+}
+.swipe-bar {
+  width: min(640px, 100%);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.swipe-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+.swipe-stage {
+  position: relative;
+  width: min(560px, 100%);
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: center;
+}
+/* the card and the one waiting behind it share the same cell */
+.swipe-stage > * {
+  grid-area: 1 / 1;
+}
+.swipe-card {
+  position: relative;
+  width: 100%;
+  padding: 28px 28px 22px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line-2);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.7);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  will-change: transform;
+}
+.swipe-card:active {
+  cursor: grabbing;
+}
+.swipe-card-next {
+  align-self: stretch;
+  transform: translateY(16px) scale(0.95);
+  opacity: 0.45;
+  box-shadow: none;
+  pointer-events: none;
+}
+.swipe-question {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.swipe-tag {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 18px;
+  font-size: 30px;
+  font-weight: 750;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.swipe-conf {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0;
+}
+.swipe-title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.swipe-artist {
+  font-size: 15px;
+  margin-top: 2px;
+}
+.swipe-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 16px;
+}
+.swipe-wave {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.swipe-stamp {
+  position: absolute;
+  top: 22px;
+  padding: 4px 12px;
+  border: 3px solid;
+  border-radius: 8px;
+  font-size: 22px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+.swipe-stamp.accept {
+  right: 22px;
+  color: var(--keep);
+  transform: rotate(12deg);
+}
+.swipe-stamp.reject {
+  left: 22px;
+  color: var(--pass);
+  transform: rotate(-12deg);
+}
+.swipe-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.swipe-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.swipe-btn:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+.swipe-btn:disabled {
+  opacity: 0.35;
+}
+.swipe-btn.small {
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+}
+.swipe-btn.reject {
+  border-color: var(--pass);
+  color: var(--pass);
+}
+.swipe-btn.reject:hover {
+  background: color-mix(in srgb, var(--pass) 16%, var(--panel));
+}
+.swipe-btn.accept {
+  border-color: var(--keep);
+  color: var(--keep);
+}
+.swipe-btn.accept:hover {
+  background: color-mix(in srgb, var(--keep) 16%, var(--panel));
+}
+.swipe-keys {
+  margin: 0;
+}
+.swipe-done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
