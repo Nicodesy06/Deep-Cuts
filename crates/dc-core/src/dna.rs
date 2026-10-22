@@ -62,7 +62,10 @@ pub const MIN_ENERGY_REFERENCES: usize = 40;
 /// Per-track energy inputs, z-scored over the library (missing → 0, the
 /// library average). The last column is arousal when at least half of the
 /// tracks have it.
-fn energy_inputs(conn: &Connection) -> Result<(Vec<(String, Vec<f32>)>, bool)> {
+/// Energy inputs per track, and whether arousal is among them.
+type EnergyInputs = (Vec<(String, Vec<f32>)>, bool);
+
+fn energy_inputs(conn: &Connection) -> Result<EnergyInputs> {
     let vecs = vectors(conn)?;
     let stats = features::stats(vecs.iter().map(|v| &v.1));
     let arousal: HashMap<String, f32> = {
@@ -177,13 +180,12 @@ fn ridge(x: &[&[f32]], y: &[f32], lambda: f64) -> Vec<f64> {
         for v in a[c].iter_mut() {
             *v /= d;
         }
-        for r in 0..k {
-            if r != c {
-                let f = a[r][c];
-                if f != 0.0 {
-                    for j in 0..=k {
-                        a[r][j] -= f * a[c][j];
-                    }
+        let pivot = a[c].clone();
+        for (r, row) in a.iter_mut().enumerate() {
+            let f = row[c];
+            if r != c && f != 0.0 {
+                for (x, p) in row.iter_mut().zip(&pivot) {
+                    *x -= f * p;
                 }
             }
         }

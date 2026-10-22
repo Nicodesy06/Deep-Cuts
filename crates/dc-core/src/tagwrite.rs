@@ -8,7 +8,8 @@
 use crate::error::{Error, Result};
 use crate::library::{self, SOURCE_FILE};
 use crate::metadata;
-use lofty::config::WriteOptions as LoftyWriteOptions;
+use lofty::config::{ParseOptions, WriteOptions as LoftyWriteOptions};
+use lofty::id3::v2::{Frame, Id3v2Tag, Id3v2Version};
 use lofty::prelude::*;
 use lofty::tag::{ItemKey, Tag};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -343,6 +344,63 @@ fn verify(path: &Path, changes: &[FieldChange]) -> Result<()> {
 /// Write planned changes to the files. `backup_dir`: copy each original
 /// there first (recommended). Files that changed on disk since the last
 /// scan are skipped.
+/// The file's ID3v2 tag, for the formats that carry one (MP3, AIFF, WAV).
+fn read_id3(path: &Path) -> Option<Id3v2Tag> {
+    let mut f = std::fs::File::open(path).ok()?;
+    let opts = ParseOptions::new();
+    match crate::util::extension(path)?.as_str() {
+        "mp3" => lofty::mpeg::MpegFile::read_from(&mut f, opts)
+            .ok()?
+            .id3v2()
+            .cloned(),
+        "aif" | "aiff" => lofty::iff::aiff::AiffFile::read_from(&mut f, opts)
+            .ok()?
+            .id3v2()
+            .cloned(),
+        "wav" => lofty::iff::wav::WavFile::read_from(&mut f, opts)
+            .ok()?
+            .id3v2()
+            .cloned(),
+        _ => None,
+    }
+}
+
+fn user_texts(tag: &Id3v2Tag) -> Vec<(String, String)> {
+    tag.into_iter()
+        .filter_map(|f| match f {
+            Frame::UserText(t) => Some((t.description.to_string(), t.content.to_string())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Lofty writes the TXXX frames it knows (ReplayGain, MusicBrainz…) with
+/// upper-case descriptions; programs that look them up case-sensitively
+/// would no longer find them. Give them back the spelling they had.
+fn restore_txxx_case(path: &Path, before: &Id3v2Tag, wo: LoftyWriteOptions) -> Result<()> {
+    let Some(mut after) = read_id3(path) else {
+        return Ok(());
+    };
+    let originals = user_texts(before);
+    let mut changed = false;
+    for (desc, content) in user_texts(&after) {
+        if let Some((orig, _)) = originals
+            .iter()
+            .find(|(o, _)| *o != desc && o.eq_ignore_ascii_case(&desc))
+        {
+            after.remove_user_text(&desc);
+            after.insert_user_text(orig.clone(), content);
+            changed = true;
+        }
+    }
+    if changed {
+        after
+            .save_to_path(path, wo)
+            .map_err(|e| Error::Metadata(e.to_string()))?;
+    }
+    Ok(())
+}
+
 pub fn write(
     conn: &mut Connection,
     ids: &[String],
@@ -466,9 +524,22 @@ pub(crate) fn rewrite_file(
         }
         let tag = tagged.tag_mut(tag_type).expect("tag inserted above");
         edit(tag)?;
+        // Keep the file's ID3 version (DJ software and players that only read
+        // v2.3 would otherwise lose the tags) and its TXXX descriptions.
+        let before = read_id3(&staged);
+        let mut wo = LoftyWriteOptions::default();
+        if before
+            .as_ref()
+            .is_some_and(|t| t.original_version() == Id3v2Version::V3)
+        {
+            wo = wo.use_id3v23(true);
+        }
         tagged
-            .save_to_path(&staged, LoftyWriteOptions::default())
+            .save_to_path(&staged, wo)
             .map_err(|e| Error::Metadata(e.to_string()))?;
+        if let Some(b) = &before {
+            restore_txxx_case(&staged, b, wo)?;
+        }
         check(&staged)?;
         if crate::fileops::fault::hit("tag-write", &path) {
             return Err(Error::Metadata(
