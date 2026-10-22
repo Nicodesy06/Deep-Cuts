@@ -812,7 +812,7 @@ dependencies = [
 
 [[package]]
 name = "dc-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "clap",
  "dc-core",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "dc-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "blake3",
  "chrono",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "deep-cuts"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dc-core",
  "notify",
