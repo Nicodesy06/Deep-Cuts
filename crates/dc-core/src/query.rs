@@ -15,6 +15,9 @@
 //! * `decision:keep|pass|maybe|none`, `fav:yes`, `missing:yes`, `analyzed:yes|no`, `transcode:yes`, `archived:yes`,
 //!   `artwork:yes|no`, `tag:name` (incl. synonyms and child tags), `added:7d` (added within the last 7 days)
 //! * implicit AND, explicit `AND`, `OR`, `NOT` / leading `-`, parentheses
+//! * shorthand without a field: `124bpm`, `120-126` (tempo), `8A` / `8A+` (key),
+//!   `1990-1999` (years); a lone tempo-or-year number also matches text
+//! * Italian field names work too (`genere:`, `anno:`, `tonalità:` …)
 
 use crate::error::{Error, Result};
 use crate::keys::Key;
@@ -227,9 +230,9 @@ impl Parser {
         format!("?{}", self.base + self.params.len())
     }
 
-    fn term(&mut self, field: Option<&str>, value: &str, quoted: bool) -> Result<String> {
-        let Some(field) = field else {
-            // Full-text: each word must prefix-match; phrases match exactly.
+    /// Full-text: each word must prefix-match; phrases match exactly.
+    fn fts(&mut self, value: &str, quoted: bool) -> Result<String> {
+        {
             let fts = if quoted {
                 format!("\"{}\"", value.replace('"', ""))
             } else {
@@ -243,9 +246,68 @@ impl Parser {
                 format!("\"{cleaned}\"*")
             };
             let p = self.param(Value::Text(fts));
-            return Ok(format!(
+            Ok(format!(
                 "t.rowid IN (SELECT rowid FROM tracks_fts WHERE tracks_fts MATCH {p})"
-            ));
+            ))
+        }
+    }
+
+    /// Words that mean something without a `field:` prefix: `124bpm`,
+    /// `120-126`, `8A` / `8A+`, `1990-1999`. A plain number that could be a
+    /// tempo (40–250) or a year (1900–2100) matches either that or the text,
+    /// so "187" still finds "187 He Wrote".
+    fn shorthand(&mut self, value: &str) -> Result<Option<String>> {
+        let lower = value.to_lowercase();
+        if let Some(n) = lower.strip_suffix("bpm").filter(|n| !n.is_empty()) {
+            return self.numeric("t.bpm", n, 1.0).map(Some);
+        }
+        let core = lower.trim_end_matches('+');
+        if let Some(ring) = core.strip_suffix(['a', 'b'])
+            && ring.parse::<u8>().is_ok_and(|n| (1..=12).contains(&n))
+            && !ring.starts_with('0')
+        {
+            return self
+                .term(Some("key"), &value.to_uppercase(), false)
+                .map(Some);
+        }
+        let num = |s: &str| s.replace(',', ".").parse::<f64>().ok();
+        let is_year = |v: f64| v.fract() == 0.0 && (1900.0..=2100.0).contains(&v);
+        let is_bpm = |v: f64| (40.0..=250.0).contains(&v);
+        if let Some((a, b)) = lower.split_once('-')
+            && let (Some(x), Some(y)) = (num(a), num(b))
+        {
+            if is_bpm(x) && is_bpm(y) {
+                return self.numeric("t.bpm", &lower, 1.0).map(Some);
+            }
+            if is_year(x) && is_year(y) {
+                return self.numeric("t.year", &lower, 1.0).map(Some);
+            }
+            return Ok(None);
+        }
+        if let Some(v) = num(&lower).filter(|_| {
+            lower
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == ',')
+        }) {
+            let exact = if is_year(v) {
+                self.numeric("t.year", &lower, 1.0)?
+            } else if is_bpm(v) {
+                self.numeric("t.bpm", &lower, 1.0)?
+            } else {
+                return Ok(None);
+            };
+            let text = self.fts(value, false)?;
+            return Ok(Some(format!("({exact} OR {text})")));
+        }
+        Ok(None)
+    }
+
+    fn term(&mut self, field: Option<&str>, value: &str, quoted: bool) -> Result<String> {
+        let Some(field) = field.map(canonical_field) else {
+            if !quoted && let Some(sql) = self.shorthand(value)? {
+                return Ok(sql);
+            }
+            return self.fts(value, quoted);
         };
         let text_col = match field {
             "artist" => Some("t.artist"),
@@ -433,6 +495,30 @@ impl Parser {
     }
 }
 
+/// Italian field names are accepted too, so the language reads naturally in
+/// both UI languages.
+fn canonical_field(f: &str) -> &str {
+    match f {
+        "artista" => "artist",
+        "titolo" => "title",
+        "genere" => "genre",
+        "anno" => "year",
+        "tonalità" | "tonalita" | "chiave" => "key",
+        "etichetta" => "label",
+        "durata" => "duration",
+        "voto" | "valutazione" | "stelle" | "stars" => "rating",
+        "energia" => "energy",
+        "decisione" => "decision",
+        "aggiunto" | "aggiunte" => "added",
+        "analizzato" | "analysed" | "analyzed" => "analyzed",
+        "mancante" => "missing",
+        "copertina" | "cover" => "artwork",
+        "commento" => "comment",
+        "note" => "notes",
+        _ => f,
+    }
+}
+
 fn bool_expr(expr: &str, value: &str) -> Result<String> {
     match value.to_lowercase().as_str() {
         "yes" | "true" | "1" | "y" | "si" | "sì" => Ok(format!("({expr})")),
@@ -504,6 +590,7 @@ fn sort_column(sort: &str) -> Option<&'static str> {
         "album" => "t.album COLLATE NOCASE",
         "label" => "t.label COLLATE NOCASE",
         "genre" => "t.genre COLLATE NOCASE",
+        "subgenre" => "t.subgenre COLLATE NOCASE",
         "year" => "t.year",
         "bpm" => "t.bpm",
         "key" => "CAST(rtrim(t.key_camelot, 'AB') AS INTEGER), t.key_camelot",
@@ -653,6 +740,40 @@ mod tests {
         assert!(compile("\"open").is_err());
         assert!(compile("key:H#").is_err());
         assert!(compile("decision:yes").is_err());
+    }
+
+    #[test]
+    fn shorthand_words() {
+        let sql = |q: &str| compile(q).unwrap().sql;
+        assert!(
+            sql("120-126").contains("t.bpm BETWEEN"),
+            "{}",
+            sql("120-126")
+        );
+        assert!(sql("124bpm").contains("t.bpm >="));
+        assert!(sql("8A").contains("t.key_camelot ="));
+        assert!(sql("8a+").contains("t.key_camelot IN"));
+        assert!(sql("1990-1999").contains("t.year BETWEEN"));
+        let n = sql("187");
+        assert!(n.contains("t.bpm") && n.contains("tracks_fts"), "{n}");
+        let y = sql("2019");
+        assert!(y.contains("t.year") && y.contains("tracks_fts"), "{y}");
+        // Not shorthand: plain words, catalogue numbers, phrases.
+        assert!(!sql("808").contains("t.bpm"));
+        assert!(!sql("13B").contains("key_camelot"));
+        assert!(!sql("\"8A\"").contains("key_camelot"));
+        assert!(sql("genere:house anno:<2000").contains("t.genre LIKE"));
+    }
+
+    #[test]
+    fn filter_bubble_queries_compile() {
+        // What the UI's filter bubbles generate (ui/src/components/FilterBar.test.ts).
+        compile(
+            "rolling bpm:120-126 bpm:>=120 year:<=1999 duration:300-420 key:8A+ genre:\"Tech House\" \
+             artist:kolsch rating:>=4 decision:none added:7d -missing:yes analyzed:no artwork:no fav:yes \
+             genre:none key:none bpm:none energy:3-7 tag:\"warm up\"",
+        )
+        .unwrap();
     }
 
     #[test]

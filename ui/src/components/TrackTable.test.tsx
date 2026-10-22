@@ -8,7 +8,7 @@ const row = (i: number): TrackRow => ({
   id: `id-${i}`, title: `Title ${i}`, artist: `Artist ${i}`, version: null, remixer: null, album: null, label: null,
   genre: "House", year: 2020, bpm: 124, key: "Am", camelot: "8A", durationMs: 360000, rating: 3, favorite: false,
   decision: i % 2 ? "keep" : null, comment: null, path: `/m/${i}.mp3`, format: "mp3", bitrate: 320, missing: false,
-  lufs: -8.2, previewMs: 60000, analysisStatus: "done", createdAt: 0, energy: 7,
+  lufs: -8.2, previewMs: 60000, analysisStatus: "done", createdAt: 0, energy: 7, subgenre: null, tags: ["warmup"], cues: 2,
 });
 
 describe("TrackTable", () => {

@@ -104,14 +104,15 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; onChanged: () => void }) {
+/** `ids` is the whole selection (possibly more rows than are loaded); `single` is the row when exactly one is selected. */
+export function DetailsPanel({ ids, single, onChanged }: { ids: string[]; single: TrackRow | null; onChanged: () => void }) {
   const { t, dataVersion, play } = useApp();
   const act = useAction();
   const [detail, setDetail] = useState<TrackDetail | null>(null);
   const [notes, setNotes] = useState("");
   const [bulkField, setBulkField] = useState("genre");
   const [bulkValue, setBulkValue] = useState("");
-  const one = selected.length === 1 ? selected[0] : null;
+  const one = single;
 
   useEffect(() => {
     if (!one) return setDetail(null);
@@ -126,10 +127,9 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
     };
   }, [one?.id, dataVersion]);
 
-  const ids = selected.map((s) => s.id);
   const decide = (d: Decision | null) => act(() => api.setDecision(ids, d)).then(onChanged);
 
-  if (selected.length === 0) {
+  if (ids.length === 0) {
     return (
       <aside className="details">
         <div className="details-empty muted">{t("details.none")}</div>
@@ -148,9 +148,10 @@ export function DetailsPanel({ selected, onChanged }: { selected: TrackRow[]; on
   );
 
   if (!one) {
+    if (ids.length === 1) return <aside className="details" />;
     return (
       <aside className="details">
-        <h3>{t("details.multi", { n: selected.length })}</h3>
+        <h3>{t("details.multi", { n: ids.length })}</h3>
         {decisionBar(null)}
         <div className="bulk">
           <span className="section-title">{t("details.bulkEdit")}</span>

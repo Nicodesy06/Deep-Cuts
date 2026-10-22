@@ -26,6 +26,15 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
+v0.2.2 (released): bulk edits, decisions, "add to playlist", new playlist/set and exports from
+the side panel and context menu now act on the whole selection (they used only the 200 rows loaded
+on screen); search without syntax: a "Filters" menu that adds editable bubbles (BPM, key with
+compatible keys, genre, artist, label, My Tag, year, rating, energy, length, decision, added,
+status), typed shortcuts (`124`, `120-126`, `8A+`, `1990-1999`), Italian field names, "Save as
+Smart Crate"; new table columns My Tags, Favourite, Cues and a "+" in the header to add columns;
+play button and list-following next/previous on Music DNA tag suggestions; table rows fill the
+width; compact suggestion lists.
+
 v0.2.1 (released): fixes from the independent technical audit (see [AUDIT_RESPONSE.md](AUDIT_RESPONSE.md)):
 journalled, recoverable file moves and all-or-nothing merges; tag writes through a verified staged
 copy with a refresh journal; watched-folder removal marks every child; watcher errors shown in the

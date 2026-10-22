@@ -3,6 +3,7 @@ import { ensureGenreSource } from "../components/GenreSourceDialog";
 import { api, type Decision, type Playlist, type Tag, type TrackRow } from "../api";
 import { exportTracks, importFolders, type ExportFormat } from "../actions";
 import { DetailsPanel } from "../components/DetailsPanel";
+import { FilterBar, filtersQuery, type Filter } from "../components/FilterBar";
 import { WriteTagsDialog } from "../components/WriteTagsDialog";
 import { RenameDialog } from "../components/RenameDialog";
 import { CoverDialog } from "../components/CoverDialog";
@@ -36,12 +37,22 @@ interface Menu {
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
 
+function loadFilters(): Filter[] {
+  try {
+    const v = JSON.parse(localStorage.getItem("dc.filters") ?? "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 export function Library() {
   const { t, lang, libraryNav, setLibraryNav, dataVersion, bump, play, nowPlaying, neighbourRef, prompt, confirm, toast, openDiscover, openSet } = useApp();
   const act = useAction();
   const [input, setInput] = useState(libraryNav.query);
   const [query, setQuery] = useState(libraryNav.query);
   const [queryError, setQueryError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filter[]>(loadFilters);
   const [sort, setSort] = useState<string | null>(null);
   const [desc, setDesc] = useState(false);
   const [sel, setSel] = useState<Selection>(emptySelection);
@@ -69,19 +80,32 @@ export function Library() {
     setQuery(libraryNav.query);
   }, [libraryNav.query]);
 
-  // Debounced search; invalid queries keep the last valid result.
+  // Debounced search (typed text + filter bubbles); invalid queries keep the last valid result.
   useEffect(() => {
+    const full = filtersQuery(input, filters);
     const h = setTimeout(() => {
-      api.validateQuery(input).then(
+      api.validateQuery(full).then(
         () => {
           setQueryError(null);
-          setQuery(input);
+          setQuery(full);
         },
         (e) => setQueryError(String(e)),
       );
     }, 220);
     return () => clearTimeout(h);
-  }, [input]);
+  }, [input, filters]);
+  const changeFilters = (f: Filter[]) => {
+    setFilters(f);
+    try {
+      localStorage.setItem("dc.filters", JSON.stringify(f));
+    } catch {
+      /* per-device convenience only */
+    }
+  };
+  const saveAsCrate = async () => {
+    const name = await prompt(t("crates.name"));
+    if (name?.trim()) act(() => api.createPlaylist(name.trim(), "smart", query), t("crates.saved", { name })).then(bump);
+  };
 
   useEffect(() => {
     api.listPlaylists().then(setPlaylists, () => {});
@@ -263,13 +287,17 @@ export function Library() {
     if (id) bump();
   };
 
-  const doExport = (format: ExportFormat) => {
+  const doExport = async (format: ExportFormat) => {
     const name = currentPlaylist?.name ?? (query ? query : t("library.allTracks"));
-    if (selectedIds.length > 0) exportTracks(t, toast, format, { ids: orderedSelection() }, name);
+    if (selectedIds.length > 0) exportTracks(t, toast, format, { ids: await orderedSelection() }, name);
     else exportTracks(t, toast, format, { query: { query, sort, desc, playlistId } }, name);
   };
 
-  const orderedSelection = () => selectedRows.map((r) => r.id);
+  // Selected ids in table order. Only some pages are loaded at a time, so a large
+  // selection takes the order from the backend instead of the loaded rows.
+  const loadedSelection = () => (selectedRows.length === sel.ids.size ? selectedRows.map((r) => r.id) : selectedIds);
+  const orderedSelection = async () =>
+    selectedRows.length === sel.ids.size ? selectedRows.map((r) => r.id) : (await api.trackIds(tq)).filter((id) => sel.ids.has(id));
   const planWrite = (ids: string[]) => {
     setWriteIds(ids);
   };
@@ -365,15 +393,20 @@ export function Library() {
             />
             {t("library.advance")}
           </label>
-          <button className="btn ghost" onClick={() => setShowCols((v) => !v)}>
-            {t("library.columns")}
-          </button>
           <button className="btn ghost" disabled={sel.ids.size === 0} onClick={() => analyze()}>
             {t("action.analyze")}
           </button>
           <button className="btn" onClick={() => importFolders(t, toast, bump)}>
             {t("action.importFolder")}
           </button>
+        </div>
+        <div className="filter-row">
+          <FilterBar filters={filters} onChange={changeFilters} />
+          {filters.length > 0 && query && (
+            <button className="btn ghost small" onClick={saveAsCrate}>
+              ⚡ {t("filter.saveCrate")}
+            </button>
+          )}
         </div>
         {queryError && <div className="query-error">{queryError}</div>}
         {showHelp && (
@@ -389,10 +422,14 @@ export function Library() {
                 {t(c.label)}
               </label>
             ))}
+            <button className="btn small" onClick={() => setShowCols(false)}>
+              {t("action.done")}
+            </button>
           </div>
         )}
         {pages.error && <div className="query-error">{pages.error}</div>}
         <TrackTable
+          onAddColumn={() => setShowCols((v) => !v)}
           pages={pages}
           columns={columns}
           t={t}
@@ -438,7 +475,7 @@ export function Library() {
             setMenu({ x: e.clientX, y: e.clientY });
           }}
           onDragStart={(r, e) => {
-            const ids = sel.ids.has(r.id) ? orderedSelection() : [r.id];
+            const ids = sel.ids.has(r.id) ? loadedSelection() : [r.id];
             e.dataTransfer.setData("application/x-deepcuts-tracks", JSON.stringify(ids));
             e.dataTransfer.effectAllowed = "copy";
           }}
@@ -461,7 +498,7 @@ export function Library() {
         {(currentPlaylist?.kind === "manual" || currentPlaylist?.kind === "set") && <div className="hint footer-hint">{t("library.reorderHint")}</div>}
       </section>
 
-      <DetailsPanel selected={selectedRows} onChanged={bump} />
+      <DetailsPanel ids={selectedIds} single={selectedIds.length === 1 ? (selectedRows[0] ?? null) : null} onChanged={bump} />
       {writeIds && <WriteTagsDialog ids={writeIds} onClose={() => setWriteIds(null)} />}
       {autotagIds && <AutoTagDialog ids={autotagIds} onClose={() => setAutotagIds(null)} />}
       {cueTplIds && <CueTemplateDialog ids={cueTplIds} onClose={() => setCueTplIds(null)} />}
@@ -561,12 +598,13 @@ export function Library() {
           <button onClick={() => analyze(selectedIds, false)}>{t("action.analyze")}</button>
           <button onClick={() => analyze(selectedIds, true)}>{t("action.reanalyze")}</button>
           <hr />
-          <button onClick={() => newPlaylist(orderedSelection())}>{t("library.newPlaylistFromSel")}</button>
+          <button onClick={() => orderedSelection().then(newPlaylist)}>{t("library.newPlaylistFromSel")}</button>
           <button
             onClick={async () => {
               const name = await prompt(t("sets.newName"));
               if (!name) return;
-              const id = await act(() => api.createPlaylist(name, "set", null, orderedSelection()));
+              const ids = await orderedSelection();
+              const id = await act(() => api.createPlaylist(name, "set", null, ids));
               if (id) {
                 bump();
                 openSet(id);
@@ -596,7 +634,7 @@ export function Library() {
             </button>
           )}
           {manualPlaylists.slice(0, 12).map((p) => (
-            <button key={p.id} onClick={() => act(() => api.addToPlaylist(p.id, orderedSelection()), t("library.addedTo", { n: selectedIds.length, name: p.name })).then(bump)}>
+            <button key={p.id} onClick={() => act(async () => api.addToPlaylist(p.id, await orderedSelection()), t("library.addedTo", { n: selectedIds.length, name: p.name })).then(bump)}>
               + {p.name}
             </button>
           ))}

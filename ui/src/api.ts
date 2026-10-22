@@ -33,6 +33,11 @@ export interface TrackRow {
   createdAt: number;
   /** Energy 1–10 relative to the library (measured proxy, not a rating). */
   energy: number | null;
+  subgenre: string | null;
+  /** Confirmed My Tags, by name. */
+  tags: string[];
+  /** Cue points and loops (analysis suggestions not counted). */
+  cues: number;
 }
 
 export interface TrackQuery {

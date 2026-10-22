@@ -58,11 +58,28 @@ export const ALL_COLUMNS: Column[] = [
   { id: "key", label: "col.key", width: 58, sort: "key", align: "center", render: (t) => <KeyChip t={t} /> },
   { id: "duration", label: "col.duration", width: 64, sort: "durationMs", align: "right", render: (t) => <span className="num">{formatDuration(t.durationMs)}</span> },
   { id: "genre", label: "col.genre", width: 120, sort: "genre", render: (t) => t.genre },
+  { id: "subgenre", label: "col.subgenre", width: 120, sort: "subgenre", render: (t) => t.subgenre },
+  {
+    id: "tags",
+    label: "col.tags",
+    width: 200,
+    render: (t) => (
+      <span className="tag-cell" title={t.tags.join(", ")}>
+        {t.tags.map((g) => (
+          <span key={g} className="tag-mini">
+            {g}
+          </span>
+        ))}
+      </span>
+    ),
+  },
   { id: "label", label: "col.label", width: 130, sort: "label", render: (t) => t.label },
   { id: "album", label: "col.album", width: 150, sort: "album", render: (t) => t.album },
   { id: "year", label: "col.year", width: 56, sort: "year", align: "right", render: (t) => <span className="num">{t.year ?? ""}</span> },
-  { id: "rating", label: "col.rating", width: 84, sort: "rating", render: (t) => <Stars n={t.rating} /> },
-  { id: "energy", label: "col.energy", width: 60, sort: "energy", align: "right", render: (t) => <span className="num">{t.energy ?? ""}</span> },
+  { id: "rating", label: "col.rating", width: 100, sort: "rating", render: (t) => <Stars n={t.rating} /> },
+  { id: "energy", label: "col.energy", width: 74, sort: "energy", align: "right", render: (t) => <span className="num">{t.energy ?? ""}</span> },
+  { id: "fav", label: "col.fav", width: 34, align: "center", render: (t) => (t.favorite ? <span className="fav-on">♥</span> : null) },
+  { id: "cues", label: "col.cues", width: 50, align: "right", render: (t) => <span className="num muted">{t.cues || ""}</span> },
   { id: "lufs", label: "col.lufs", width: 64, sort: "lufs", align: "right", render: (t) => <span className="num">{t.lufs != null ? t.lufs.toFixed(1) : ""}</span> },
   { id: "format", label: "col.format", width: 60, render: (t) => <span className="muted">{t.format?.toUpperCase()}</span> },
   { id: "bitrate", label: "col.bitrate", width: 64, align: "right", render: (t) => <span className="num muted">{t.bitrate ?? ""}</span> },
@@ -93,6 +110,8 @@ interface Props {
   onRowDoubleClick: (index: number, row: TrackRow) => void;
   onRowContext: (index: number, row: TrackRow, e: React.MouseEvent) => void;
   onDragStart?: (row: TrackRow, e: React.DragEvent) => void;
+  /** Shows a discreet "+" at the end of the header to add columns. */
+  onAddColumn?: () => void;
   empty: ReactNode;
 }
 
@@ -126,11 +145,13 @@ export function TrackTable(p: Props) {
     else if (top + 2 * ROW_H > el.scrollTop + el.clientHeight) el.scrollTop = top + 2 * ROW_H - el.clientHeight;
   }, [p.focus]);
 
-  const width = p.columns.reduce((s, c) => s + c.width, 0);
+  // Room for the "+" after the last column.
+  const width = p.columns.reduce((s, c) => s + c.width, 0) + (p.onAddColumn ? 34 : 0);
   const rows: ReactNode[] = [];
   for (let i = first; i <= last; i++) {
     const r = rowAt(i);
-    const style = { top: i * ROW_H, height: ROW_H, width };
+    // Rows span the whole view even when the columns are narrower than it.
+    const style = { top: i * ROW_H, height: ROW_H, width: `max(${width}px, 100%)` };
     if (!r) {
       rows.push(<div key={`ph${i}`} className="tr tr-placeholder" style={style} />);
       continue;
@@ -166,7 +187,7 @@ export function TrackTable(p: Props) {
   return (
     <div className="table" role="grid" aria-rowcount={total}>
       <div className="tbody" ref={scroller} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
-        <div className="thead" style={{ width }}>
+        <div className="thead" style={{ width: `max(${width}px, 100%)` }}>
           {p.columns.map((c) => (
             <div
               key={c.id}
@@ -179,11 +200,16 @@ export function TrackTable(p: Props) {
               {p.sort === c.sort && c.sort && <span className="sort-arrow">{p.desc ? "▾" : "▴"}</span>}
             </div>
           ))}
+          {p.onAddColumn && (
+            <button className="th-add" onClick={p.onAddColumn} title={p.t("library.addColumn")} aria-label={p.t("library.addColumn")}>
+              +
+            </button>
+          )}
         </div>
         {total === 0 && !p.pages.loading ? (
           <div className="table-empty">{p.empty}</div>
         ) : (
-          <div className="tbody-inner" style={{ height: total * ROW_H, width }}>
+          <div className="tbody-inner" style={{ height: total * ROW_H, width: `max(${width}px, 100%)` }}>
             {rows}
           </div>
         )}

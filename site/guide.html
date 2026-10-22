@@ -48,7 +48,7 @@
           <li><a href="#tour">The interface</a></li>
           <li><a href="#library">Library in depth</a></li>
           <li><a href="#triage">Triage &amp; shortcuts</a></li>
-          <li><a href="#search">Search language</a></li>
+          <li><a href="#search">Search and filters</a></li>
           <li><a href="#crates">Smart Crates &amp; Recipes</a></li>
           <li><a href="#tags">Tags &amp; My Tags</a></li>
           <li><a href="#analysis">Analysis explained</a></li>
@@ -193,7 +193,7 @@
           <ul>
             <li><strong>Sidebar</strong> — the pages of the app, plus Undo and Redo buttons at the bottom. The note “100% local · offline · no account” is a reminder that nothing is sent anywhere.</li>
             <li><strong>Collection column</strong> (Library page) — All tracks, your playlists (manual playlists, sets and folders) and Smart Crates.</li>
-            <li><strong>Track table</strong> — search bar, track count and selection count, Auto-advance, Columns, Analyze and Import buttons.</li>
+            <li><strong>Track table</strong> — search bar with the ＋ Filters row, track count and selection count, Auto-advance, Analyze and Import buttons.</li>
             <li><strong>Details panel</strong> — everything about the selected track, or bulk editing when several are selected.</li>
             <li><strong>Player</strong> — waveform with played part, hot region and cue markers; Intro / HOT / Outro jumps; Keep / Maybe / Pass; rating; volume.</li>
             <li><strong>Notifications</strong> appear at the bottom right: results of imports, analysis, automatic imports from watch folders, and problems (for example a watched folder that cannot be read).</li>
@@ -222,7 +222,7 @@
 
           <h3>The table</h3>
           <ul>
-            <li><strong>Columns</strong>: choose which to show with the Columns button — Decision, Artist, Title, Version, Remixer, Album, Label, Genre, Subgenre, Year, BPM, Key, Time, Rating, LUFS, Format, kbps, Analysis, Added, Comment, Path, Energy. Click a header to sort, click again to reverse.</li>
+            <li><strong>Columns</strong>: the small <strong>+</strong> at the right end of the column headers adds or removes columns — Decision, Artist, Title, Version, Remixer, Album, Label, Genre, Subgenre, My Tags, Year, BPM, Key, Time, Rating, Energy, Favourite, Cues, LUFS, Format, kbps, Analysis, Added, Comment, Path. Click a header to sort, click again to reverse.</li>
             <li><strong>Speed</strong>: the table only loads the rows you can see, so libraries of 100,000+ tracks scroll smoothly.</li>
             <li><strong>Selection</strong>: click selects one track; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+click adds or removes; <kbd>Shift</kbd>+click selects a range; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>A</kbd> selects every track matching the current search. Ranges and select-all include tracks you have not scrolled to.</li>
             <li><strong>Drag</strong> a selection onto a playlist in the left column to add it.</li>
@@ -322,8 +322,27 @@
 
 <!-- 7 ------------------------------------------------------------------ -->
         <section id="search" aria-labelledby="h-search">
-          <h2 id="h-search">7. Search language</h2>
-          <p>One language is used in the Library search bar, Smart Crates, Recipes, the scope fields of Discover and Set Builder, Smart Fixes and the command-line tool. Type words to search everywhere, or <code>field:value</code> to be precise. A typo is reported under the search bar rather than silently ignored.</p>
+          <h2 id="h-search">7. Search and filters</h2>
+          <p>You do not need to learn any syntax. In the Library, type words in the search bar and use the <strong>＋ Filters</strong> button for everything else.</p>
+
+          <h3>Filters</h3>
+          <p><strong>＋ Filters</strong> opens a list: BPM, Key, Genre, Artist, Label, My tag, Year, Rating, Energy, Length, Decision, Added and Status (not analysed, file missing, no cover, favourites, no genre/key/BPM). Pick one, fill in the small form (a range, a key on the Camelot grid with “+ compatible” or “+ energy moves”, a star count…) and press <em>Apply</em>. The filter appears as a bubble next to the button. Click a bubble to change it, × to remove it, <em>Clear filters</em> to remove all. Tick <em>Exclude these tracks instead</em> to turn a filter around (a red bubble). Filters combine with what you type and are remembered on this computer. <em>Save as Smart Crate</em> turns the current search and filters into a crate that keeps itself up to date.</p>
+
+          <h3>Shortcuts you can type</h3>
+          <table>
+            <thead><tr><th scope="col">Type</th><th scope="col">Finds</th></tr></thead>
+            <tbody>
+              <tr><td><code>kerri chandler</code></td><td>Words in title, artist, album, label, genre, comments or file name</td></tr>
+              <tr><td><code>124</code></td><td>Tracks at 124 BPM, or with “124” in the text</td></tr>
+              <tr><td><code>120-126</code> <code>124bpm</code></td><td>A BPM range / a tempo</td></tr>
+              <tr><td><code>8A</code> <code>8A+</code> <code>8A++</code></td><td>That key / also compatible keys / also energy moves</td></tr>
+              <tr><td><code>2019</code> <code>1990-1999</code></td><td>A year (or the number in the text) / a range of years</td></tr>
+              <tr><td><code>-word</code> <code>"exact phrase"</code></td><td>Exclude / match a phrase exactly</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Advanced syntax (optional)</h3>
+          <p>Everything the filters do can also be written, which is handy in Smart Crates, Recipes, the scope fields of Discover and Set Builder, Smart Fixes and the command-line tool. Italian field names work too (<code>genere:</code>, <code>anno:</code>, <code>tonalità:</code>, <code>voto:</code>, <code>durata:</code>, <code>energia:</code>). A typo is reported under the search bar rather than silently ignored.</p>
 
           <h3>Text</h3>
           <table>

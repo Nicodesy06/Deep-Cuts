@@ -1,7 +1,7 @@
 // Music DNA: energy rank, genre/tag suggestions learned from the user's own
 // labels (with measured accuracy), auto groups, and the local audio model
 // (AudioSet tagger) whose outputs become reviewable tag suggestions.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type DnaGroup, type LabelReport, type StylesStatus, type TrackRow } from "../api";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
@@ -21,17 +21,46 @@ function useRows(ids: string[]) {
   return rows;
 }
 
-/** Lets the player's next/previous walk a suggestion list (one entry per track). */
+/** Title over artist; takes the free width of a suggestion row. */
+function TrackCell({ r }: { r: TrackRow | undefined }) {
+  return (
+    <td className="grow">
+      <div className="cell-title">{r?.title ?? "…"}</div>
+      <div className="cell-sub muted">{r?.artist}</div>
+    </td>
+  );
+}
+
+/**
+ * Lets the player's next/previous walk a suggestion list. A track can appear
+ * on several rows (one per suggested tag), so the row last played is kept and
+ * stepping moves from that row. Returns the function to call when a row plays.
+ */
 function useNeighbours(ids: string[], rows: Map<string, TrackRow>) {
   const { neighbourRef } = useApp();
+  const at = useRef(-1);
+  const own = useRef<((id: string, delta: number) => TrackRow | undefined) | null>(null);
   useEffect(() => {
-    const order = [...new Set(ids)];
-    neighbourRef.current = (id, delta) => {
-      const i = order.indexOf(id);
-      return i < 0 ? undefined : rows.get(order[i + delta]);
+    if (ids.length === 0) return;
+    const provider = (id: string, delta: number) => {
+      const i = ids[at.current] === id ? at.current : ids.indexOf(id);
+      if (i < 0) return undefined;
+      const r = rows.get(ids[i + delta]);
+      if (r) at.current = i + delta;
+      return r;
+    };
+    // Take over next/previous only while this list is the one being played.
+    if (neighbourRef.current === own.current) neighbourRef.current = provider;
+    own.current = provider;
+    return () => {
+      if (neighbourRef.current === provider) neighbourRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.join(","), rows, neighbourRef]);
+  return (index: number) => {
+    at.current = index;
+    neighbourRef.current = own.current;
+  };
 }
 
 function EnergyPanel() {
@@ -208,7 +237,7 @@ function GenrePanel() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const genreIds = rep?.suggestions.slice(0, 500).map((s) => s.trackId) ?? [];
   const rows = useRows(genreIds);
-  useNeighbours(genreIds, rows);
+  const playedRow = useNeighbours(genreIds, rows);
   const run = async () => {
     setBusy(true);
     const r = await act(() => (source === "styles" ? api.dnaStyleGenreSuggestions(minShare - 0.2) : api.dnaGenreSuggestions(minShare)));
@@ -264,9 +293,9 @@ function GenrePanel() {
       {rep && rep.suggestions.length > 0 && (
         <>
           <div className="write-plan">
-            <table className="grid-table small">
+            <table className="grid-table small sugg-table">
               <tbody>
-                {rep.suggestions.slice(0, 500).map((s) => {
+                {rep.suggestions.slice(0, 500).map((s, i) => {
                   const r = rows.get(s.trackId);
                   return (
                     <tr key={s.trackId} className={nowPlaying?.id === s.trackId ? "row-playing" : undefined}>
@@ -284,13 +313,16 @@ function GenrePanel() {
                       </td>
                       <td>
                         {r && (
-                          <button className="icon-btn small" onClick={() => play(r, r.previewMs ?? 0)} aria-label={t("player.play")}>
+                          <button className="icon-btn small" onClick={() => {
+                            playedRow(i);
+                            play(r, r.previewMs ?? 0);
+                          }}
+                          aria-label={t("player.play")}>
                             ▶
                           </button>
                         )}
                       </td>
-                      <td>{r?.artist}</td>
-                      <td>{r?.title}</td>
+                      <TrackCell r={r} />
                       <td className="num muted">{r ? formatBpm(r.bpm) : ""}</td>
                       <td>→ {s.label}</td>
                       <td className="num muted">{Math.round(s.share * 100)}%</td>
@@ -320,7 +352,7 @@ function TagPanel() {
   const [tagNames, setTagNames] = useState<Map<string, string>>(new Map());
   const tagIds = pending.slice(0, 300).map((p) => p[0]);
   const rows = useRows(tagIds);
-  useNeighbours(tagIds, rows);
+  const playedRow = useNeighbours(tagIds, rows);
   useEffect(() => {
     api.pendingTagSuggestions().then(setPending, () => setPending([]));
     api.listTags().then((ts) => setTagNames(new Map(ts.map((x) => [x.id, x.name]))), () => {});
@@ -369,22 +401,25 @@ function TagPanel() {
         <>
           <h3 className="mt">{t("dna.pending", { n: pending.length })}</h3>
           <div className="write-plan">
-            <table className="grid-table small">
+            <table className="grid-table small sugg-table">
               <tbody>
-                {pending.slice(0, 300).map(([track, tag, name, conf]) => {
+                {pending.slice(0, 300).map(([track, tag, name, conf], i) => {
                   const r = rows.get(track);
                   return (
                     <tr key={track + tag} className={nowPlaying?.id === track ? "row-playing" : undefined}>
                       <td>
                         {r && (
-                          <button className="icon-btn small" onClick={() => play(r, r.previewMs ?? 0)} aria-label={t("player.play")} title={t("player.play")}>
+                          <button className="icon-btn small" onClick={() => {
+                            playedRow(i);
+                            play(r, r.previewMs ?? 0);
+                          }}
+                          aria-label={t("player.play")} title={t("player.play")}>
                             ▶
                           </button>
                         )}
                       </td>
-                      <td>{r?.artist}</td>
-                      <td>{r?.title}</td>
-                      <td>#{name}</td>
+                      <TrackCell r={r} />
+                      <td className="nowrap">#{name}</td>
                       <td className="num muted">{conf != null ? `${Math.round(conf * 100)}%` : ""}</td>
                       <td className="nowrap">
                         <button className="btn small" onClick={() => review(track, tag, true)}>

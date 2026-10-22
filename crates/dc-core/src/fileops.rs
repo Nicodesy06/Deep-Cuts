@@ -690,6 +690,9 @@ mod tests {
             analysis_status: "none".into(),
             created_at: 0,
             energy: None,
+            subgenre: None,
+            tags: Vec::new(),
+            cues: 0,
         }
     }
 

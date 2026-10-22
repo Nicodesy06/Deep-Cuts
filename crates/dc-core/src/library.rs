@@ -720,12 +720,21 @@ pub struct TrackRow {
     pub created_at: i64,
     /// Energy 1–10 relative to the library (see `dna::update_energy`).
     pub energy: Option<i64>,
+    pub subgenre: Option<String>,
+    /// Confirmed My Tags, by name.
+    pub tags: Vec<String>,
+    /// Cue points and loops, not counting analysis suggestions.
+    pub cues: i64,
 }
 
 pub(crate) const TRACK_SELECT: &str = "SELECT t.id, t.title, t.artist, t.version, t.remixer, t.album, t.label, t.genre, t.year,
     t.bpm, t.musical_key, t.key_camelot, t.duration_ms, t.rating, t.favorite,
     (SELECT decision FROM decisions d WHERE d.track_id = t.id AND d.context = 'global'),
-    t.comment, f.path, f.format, f.bitrate, COALESCE(f.missing, 1), t.lufs, t.preview_ms, t.analysis_status, t.created_at, t.energy
+    t.comment, f.path, f.format, f.bitrate, COALESCE(f.missing, 1), t.lufs, t.preview_ms, t.analysis_status, t.created_at, t.energy,
+    t.subgenre,
+    (SELECT group_concat(name, char(31)) FROM (SELECT DISTINCT g.name FROM track_tags tt JOIN tags g ON g.id = tt.tag_id
+        WHERE tt.track_id = t.id AND tt.status = 'confirmed' ORDER BY g.name COLLATE NOCASE)),
+    (SELECT count(*) FROM cue_points c WHERE c.track_id = t.id AND c.kind != 'suggestion')
     FROM tracks t
     LEFT JOIN files f ON f.id = (SELECT id FROM files WHERE track_id = t.id ORDER BY missing, added_at LIMIT 1)";
 
@@ -757,6 +766,12 @@ pub(crate) fn row_to_track(r: &rusqlite::Row) -> rusqlite::Result<TrackRow> {
         analysis_status: r.get(23)?,
         created_at: r.get(24)?,
         energy: r.get(25)?,
+        subgenre: r.get(26)?,
+        tags: r
+            .get::<_, Option<String>>(27)?
+            .map(|s| s.split('\u{1f}').map(str::to_string).collect())
+            .unwrap_or_default(),
+        cues: r.get(28)?,
     })
 }
 
