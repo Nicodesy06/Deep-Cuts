@@ -40,6 +40,22 @@ export interface TrackRow {
   cues: number;
 }
 
+export interface EnergyAgreement {
+  n: number;
+  exact: number;
+  withinOne: number;
+  meanAbsError: number;
+}
+
+export interface EnergyReport {
+  method: "calibrated" | "relative";
+  tracks: number;
+  usesArousal: boolean;
+  references: number;
+  relative: EnergyAgreement | null;
+  calibrated: EnergyAgreement | null;
+}
+
 export interface TrackQuery {
   query: string;
   sort?: string | null;
@@ -770,6 +786,7 @@ export const api = {
   dnaGroups: (k: number, scope: string) => invoke<DnaGroup[]>("dna_groups", { k, scope }),
   dnaUpdateEnergy: () => invoke<number>("dna_update_energy"),
   dnaApplyGenres: (proposals: ReplaceProposal[]) => invoke<number>("dna_apply_genres", { proposals }),
+  dnaEnergyReport: () => invoke<EnergyReport>("dna_energy_report"),
   unreviewTagSuggestion: (trackId: string, tagId: string) => invoke<void>("unreview_tag_suggestion", { trackId, tagId }),
   pendingTagSuggestions: () => invoke<[string, string, string, number | null][]>("pending_tag_suggestions"),
   gridSet: (trackId: string, bpm: number, firstBeatMs: number) => invoke<void>("grid_set", { trackId, bpm, firstBeatMs }),

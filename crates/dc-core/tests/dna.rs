@@ -63,6 +63,38 @@ fn energy_suggestions_and_groups_follow_the_music() {
         .max()
         .unwrap();
     assert!(min_fast > max_slow, "fast ≥ {min_fast}, slow ≤ {max_slow}");
+
+    // Mixed In Key energies in comments: read as references, then the energy
+    // is calibrated on them and checked by cross-validation.
+    let (_, before) = dna::compute_energy(&conn).unwrap();
+    assert_eq!(before.method, "relative");
+    assert_eq!(before.references, 0);
+    for i in 0..6 {
+        library::edit_field(
+            &conn,
+            &[id(&format!("fast{i}.wav"))],
+            "comment",
+            Some("8A - Energy 9"),
+        )
+        .unwrap();
+        library::edit_field(
+            &conn,
+            &[id(&format!("slow{i}.wav"))],
+            "comment",
+            Some("Energy 2"),
+        )
+        .unwrap();
+    }
+    assert_eq!(dna::energy_references(&conn).unwrap().len(), 12);
+    let (levels, rep) = dna::compute_energy_with(&conn, 10).unwrap();
+    assert_eq!(rep.method, "calibrated");
+    assert_eq!(rep.references, 12);
+    let cal = rep.calibrated.unwrap();
+    assert!(cal.within_one >= 0.9, "{cal:?}");
+    assert!(levels[&id("fast7.wav")] >= 7, "{levels:?}");
+    assert!(levels[&id("slow7.wav")] <= 4, "{levels:?}");
+    // Below the threshold the energy stays relative to the library.
+    assert_eq!(dna::compute_energy(&conn).unwrap().1.method, "relative");
     assert_eq!(
         query_tracks(
             &conn,

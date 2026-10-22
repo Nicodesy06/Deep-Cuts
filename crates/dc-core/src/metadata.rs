@@ -21,6 +21,9 @@ pub struct FileMetadata {
     pub bpm: Option<f64>,
     pub musical_key: Option<String>,
     pub comment: Option<String>,
+    /// Energy 1–10 written by other software (Mixed In Key: "Energy 7" in
+    /// the grouping or the comment).
+    pub energy: Option<i64>,
     pub isrc: Option<String>,
     pub duration_ms: Option<i64>,
     pub bitrate: Option<i64>,
@@ -38,6 +41,26 @@ fn clean(s: Option<std::borrow::Cow<'_, str>>) -> Option<String> {
 
 fn clean_str(s: Option<&str>) -> Option<String> {
     clean(s.map(std::borrow::Cow::Borrowed))
+}
+
+/// "Energy 7", "energy: 7", "8A - Energy 7" → 7. Only an explicit "energy"
+/// followed by 1–10 counts, so other numbers in a comment are not taken.
+pub fn parse_energy(s: &str) -> Option<i64> {
+    let lower = s.to_lowercase();
+    let mut from = 0;
+    while let Some(i) = lower[from..].find("energy") {
+        let rest = lower[from + i + 6..]
+            .trim_start_matches(|c: char| c.is_whitespace() || matches!(c, ':' | '=' | '-' | '_'));
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(v) = digits.parse::<i64>()
+            && (1..=10).contains(&v)
+            && !rest[digits.len()..].starts_with(|c: char| c.is_ascii_digit() || c == '.')
+        {
+            return Some(v);
+        }
+        from += i + 6;
+    }
+    None
 }
 
 pub fn parse_bpm(s: &str) -> Option<f64> {
@@ -79,6 +102,11 @@ pub fn read(path: &Path) -> Result<FileMetadata> {
             .or_else(|| tag.get_string(ItemKey::IntegerBpm))
             .and_then(parse_bpm);
         m.year = tag.date().map(|d| d.year as i64).filter(|y| *y > 0);
+        // Mixed In Key writes "Energy 7" to the grouping or the comment.
+        m.energy = tag
+            .get_string(ItemKey::ContentGroup)
+            .and_then(parse_energy)
+            .or_else(|| m.comment.as_deref().and_then(parse_energy));
         m.has_artwork = !tag.pictures().is_empty();
     }
     if m.title.is_none() {
@@ -165,6 +193,17 @@ pub fn extract_remixer(version: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn energy_from_text() {
+        assert_eq!(parse_energy("8A - Energy 7"), Some(7));
+        assert_eq!(parse_energy("energy:10 peak"), Some(10));
+        assert_eq!(parse_energy("Energy-3"), Some(3));
+        assert_eq!(parse_energy("1A - 128 BPM"), None);
+        assert_eq!(parse_energy("Energy 12"), None);
+        assert_eq!(parse_energy("energy 7.5"), None);
+        assert_eq!(parse_energy("high energy! Energy 6"), Some(6));
+    }
 
     #[test]
     fn versions() {

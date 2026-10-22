@@ -2,7 +2,7 @@
 // labels (with measured accuracy), auto groups, and the local audio model
 // (AudioSet tagger) whose outputs become reviewable tag suggestions.
 import { useEffect, useRef, useState } from "react";
-import { api, type DnaGroup, type LabelReport, type StylesStatus, type TrackRow } from "../api";
+import { api, type DnaGroup, type EnergyAgreement, type EnergyReport, type LabelReport, type StylesStatus, type TrackRow } from "../api";
 import type { MsgKey } from "../i18n";
 import { useAction, useApp } from "../store";
 import { GenreSourceDialog } from "../components/GenreSourceDialog";
@@ -68,6 +68,10 @@ function EnergyPanel() {
   const { t, dataVersion, bump, openLibrary } = useApp();
   const act = useAction();
   const [counts, setCounts] = useState<number[] | null>(null);
+  const [rep, setRep] = useState<EnergyReport | null>(null);
+  useEffect(() => {
+    api.dnaEnergyReport().then(setRep, () => setRep(null));
+  }, [dataVersion]);
   useEffect(() => {
     Promise.all(Array.from({ length: 10 }, (_, i) => api.queryTracks({ query: `energy:${i + 1}`, limit: 1 }).then((p) => p.total))).then(setCounts, () => setCounts(null));
   }, [dataVersion]);
@@ -80,7 +84,8 @@ function EnergyPanel() {
           {t("dna.recompute")}
         </button>
       </div>
-      <p className="hint">{t("dna.energyHint")}</p>
+      <p className="hint">{t(rep?.method === "calibrated" ? "energy.hintCalibrated" : "dna.energyHint")}</p>
+      {rep && <EnergyQuality rep={rep} />}
       {counts && (
         <div className="energy-bars">
           {counts.map((c, i) => (
@@ -97,6 +102,26 @@ function EnergyPanel() {
         </div>
       )}
     </section>
+  );
+}
+
+const pctOf = (x: number) => Math.round(x * 100);
+
+/** How the energy was computed and how it agrees with Mixed In Key values. */
+function EnergyQuality({ rep }: { rep: EnergyReport }) {
+  const { t } = useApp();
+  const line = (a: EnergyAgreement) => t("energy.agreement", { n: a.n, exact: pctOf(a.exact), one: pctOf(a.withinOne), mae: a.meanAbsError.toFixed(1) });
+  return (
+    <div className="energy-quality">
+      <p>
+        <strong>{t(rep.method === "calibrated" ? "energy.methodCalibrated" : "energy.methodRelative", { n: rep.references })}</strong>
+        {rep.usesArousal ? ` · ${t("energy.withArousal")}` : ""}
+      </p>
+      {rep.calibrated && <p className="small">{t("energy.calibratedScore")}: {line(rep.calibrated)}</p>}
+      {rep.relative && <p className="small muted">{t("energy.relativeScore")}: {line(rep.relative)}</p>}
+      {rep.references === 0 && <p className="small muted">{t("energy.noReferences")}</p>}
+      {rep.references > 0 && rep.method === "relative" && <p className="small muted">{t("energy.needMore", { n: rep.references, min: 40 })}</p>}
+    </div>
   );
 }
 

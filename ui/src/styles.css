@@ -2478,3 +2478,14 @@ input.narrow { width: 64px; }
   gap: 10px;
   text-align: center;
 }
+
+.energy-quality {
+  margin: 4px 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.energy-quality p {
+  margin: 2px 0;
+}

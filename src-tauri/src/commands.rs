@@ -1146,6 +1146,14 @@ pub async fn dna_groups(
 }
 
 #[tauri::command]
+pub async fn dna_energy_report(state: State<'_, AppState>) -> Res<dna::EnergyReport> {
+    blocking(state.db_path.clone(), |c| {
+        dna::compute_energy(c).map(|r| r.1)
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn dna_update_energy(state: State<'_, AppState>) -> Res<usize> {
     blocking(state.db_path.clone(), |c| dna::update_energy(c)).await
 }

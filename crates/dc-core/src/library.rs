@@ -658,6 +658,16 @@ pub(crate) fn apply_file_metadata(
         "UPDATE tracks SET has_artwork = ?1 WHERE id = ?2",
         params![m.has_artwork, track_id],
     )?;
+    match m.energy {
+        Some(e) => conn.execute(
+            "INSERT OR REPLACE INTO track_energy_ref (track_id, value, source) VALUES (?1, ?2, 'file')",
+            params![track_id, e],
+        )?,
+        None => conn.execute(
+            "DELETE FROM track_energy_ref WHERE track_id = ?1 AND source = 'file'",
+            [track_id],
+        )?,
+    };
     Ok(())
 }
 

@@ -40,34 +40,314 @@ fn vectors(conn: &Connection) -> Result<Vec<(String, Vector)>> {
     Ok(v)
 }
 
-/// Recompute Energy 1–10 for every analysed live track. Returns how many
-/// tracks received a value.
-pub fn update_energy(conn: &Connection) -> Result<usize> {
+/// Inputs of the energy score: measured features (index into the feature
+/// vector) and their weight in the default score. Loudness, density of
+/// attacks and high-frequency content (hi-hats, noise, bright stabs) are what
+/// listeners and DJ tools associate with energy; tempo counts a little.
+const ENERGY_PARTS: [(usize, f32); 7] = [
+    (4, 0.25),  // integrated loudness
+    (13, 0.15), // mean RMS of the body of the track
+    (10, 0.20), // onsets per second
+    (9, 0.15),  // share of energy above 5 kHz
+    (11, 0.10), // spectral flux
+    (7, 0.05),  // brightness (spectral centroid)
+    (0, 0.10),  // tempo
+];
+/// Weight of the emoMusic arousal model when its output is available.
+const AROUSAL_WEIGHT: f32 = 0.25;
+/// Reference values (e.g. Mixed In Key) needed before Cradex calibrates its
+/// energy on them.
+pub const MIN_ENERGY_REFERENCES: usize = 40;
+
+/// Per-track energy inputs, z-scored over the library (missing → 0, the
+/// library average). The last column is arousal when at least half of the
+/// tracks have it.
+fn energy_inputs(conn: &Connection) -> Result<(Vec<(String, Vec<f32>)>, bool)> {
     let vecs = vectors(conn)?;
     let stats = features::stats(vecs.iter().map(|v| &v.1));
-    let mut scored: Vec<(String, f32)> = vecs
-        .iter()
-        .filter_map(|(id, v)| features::energy_proxy(v, &stats).map(|e| (id.clone(), e)))
-        .collect();
-    scored.sort_by(|a, b| a.1.total_cmp(&b.1));
-    let n = scored.len();
-    crate::util::atomic(conn, |tx| {
-        tx.execute(
-            "UPDATE tracks SET energy = NULL WHERE energy IS NOT NULL",
-            [],
+    let arousal: HashMap<String, f32> = {
+        let mut stmt = conn.prepare(
+            "SELECT track_id, score FROM model_tags WHERE grp = 'emotion' AND label = 'Arousal'",
         )?;
-        for (rank, (id, _)) in scored.iter().enumerate() {
+        stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)? as f32))
+        })?
+        .collect::<std::result::Result<_, _>>()?
+    };
+    let with_arousal = vecs
+        .iter()
+        .filter(|(id, _)| arousal.contains_key(id))
+        .count();
+    let use_arousal = !vecs.is_empty() && with_arousal * 2 >= vecs.len();
+    let (am, asd) = {
+        let xs: Vec<f32> = vecs
+            .iter()
+            .filter_map(|(id, _)| arousal.get(id).copied())
+            .collect();
+        let n = xs.len().max(1) as f32;
+        let m = xs.iter().sum::<f32>() / n;
+        let sd = (xs.iter().map(|x| (x - m).powi(2)).sum::<f32>() / n)
+            .sqrt()
+            .max(1e-6);
+        (m, sd)
+    };
+    let rows = vecs
+        .iter()
+        .filter(|(_, v)| v[4].is_finite() || v[13].is_finite())
+        .map(|(id, v)| {
+            let mut x: Vec<f32> = ENERGY_PARTS
+                .iter()
+                .map(|(i, _)| {
+                    if v[*i].is_finite() {
+                        stats.z(v, *i)
+                    } else {
+                        0.0
+                    }
+                })
+                .collect();
+            if use_arousal {
+                x.push(arousal.get(id).map(|a| (a - am) / asd).unwrap_or(0.0));
+            }
+            (id.clone(), x)
+        })
+        .collect();
+    Ok((rows, use_arousal))
+}
+
+/// Default score: fixed weights over the z-scored inputs.
+fn heuristic_score(x: &[f32], use_arousal: bool) -> f32 {
+    let mut acc = 0.0;
+    let mut w = 0.0;
+    for (j, (_, wt)) in ENERGY_PARTS.iter().enumerate() {
+        acc += x[j] * wt;
+        w += wt;
+    }
+    if use_arousal {
+        acc += x[ENERGY_PARTS.len()] * AROUSAL_WEIGHT;
+        w += AROUSAL_WEIGHT;
+    }
+    acc / w
+}
+
+/// Rank → 1–10, spread evenly over the library.
+fn rank_levels(scored: &[(String, f32)]) -> HashMap<String, i64> {
+    let mut s: Vec<&(String, f32)> = scored.iter().collect();
+    s.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let n = s.len();
+    s.iter()
+        .enumerate()
+        .map(|(rank, (id, _))| {
             let e = if n < 2 {
                 5
             } else {
                 1 + (rank * 9 + (n - 1) / 2) / (n - 1)
             };
+            (id.clone(), e as i64)
+        })
+        .collect()
+}
+
+/// Ridge regression (with intercept) of `y` on `x`; returns the weights,
+/// intercept last.
+fn ridge(x: &[&[f32]], y: &[f32], lambda: f64) -> Vec<f64> {
+    let k = x.first().map_or(0, |r| r.len()) + 1;
+    let mut a = vec![vec![0f64; k + 1]; k];
+    for (row, yi) in x.iter().zip(y) {
+        let r: Vec<f64> = row.iter().map(|v| *v as f64).chain([1.0]).collect();
+        for i in 0..k {
+            for j in 0..k {
+                a[i][j] += r[i] * r[j];
+            }
+            a[i][k] += r[i] * *yi as f64;
+        }
+    }
+    for (i, row) in a.iter_mut().enumerate().take(k - 1) {
+        row[i] += lambda; // the intercept is not shrunk
+    }
+    // Gauss-Jordan elimination with partial pivoting.
+    for c in 0..k {
+        let p = (c..k)
+            .max_by(|&i, &j| a[i][c].abs().total_cmp(&a[j][c].abs()))
+            .unwrap();
+        a.swap(c, p);
+        let d = a[c][c];
+        if d.abs() < 1e-12 {
+            continue;
+        }
+        for v in a[c].iter_mut() {
+            *v /= d;
+        }
+        for r in 0..k {
+            if r != c {
+                let f = a[r][c];
+                if f != 0.0 {
+                    for j in 0..=k {
+                        a[r][j] -= f * a[c][j];
+                    }
+                }
+            }
+        }
+    }
+    a.iter().map(|row| row[k]).collect()
+}
+
+fn predict(w: &[f64], x: &[f32]) -> f64 {
+    x.iter().zip(w).map(|(a, b)| *a as f64 * b).sum::<f64>() + w[w.len() - 1]
+}
+
+fn level(v: f64) -> i64 {
+    v.round().clamp(1.0, 10.0) as i64
+}
+
+/// Energy values from other software (Mixed In Key): a dedicated tag read
+/// from the file, else "Energy N" in the effective comment.
+pub fn energy_references(conn: &Connection) -> Result<HashMap<String, i64>> {
+    let mut out: HashMap<String, i64> = HashMap::new();
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.comment, r.value FROM tracks t LEFT JOIN track_energy_ref r ON r.track_id = t.id
+         WHERE t.archived = 0 AND (r.value IS NOT NULL OR t.comment LIKE '%energy%')",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, Option<String>>(1)?,
+            r.get::<_, Option<i64>>(2)?,
+        ))
+    })?;
+    for row in rows {
+        let (id, comment, value) = row?;
+        if let Some(v) =
+            value.or_else(|| comment.as_deref().and_then(crate::metadata::parse_energy))
+        {
+            out.insert(id, v);
+        }
+    }
+    Ok(out)
+}
+
+/// How the energy was computed and, when reference values exist, how well
+/// it agrees with them.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnergyReport {
+    /// "calibrated" (learned from the reference values) or "relative" (rank
+    /// of the default score within the library).
+    pub method: String,
+    pub tracks: usize,
+    pub uses_arousal: bool,
+    /// Analysed tracks that also have a reference value.
+    pub references: usize,
+    /// Agreement of the default (relative) energy with the references.
+    pub relative: Option<Agreement>,
+    /// Agreement of the calibrated energy, measured by 5-fold cross-
+    /// validation (each track predicted by a model that never saw it).
+    pub calibrated: Option<Agreement>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Agreement {
+    pub n: usize,
+    pub exact: f64,
+    pub within_one: f64,
+    pub mean_abs_error: f64,
+}
+
+fn agreement(pairs: &[(i64, i64)]) -> Option<Agreement> {
+    if pairs.is_empty() {
+        return None;
+    }
+    let n = pairs.len() as f64;
+    Some(Agreement {
+        n: pairs.len(),
+        exact: pairs.iter().filter(|(a, b)| a == b).count() as f64 / n,
+        within_one: pairs.iter().filter(|(a, b)| (a - b).abs() <= 1).count() as f64 / n,
+        mean_abs_error: pairs.iter().map(|(a, b)| (a - b).abs() as f64).sum::<f64>() / n,
+    })
+}
+
+const RIDGE_LAMBDA: f64 = 2.0;
+
+/// Compute Energy 1–10 for every analysed track (without writing it).
+pub fn compute_energy(conn: &Connection) -> Result<(HashMap<String, i64>, EnergyReport)> {
+    compute_energy_with(conn, MIN_ENERGY_REFERENCES)
+}
+
+/// `compute_energy` with a chosen minimum number of reference values.
+pub fn compute_energy_with(
+    conn: &Connection,
+    min_references: usize,
+) -> Result<(HashMap<String, i64>, EnergyReport)> {
+    let (inputs, use_arousal) = energy_inputs(conn)?;
+    let refs = energy_references(conn)?;
+    let scored: Vec<(String, f32)> = inputs
+        .iter()
+        .map(|(id, x)| (id.clone(), heuristic_score(x, use_arousal)))
+        .collect();
+    let relative = rank_levels(&scored);
+    let labelled: Vec<(&String, &Vec<f32>, f32)> = inputs
+        .iter()
+        .filter_map(|(id, x)| refs.get(id).map(|r| (id, x, *r as f32)))
+        .collect();
+    let mut report = EnergyReport {
+        method: "relative".into(),
+        tracks: inputs.len(),
+        uses_arousal: use_arousal,
+        references: labelled.len(),
+        relative: agreement(
+            &labelled
+                .iter()
+                .map(|(id, _, r)| (relative[*id], *r as i64))
+                .collect::<Vec<_>>(),
+        ),
+        calibrated: None,
+    };
+    if labelled.len() < min_references.max(10) {
+        return Ok((relative, report));
+    }
+    // Cross-validated agreement first, then the model fitted on everything.
+    let mut pairs = Vec::new();
+    for fold in 0..5 {
+        let (train, test): (Vec<_>, Vec<_>) = labelled
+            .iter()
+            .enumerate()
+            .partition(|(i, _)| i % 5 != fold);
+        let xs: Vec<&[f32]> = train.iter().map(|(_, l)| l.1.as_slice()).collect();
+        let ys: Vec<f32> = train.iter().map(|(_, l)| l.2).collect();
+        let w = ridge(&xs, &ys, RIDGE_LAMBDA);
+        pairs.extend(
+            test.iter()
+                .map(|(_, l)| (level(predict(&w, l.1)), l.2 as i64)),
+        );
+    }
+    report.calibrated = agreement(&pairs);
+    let xs: Vec<&[f32]> = labelled.iter().map(|l| l.1.as_slice()).collect();
+    let ys: Vec<f32> = labelled.iter().map(|l| l.2).collect();
+    let w = ridge(&xs, &ys, RIDGE_LAMBDA);
+    report.method = "calibrated".into();
+    let levels = inputs
+        .iter()
+        .map(|(id, x)| (id.clone(), level(predict(&w, x))))
+        .collect();
+    Ok((levels, report))
+}
+
+/// Recompute Energy 1–10 for every analysed live track. Returns how many
+/// tracks received a value.
+pub fn update_energy(conn: &Connection) -> Result<usize> {
+    let (levels, _) = compute_energy(conn)?;
+    crate::util::atomic(conn, |tx| {
+        tx.execute(
+            "UPDATE tracks SET energy = NULL WHERE energy IS NOT NULL",
+            [],
+        )?;
+        for (id, e) in &levels {
             tx.execute(
                 "UPDATE tracks SET energy = ?1 WHERE id = ?2",
-                params![e as i64, id],
+                params![e, id],
             )?;
         }
-        Ok(n)
+        Ok(levels.len())
     })
 }
 
@@ -663,4 +943,35 @@ pub fn character(conn: &Connection, track_id: &str) -> Result<Character> {
         styles: crate::discogs::for_track(conn, track_id)?,
         model_device: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ridge_recovers_a_linear_rule() {
+        // y = 2·a − b + 5 on a small grid.
+        let rows: Vec<Vec<f32>> = (0..30)
+            .map(|i| vec![(i % 6) as f32 - 2.5, (i / 6) as f32 - 2.0])
+            .collect();
+        let y: Vec<f32> = rows.iter().map(|r| 2.0 * r[0] - r[1] + 5.0).collect();
+        let xs: Vec<&[f32]> = rows.iter().map(|r| r.as_slice()).collect();
+        let w = ridge(&xs, &y, 1e-6);
+        assert!(
+            (w[0] - 2.0).abs() < 1e-3 && (w[1] + 1.0).abs() < 1e-3 && (w[2] - 5.0).abs() < 1e-3,
+            "{w:?}"
+        );
+        assert_eq!(level(predict(&w, &[10.0, 0.0])), 10);
+        assert_eq!(level(predict(&w, &[-10.0, 0.0])), 1);
+    }
+
+    #[test]
+    fn agreement_counts_exact_and_close_values() {
+        let a = agreement(&[(5, 5), (6, 5), (9, 5), (1, 2)]).unwrap();
+        assert_eq!(a.n, 4);
+        assert!((a.exact - 0.25).abs() < 1e-9);
+        assert!((a.within_one - 0.75).abs() < 1e-9);
+        assert!((a.mean_abs_error - 1.5).abs() < 1e-9);
+    }
 }

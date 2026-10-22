@@ -203,6 +203,7 @@ pub fn run() {
             commands::dna_tag_suggestions,
             commands::dna_groups,
             commands::dna_update_energy,
+            commands::dna_energy_report,
             commands::pending_tag_suggestions,
             commands::match_playlist_file,
             commands::create_matched_playlist,
