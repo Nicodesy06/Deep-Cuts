@@ -3,7 +3,7 @@
 //! Progressive House, Minimal Techno, Dub Techno, …).
 //!
 //! The weights are licensed **CC BY-NC-SA 4.0** (non-commercial), so they
-//! are not shipped with Deep Cuts (GPL): the user downloads them from the
+//! are not shipped with Cradex (GPL): the user downloads them from the
 //! MTG server after reading the licence (`download`). The file is checked
 //! against a known BLAKE3 hash.
 //!

@@ -1,6 +1,6 @@
 # Feature audit: premium features replicated (2026-10-21)
 
-For each reference app, what Deep Cuts replicates and how well, judged only on evidence: automated
+For each reference app, what Cradex replicates and how well, judged only on evidence: automated
 tests, measurements on public annotated corpora (`AI_VALIDATION.md`), the installer smoke tests
 run on real Windows / macOS / Linux CI machines, and GUI checks. Nothing here was tested on the
 owner's own hardware or inside the real DJ applications yet (checklist in `TEST_PLAN.md`).

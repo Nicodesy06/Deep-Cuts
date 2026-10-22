@@ -1,6 +1,6 @@
-//! Deep Cuts core: library database, import/export, metadata provenance,
+//! Cradex core: library database, import/export, metadata provenance,
 //! local audio analysis and background jobs. UI-agnostic; used by the
-//! desktop app (Tauri) and the `deepcuts` CLI.
+//! desktop app (Tauri) and the `cradex` CLI.
 
 pub mod analysis;
 pub mod artwork;

@@ -6,9 +6,9 @@ The repository was **not available**. It is not among the repositories this work
 (checked via the GitHub integration), and `Deep-Cuts` started empty. Nothing was assumed about its
 implementation. In particular, none of its AI modules were assumed to exist or to be validated.
 
-## How Deep Cuts already accommodates its data
+## How Cradex already accommodates its data
 
-| Legacy concept | Deep Cuts equivalent |
+| Legacy concept | Cradex equivalent |
 |---|---|
 | Rekordbox library import | Rekordbox XML import (ids kept in `external_ids`) |
 | Keep / Pass / Maybe | `decisions` (identical values) |
@@ -21,7 +21,7 @@ implementation. In particular, none of its AI modules were assumed to exist or t
 ## Migration plan (once the repository is shared)
 
 1. Read-only audit of its storage format (SQLite/JSON/…) and of which features really work.
-2. Write `deepcuts import-legacy <path>`: match legacy tracks to Deep Cuts tracks by path, then by
+2. Write `cradex import-legacy <path>`: match legacy tracks to Cradex tracks by path, then by
    Rekordbox TrackID, then by content hash. Import decisions, ratings, notes, tags, taste profiles and
    playlists as `import:dourwtki` / user values. Back up first and print a report of unmatched items.
 3. Never write to the legacy data.

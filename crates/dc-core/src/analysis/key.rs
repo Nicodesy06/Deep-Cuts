@@ -3,7 +3,7 @@
 //!
 //! The chroma front-end and the key profiles are configurable so that design
 //! variants can be compared on an annotated development corpus
-//! (`crate::keystudy`, `deepcuts key-study`). The analyser uses `PRODUCTION`
+//! (`crate::keystudy`, `cradex key-study`). The analyser uses `PRODUCTION`
 //! and `PRODUCTION_PROFILES`.
 
 use crate::keys::Key;
@@ -38,7 +38,7 @@ pub const TEMPERLEY: Profiles = Profiles {
 
 /// Mean tonic-aligned chroma of 1,159 confidently annotated tracks of
 /// GiantSteps-MTG-Keys (Faraldo et al. 2017), computed with the dc-dsp 1.1.0
-/// front-end (`FRONTEND_1_1`) by `deepcuts key-study` (CI run 39500524471). Selected on that
+/// front-end (`FRONTEND_1_1`) by `cradex key-study` (CI run 39500524471). Selected on that
 /// development corpus only; measured once on GiantSteps Key (see
 /// docs/AI_VALIDATION.md).
 pub const LEARNED_EDM: Profiles = Profiles {

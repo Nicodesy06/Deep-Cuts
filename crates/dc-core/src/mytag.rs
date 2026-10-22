@@ -1,8 +1,8 @@
 //! Rekordbox "My Tag" values carried in comments.
 //!
 //! Rekordbox can add a track's My Tags to its comment as `/* Tag / Tag */`
-//! (and Deep Cuts writes tags the same way on export, see
-//! `djlib::FieldMapping`). Those values become Deep Cuts tags under a
+//! (and Cradex writes tags the same way on export, see
+//! `djlib::FieldMapping`). Those values become Cradex tags under a
 //! "My Tag" parent tag, so they can be searched (`tag:`), filtered, used in
 //! smart crates and learned from (tag suggestions). This happens on a
 //! Rekordbox XML import, when files are imported or change (comment tag in

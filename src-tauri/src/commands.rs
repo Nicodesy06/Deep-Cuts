@@ -378,7 +378,7 @@ pub async fn export_dj(
                 Some(ids) => ids,
                 None => dc_core::query::query_track_ids(conn, &query.unwrap_or_default())?,
             };
-            djlib::for_ids(conn, &ids, name.as_deref().unwrap_or("Deep Cuts Export"))?
+            djlib::for_ids(conn, &ids, name.as_deref().unwrap_or("Cradex Export"))?
         };
         djlib::export_to(&app, &lib, std::path::Path::new(&target))
     })
@@ -406,7 +406,7 @@ pub async fn export_tracks(
             "html" | "pdf" => dc_core::printable::export(
                 conn,
                 &ids,
-                name.as_deref().unwrap_or("Deep Cuts"),
+                name.as_deref().unwrap_or("Cradex"),
                 playlist.as_deref(),
                 &format,
                 out,
@@ -416,7 +416,7 @@ pub async fn export_tracks(
             "rekordbox" => export::export_rekordbox_xml(
                 conn,
                 &ids,
-                name.as_deref().unwrap_or("Deep Cuts Export"),
+                name.as_deref().unwrap_or("Cradex Export"),
                 out,
             ),
             other => Err(dc_core::Error::Invalid(format!(
@@ -916,7 +916,7 @@ pub fn restore_backup(
 ) -> Res<backup::BackupInfo> {
     let path = PathBuf::from(path);
     if path.parent() != Some(state.backups_dir.as_path()) {
-        return Err("only backups from the Deep Cuts backup folder can be restored".into());
+        return Err("only backups from the Cradex backup folder can be restored".into());
     }
     state.stop_pool();
     let result = {

@@ -1,4 +1,4 @@
-//! Compare Deep Cuts' analysis with BPM/key values from another source on
+//! Compare Cradex's analysis with BPM/key values from another source on
 //! the user's own library: an imported DJ application (Rekordbox, Traktor,
 //! Serato, VirtualDJ) or the files' own tags (often written by Rekordbox or
 //! Mixed In Key). The user's real music is the most relevant test set, so

@@ -1,6 +1,6 @@
 //! Database backups (SQLite online backup API), restore and listing.
 //!
-//! Backups cover the Deep Cuts database (metadata, decisions, playlists,
+//! Backups cover the Cradex database (metadata, decisions, playlists,
 //! cues, analysis) — NOT the audio files themselves.
 
 use crate::error::{Error, Result};
@@ -37,7 +37,7 @@ fn sanitize(reason: &str) -> String {
 pub fn create(conn: &Connection, dir: &Path, reason: &str) -> Result<BackupInfo> {
     std::fs::create_dir_all(dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S%.3f");
-    let name = format!("deepcuts-{stamp}-{}.db", sanitize(reason));
+    let name = format!("cradex-{stamp}-{}.db", sanitize(reason));
     let path = dir.join(&name);
     {
         let mut dst = Connection::open(&path)?;
@@ -68,7 +68,10 @@ pub fn list(dir: &Path) -> Result<Vec<BackupInfo>> {
     for e in rd.flatten() {
         let p = e.path();
         let name = e.file_name().to_string_lossy().into_owned();
-        if !(name.starts_with("deepcuts-") && name.ends_with(".db")) {
+        // Backups made before the rename start with "deepcuts-".
+        if !((name.starts_with("cradex-") || name.starts_with("deepcuts-"))
+            && name.ends_with(".db"))
+        {
             continue;
         }
         let meta = e.metadata()?;
@@ -78,7 +81,7 @@ pub fn list(dir: &Path) -> Result<Vec<BackupInfo>> {
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
-        // deepcuts-YYYYmmdd-HHMMSS.mmm-<reason>.db
+        // cradex-YYYYmmdd-HHMMSS.mmm-<reason>.db
         let reason = name
             .trim_end_matches(".db")
             .splitn(4, '-')
@@ -93,7 +96,13 @@ pub fn list(dir: &Path) -> Result<Vec<BackupInfo>> {
             reason,
         });
     }
-    out.sort_by(|a, b| b.file_name.cmp(&a.file_name));
+    // Newest first, by the time stamp in the name (old and new prefixes mixed).
+    let stamp = |n: &str| {
+        n.split_once('-')
+            .map(|x| x.1.to_string())
+            .unwrap_or_default()
+    };
+    out.sort_by_key(|b| std::cmp::Reverse(stamp(&b.file_name)));
     Ok(out)
 }
 
@@ -108,7 +117,7 @@ pub fn restore(conn: &mut Connection, backup: &Path, dir: &Path) -> Result<Backu
     let v: i64 = src.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if v > crate::db::SCHEMA_VERSION {
         return Err(Error::Invalid(
-            "backup comes from a newer Deep Cuts version".into(),
+            "backup comes from a newer Cradex version".into(),
         ));
     }
     let safety = create(conn, dir, "before-restore")?;

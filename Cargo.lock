@@ -607,6 +607,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cradex"
+version = "0.3.0"
+dependencies = [
+ "dc-core",
+ "notify",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -812,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "dc-cli"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "clap",
  "dc-core",
@@ -822,7 +835,7 @@ dependencies = [
 
 [[package]]
 name = "dc-core"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "blake3",
  "chrono",
@@ -848,19 +861,6 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
-]
-
-[[package]]
-name = "deep-cuts"
-version = "0.2.2"
-dependencies = [
- "dc-core",
- "notify",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
 ]
 
 [[package]]

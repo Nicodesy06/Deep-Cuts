@@ -349,13 +349,8 @@ fn rekordbox_xml_round_trip() {
     )
     .unwrap();
     let xml_path = tmp.path().join("rb.xml");
-    export::export_rekordbox_xml(
-        &conn,
-        std::slice::from_ref(&id),
-        "Deep Cuts Export",
-        &xml_path,
-    )
-    .unwrap();
+    export::export_rekordbox_xml(&conn, std::slice::from_ref(&id), "Cradex Export", &xml_path)
+        .unwrap();
 
     // import into a fresh library
     let mut conn2 = db::open(&tmp.path().join("b.db")).unwrap();

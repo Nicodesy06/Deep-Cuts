@@ -1,6 +1,6 @@
 # Response to the independent technical audit (21 October 2026)
 
-The audit *“Deep Cuts — Audit tecnico e piano di correzione prioritario”* listed 48 items
+The audit *“Cradex — Audit tecnico e piano di correzione prioritario”* listed 48 items
 (7 P0, 33 P1, 8 P2). This page records, for each one, what was changed, how it is tested, and what
 is still open and why. Status words:
 
@@ -77,7 +77,7 @@ These are limits of current methods. Each one is measured and published in
 | DC-41 | **Documented** | Every optional model shows its licence before download (non-commercial MTG models are marked); `LICENSING.md` lists origin, licence and hash. |
 | DC-42 | **Fixed** | Model downloads: HTTPS only, size cap, written to a temporary file, BLAKE3 checked before the atomic rename, retries on 503/429; optional models (MAEST, CLAP) can be removed from the app. |
 | DC-43 | **Mitigated** | Wording: the core works offline; network is used only when the user starts it (model download, online auto-tagger, whose sent fields are listed). |
-| DC-44 | **Mitigated** | CI runs `cargo audit` and `npm audit` on every push. One advisory is excepted with a reason (lopdf, PDF parsing; Deep Cuts only writes PDFs). Fuzzing the XML/NML/CSV parsers is open. |
+| DC-44 | **Mitigated** | CI runs `cargo audit` and `npm audit` on every push. One advisory is excepted with a reason (lopdf, PDF parsing; Cradex only writes PDFs). Fuzzing the XML/NML/CSV parsers is open. |
 | DC-45 | **Fixed** | Watch-folder errors are shown in the app and kept in the audit log instead of stderr. |
 | DC-46 | **Open** | Accessibility and onboarding with new users have not been tested. |
 | DC-47 | **Mitigated** | `docs/RELEASE_CHECKLIST.md` defines the release gate; automated parts run in CI. |

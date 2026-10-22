@@ -677,7 +677,7 @@ pub fn build_xml_lib(lib: &crate::djlib::ExportLibrary) -> String {
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<DJ_PLAYLISTS Version=\"1.0.0\">\n",
     );
     s.push_str(&format!(
-        "  <PRODUCT Name=\"Deep Cuts\" Version=\"{}\" Company=\"Deep Cuts\"/>\n",
+        "  <PRODUCT Name=\"Cradex\" Version=\"{}\" Company=\"Cradex\"/>\n",
         env!("CARGO_PKG_VERSION")
     ));
     s.push_str(&format!(

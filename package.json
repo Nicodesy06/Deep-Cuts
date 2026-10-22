@@ -1,8 +1,8 @@
 {
-  "name": "deep-cuts",
+  "name": "cradex",
   "private": true,
-  "version": "0.2.2",
-  "description": "Deep Cuts \u2014 free, local, AI-ready DJ library intelligence",
+  "version": "0.3.0",
+  "description": "Cradex \u2014 free, local, AI-ready DJ library intelligence",
   "license": "GPL-3.0-or-later",
   "scripts": {
     "postinstall": "cd ui && npm install",

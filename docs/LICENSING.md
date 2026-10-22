@@ -2,7 +2,7 @@
 
 ## Project licence
 
-Deep Cuts is licensed **GPL-3.0-or-later** (see `LICENSE`). This was a default chosen so that the
+Cradex is licensed **GPL-3.0-or-later** (see `LICENSE`). This was a default chosen so that the
 application and every derivative stay free and open, in line with the "completely free" goal. The
 owner can relicense (e.g. to MPL-2.0 or Apache-2.0) while they hold all copyrights. Decide before
 accepting outside contributions.
@@ -36,7 +36,7 @@ third-party notices with the installers. This is listed under Phase 9.
   CUDA/cuDNN only when the user builds with `gpu-cuda` and has NVIDIA's runtime installed (not
   redistributed by us).
 
-## Optional model downloaded by the user (not distributed with Deep Cuts)
+## Optional model downloaded by the user (not distributed with Cradex)
 
 * Discogs-EffNet (`discogs-effnet-bsdynamic-1.onnx`, Music Technology Group, Universitat Pompeu
   Fabra): **CC BY-NC-SA 4.0** — non-commercial. It is not part of the GPL distribution: the app

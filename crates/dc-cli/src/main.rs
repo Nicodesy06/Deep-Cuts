@@ -1,4 +1,4 @@
-//! `deepcuts` — headless access to a Deep Cuts library (same database as the
+//! `cradex` — headless access to a Cradex library (same database as the
 //! desktop app). Useful for scripting, verification and benchmarks.
 
 use clap::{Parser, Subcommand};
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 #[derive(Parser)]
-#[command(name = "deepcuts", version, about = "Deep Cuts library tool")]
+#[command(name = "cradex", version, about = "Cradex library tool")]
 struct Cli {
     /// Library database (default: the desktop app's library)
     #[arg(long, global = true)]
@@ -25,7 +25,7 @@ struct Cli {
 enum Cmd {
     /// Import (or refresh) audio files from folders/files. Read-only on files.
     Import { paths: Vec<PathBuf> },
-    /// Search the library with the query language (see `deepcuts help-query`).
+    /// Search the library with the query language (see `cradex help-query`).
     Search {
         #[arg(default_value = "")]
         query: String,
@@ -62,7 +62,7 @@ enum Cmd {
         out: PathBuf,
         #[arg(default_value = "")]
         query: String,
-        #[arg(long, default_value = "Deep Cuts Export")]
+        #[arg(long, default_value = "Cradex Export")]
         name: String,
     },
     /// Import a Rekordbox XML collection (backup taken first).
@@ -111,7 +111,7 @@ enum Cmd {
         target: PathBuf,
         #[arg(long)]
         query: Option<String>,
-        #[arg(long, default_value = "Deep Cuts Export")]
+        #[arg(long, default_value = "Cradex Export")]
         name: String,
     },
     /// Library statistics as JSON.
@@ -831,7 +831,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                     })
                     .collect();
                 println!(
-                    "applied {} fixes (undo with `deepcuts undo`)",
+                    "applied {} fixes (undo with `cradex undo`)",
                     fixes::apply(&conn, &accepted)?
                 );
             } else {
@@ -867,7 +867,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                     eprintln!("failed: {} ({})", f.path, f.error);
                 }
                 println!(
-                    "renamed {} | skipped {} | failed {} (undo with `deepcuts undo`)",
+                    "renamed {} | skipped {} | failed {} (undo with `cradex undo`)",
                     rep.moved,
                     rep.skipped,
                     rep.failed.len()
@@ -1036,7 +1036,7 @@ fn run(cli: Cli) -> dc_core::Result<()> {
                         println!("cost {:.2} -> {:.2}", r.cost_before, r.cost_after);
                         if apply {
                             sets::apply_order(&conn, &id, &r.order)?;
-                            println!("applied (undo with `deepcuts undo`)");
+                            println!("applied (undo with `cradex undo`)");
                         }
                     }
                     let rep = sets::report(&conn, &id, &mode)?;

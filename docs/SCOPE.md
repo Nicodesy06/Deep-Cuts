@@ -1,6 +1,6 @@
 # Scope
 
-Deep Cuts is a **library intelligence** application: manage, analyse, organise, discover and prepare.
+Cradex is a **library intelligence** application: manage, analyse, organise, discover and prepare.
 
 ## In scope
 

@@ -318,7 +318,7 @@ export function Library() {
           onDragOver={(e) => (p?.kind === "manual" || p?.kind === "set") && e.preventDefault()}
           onDrop={(e) => {
             if (!p || (p.kind !== "manual" && p.kind !== "set")) return;
-            const ids = JSON.parse(e.dataTransfer.getData("application/x-deepcuts-tracks") || "[]");
+            const ids = JSON.parse(e.dataTransfer.getData("application/x-cradex-tracks") || "[]");
             if (ids.length) act(() => api.addToPlaylist(p.id, ids), t("library.addedTo", { n: ids.length, name: p.name })).then(bump);
           }}
         >
@@ -476,7 +476,7 @@ export function Library() {
           }}
           onDragStart={(r, e) => {
             const ids = sel.ids.has(r.id) ? loadedSelection() : [r.id];
-            e.dataTransfer.setData("application/x-deepcuts-tracks", JSON.stringify(ids));
+            e.dataTransfer.setData("application/x-cradex-tracks", JSON.stringify(ids));
             e.dataTransfer.effectAllowed = "copy";
           }}
           empty={

@@ -1,6 +1,6 @@
 //! Beat and downbeat tracking with Beat This! (Foscarin, Schlüter, Widmer,
 //! ISMIR 2024; Institute of Computational Perception, JKU Linz). Code and
-//! weights are MIT licensed, so the model ships with Deep Cuts
+//! weights are MIT licensed, so the model ships with Cradex
 //! (`models/beat_this_final0.onnx`, exported from the `final0` checkpoint by
 //! `scripts/export_beat_this_onnx.py`).
 //!

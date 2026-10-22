@@ -111,7 +111,7 @@ fn vdj_numeric(field: &str, value: &str) -> Option<String> {
     }
     let v = num(value)?;
     if field == "bpm" {
-        // "bpm:124" = the 124.00–124.99 bucket, as in Deep Cuts.
+        // "bpm:124" = the 124.00–124.99 bucket, as in Cradex.
         return Some(format!("(bpm>={v} and bpm<{})", v.floor() + 1.0));
     }
     Some(format!("{field}={v}"))

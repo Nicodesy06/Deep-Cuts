@@ -48,9 +48,9 @@ jobs:
       - name: Evaluate
         run: |
           mkdir -p eval-out
-          ./target/release/deepcuts eval audio-key --keys gs-key/annotations/key --out eval-out/giantsteps-key.md --name "GiantSteps Key"
-          ./target/release/deepcuts eval audio-tempo --tempo gs-tempo/annotations_v2/tempo --out eval-out/giantsteps-tempo-v2.md --name "GiantSteps Tempo (annotations v2)"
-          ./target/release/deepcuts eval audio-tempo --tempo gs-tempo/annotations/tempo --out eval-out/giantsteps-tempo-v1.md --name "GiantSteps Tempo (original annotations)"
+          ./target/release/cradex eval audio-key --keys gs-key/annotations/key --out eval-out/giantsteps-key.md --name "GiantSteps Key"
+          ./target/release/cradex eval audio-tempo --tempo gs-tempo/annotations_v2/tempo --out eval-out/giantsteps-tempo-v2.md --name "GiantSteps Tempo (annotations v2)"
+          ./target/release/cradex eval audio-tempo --tempo gs-tempo/annotations/tempo --out eval-out/giantsteps-tempo-v1.md --name "GiantSteps Tempo (original annotations)"
           cat eval-out/*.md >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
@@ -104,8 +104,8 @@ jobs:
       - name: Study on development corpus, measure choice on test corpus
         run: |
           mkdir -p eval-out
-          ./target/release/deepcuts key-study dev --keys gs-mtg/annotations/annotations.txt --choose eval-out/key-choice.json --out eval-out/key-study-dev.md --name "GiantSteps-MTG-Keys (development)"
-          ./target/release/deepcuts key-study audio-key --keys gs-key/annotations/key --use eval-out/key-choice.json --out eval-out/key-study-test.md --name "GiantSteps Key (test)"
+          ./target/release/cradex key-study dev --keys gs-mtg/annotations/annotations.txt --choose eval-out/key-choice.json --out eval-out/key-study-dev.md --name "GiantSteps-MTG-Keys (development)"
+          ./target/release/cradex key-study audio-key --keys gs-key/annotations/key --use eval-out/key-choice.json --out eval-out/key-study-test.md --name "GiantSteps Key (test)"
           cat eval-out/key-study-test.md eval-out/key-study-dev.md >> "$GITHUB_STEP_SUMMARY"
           cat eval-out/key-choice.json
 
@@ -122,16 +122,16 @@ jobs:
             i=$((i + 1))
           done
           BP=gs-mtg/annotations/beatport_metadata.txt
-          ./target/release/deepcuts tempo-study dev-a --tempo $BP --choose eval-out/tempo-choice.json --out eval-out/tempo-study-dev.md --name "Beatport BPM, half A (development)"
-          ./target/release/deepcuts tempo-study dev-b --tempo $BP --use eval-out/tempo-choice.json --out eval-out/tempo-study-holdout.md --name "Beatport BPM, half B (hold-out test)"
-          ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations_v2/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v2.md --name "GiantSteps Tempo v2 (test)"
-          ./target/release/deepcuts tempo-study audio-tempo --tempo gs-tempo/annotations/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v1.md --name "GiantSteps Tempo original (test)"
+          ./target/release/cradex tempo-study dev-a --tempo $BP --choose eval-out/tempo-choice.json --out eval-out/tempo-study-dev.md --name "Beatport BPM, half A (development)"
+          ./target/release/cradex tempo-study dev-b --tempo $BP --use eval-out/tempo-choice.json --out eval-out/tempo-study-holdout.md --name "Beatport BPM, half B (hold-out test)"
+          ./target/release/cradex tempo-study audio-tempo --tempo gs-tempo/annotations_v2/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v2.md --name "GiantSteps Tempo v2 (test)"
+          ./target/release/cradex tempo-study audio-tempo --tempo gs-tempo/annotations/tempo --use eval-out/tempo-choice.json --out eval-out/tempo-study-test-v1.md --name "GiantSteps Tempo original (test)"
           cat eval-out/tempo-study-holdout.md eval-out/tempo-study-test-v2.md eval-out/tempo-study-test-v1.md eval-out/tempo-study-dev.md >> "$GITHUB_STEP_SUMMARY"
           cat eval-out/tempo-choice.json
 
       - name: Audio model genre agreement (Beatport genres)
         run: |
-          ./target/release/deepcuts genre-eval dev --genres gs-mtg/annotations/beatport_metadata.txt --out eval-out/genre-eval.md --name "GiantSteps-MTG-Keys, Beatport genres"
+          ./target/release/cradex genre-eval dev --genres gs-mtg/annotations/beatport_metadata.txt --out eval-out/genre-eval.md --name "GiantSteps-MTG-Keys, Beatport genres"
           cat eval-out/genre-eval.md >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guide — Deep Cuts</title>
-  <meta name="description" content="The complete Deep Cuts manual: installation, library, triage, search language, analysis, beatgrids and cues, Music DNA, optional AI models, Discover, Set Builder, Library Health, metadata tools, Rekordbox/Traktor/Serato/VirtualDJ interchange, safety, settings, troubleshooting and glossary.">
+  <title>Guide — Cradex</title>
+  <meta name="description" content="The complete Cradex manual: installation, library, triage, search language, analysis, beatgrids and cues, Music DNA, optional AI models, Discover, Set Builder, Library Health, metadata tools, Rekordbox/Traktor/Serato/VirtualDJ interchange, safety, settings, troubleshooting and glossary.">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-  <meta property="og:title" content="Deep Cuts — Guide">
+  <meta property="og:title" content="Cradex — Guide">
   <meta property="og:image" content="assets/og.jpg">
   <link rel="icon" href="assets/icon.png" type="image/png">
   <link rel="stylesheet" href="assets/style.css">
@@ -18,7 +18,7 @@
 
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="./" aria-label="Deep Cuts home"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
+    <a class="brand" href="./" aria-label="Cradex home"><img src="assets/icon.png" alt="" width="28" height="28">Cradex</a>
     <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav id="site-nav" class="site-nav" aria-label="Main">
       <a href="./#why">Why</a>
@@ -34,7 +34,7 @@
 <main id="main">
   <div class="wrap">
     <div class="guide-hero">
-      <span class="label">Manual · Deep Cuts <span data-version>v0.2.1</span></span>
+      <span class="label">Manual · Cradex <span data-version>v0.2.1</span></span>
       <h1 class="h2" style="margin-top:20px">The complete guide.</h1>
       <p class="lead muted">Every screen, every option and the reasoning behind them. Read chapters 1–6 once to get going; the rest is reference you can come back to.</p>
     </div>
@@ -75,13 +75,13 @@
 <!-- 1 ------------------------------------------------------------------ -->
         <section id="concepts" aria-labelledby="h-concepts">
           <h2 id="h-concepts">1. Core ideas</h2>
-          <p>Five ideas explain almost everything Deep Cuts does. Knowing them makes the rest of the app predictable.</p>
+          <p>Five ideas explain almost everything Cradex does. Knowing them makes the rest of the app predictable.</p>
 
           <h3>The library is a catalogue, not your music</h3>
-          <p>Deep Cuts keeps a <strong>catalogue</strong> of your music in a local database: where each file is, its metadata, your decisions, tags, playlists, cues and the analysis results. Your audio files stay where they are. Importing only <em>reads</em> them. Removing a track, deleting a playlist or even emptying the whole library never deletes a file from your disk.</p>
+          <p>Cradex keeps a <strong>catalogue</strong> of your music in a local database: where each file is, its metadata, your decisions, tags, playlists, cues and the analysis results. Your audio files stay where they are. Importing only <em>reads</em> them. Removing a track, deleting a playlist or even emptying the whole library never deletes a file from your disk.</p>
 
           <h3>Every value knows where it came from</h3>
-          <p>A track's BPM might come from the file's tag, from a Rekordbox import, from Deep Cuts' analysis, or from you. The details panel shows the source of every value. When sources disagree, the priority is fixed: <strong>your own edits win</strong> over imports, imports and file tags come next, analysis fills what is left. Re-analysing or re-importing never overwrites a value you typed, and <em>Revert my edits</em> brings back the underlying value.</p>
+          <p>A track's BPM might come from the file's tag, from a Rekordbox import, from Cradex's analysis, or from you. The details panel shows the source of every value. When sources disagree, the priority is fixed: <strong>your own edits win</strong> over imports, imports and file tags come next, analysis fills what is left. Re-analysing or re-importing never overwrites a value you typed, and <em>Revert my edits</em> brings back the underlying value.</p>
 
           <h3>Nothing changes your files unless you ask</h3>
           <p>Only four actions write to the disk, and each one asks first and shows a preview: <strong>Write tags to files</strong>, <strong>Rename / move files</strong>, <strong>Add or remove cover art</strong>, and <strong>Merge duplicates</strong> (which moves extra copies to a trash folder). They are journalled: if something fails or the computer stops halfway, files are put back where the library says they are.</p>
@@ -96,47 +96,47 @@
 <!-- 2 ------------------------------------------------------------------ -->
         <section id="install" aria-labelledby="h-install">
           <h2 id="h-install">2. Install, update, remove</h2>
-          <p>Download the installer for your system from the <a href="./#download">download section</a>. Deep Cuts is free; there is no account to create and no licence key.</p>
+          <p>Download the installer for your system from the <a href="./#download">download section</a>. Cradex is free; there is no account to create and no licence key.</p>
 
           <h3>macOS</h3>
           <ol>
             <li>Choose the right file: <code>…_aarch64.dmg</code> for Apple silicon (M1, M2, M3, M4), <code>…_x64.dmg</code> for Intel Macs. If unsure: Apple menu › About This Mac shows “Chip: Apple M…” or “Processor: Intel”.</li>
-            <li>Open the <code>.dmg</code> and drag <strong>Deep Cuts</strong> into Applications.</li>
+            <li>Open the <code>.dmg</code> and drag <strong>Cradex</strong> into Applications.</li>
             <li>The installers are not yet signed by Apple, so the first launch needs one extra step: right-click the app › <strong>Open</strong> › <strong>Open</strong>. From then on it opens normally.</li>
-            <li>If macOS says the app “is damaged” or still refuses, run this once in Terminal:<br><code>xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"</code></li>
+            <li>If macOS says the app “is damaged” or still refuses, run this once in Terminal:<br><code>xattr -dr com.apple.quarantine "/Applications/Cradex.app"</code></li>
           </ol>
           <p class="muted">The Intel build includes every feature except the local AI models, because ONNX Runtime (the engine that runs them) does not provide Intel Mac binaries. Signal analysis (BPM, key, loudness…) works on both.</p>
 
           <h3>Windows 10 and 11</h3>
           <ol>
-            <li>Run <code>Deep.Cuts_…_x64-setup.exe</code>. The <code>.msi</code> package installs the same app and is meant for managed installations.</li>
+            <li>Run <code>Cradex_…_x64-setup.exe</code>. The <code>.msi</code> package installs the same app and is meant for managed installations.</li>
             <li>SmartScreen shows “Windows protected your PC” because the installer is not code-signed yet: click <strong>More info</strong> › <strong>Run anyway</strong>.</li>
             <li>The installer adds Microsoft WebView2 if your system does not have it.</li>
           </ol>
 
           <h3>Linux</h3>
-          <p>Deep Cuts needs a 64-bit distribution with glibc 2.38 or newer: Ubuntu 24.04, Debian 13, Fedora 40, or later releases.</p>
+          <p>Cradex needs a 64-bit distribution with glibc 2.38 or newer: Ubuntu 24.04, Debian 13, Fedora 40, or later releases.</p>
           <p><strong>Debian / Ubuntu and derivatives</strong> — the package pulls in the audio plugins it needs:</p>
-<pre><code>sudo apt install ./Deep.Cuts_*_amd64.deb</code></pre>
+<pre><code>sudo apt install ./Cradex_*_amd64.deb</code></pre>
           <p><strong>Any distribution</strong> — the AppImage is self-contained:</p>
-<pre><code>chmod +x Deep.Cuts_*_amd64.AppImage
-./Deep.Cuts_*_amd64.AppImage</code></pre>
+<pre><code>chmod +x Cradex_*_amd64.AppImage
+./Cradex_*_amd64.AppImage</code></pre>
 
           <h3>Check your download (optional)</h3>
           <p>Every release has a <code>SHA256SUMS.txt</code> file listing the fingerprint of each installer. Compute the fingerprint of the file you downloaded and compare:</p>
           <table>
             <tbody>
-              <tr><th scope="row">macOS</th><td><code>shasum -a 256 Deep.Cuts_0.2.1_aarch64.dmg</code></td></tr>
+              <tr><th scope="row">macOS</th><td><code>shasum -a 256 Cradex_0.2.1_aarch64.dmg</code></td></tr>
               <tr><th scope="row">Linux</th><td><code>sha256sum -c SHA256SUMS.txt --ignore-missing</code></td></tr>
-              <tr><th scope="row">Windows</th><td><code>Get-FileHash .\Deep.Cuts_0.2.1_x64-setup.exe</code> (PowerShell)</td></tr>
+              <tr><th scope="row">Windows</th><td><code>Get-FileHash .\Cradex_0.2.1_x64-setup.exe</code> (PowerShell)</td></tr>
             </tbody>
           </table>
 
           <h3>Updating</h3>
-          <p>Install the new version over the old one. Your library is kept: it lives in your user data folder, not inside the app. When a new version changes the database structure, Deep Cuts first saves a copy of the old database next to it (<code>library.db.pre-vN.bak</code>), then upgrades.</p>
+          <p>Install the new version over the old one. Your library is kept: it lives in your user data folder, not inside the app. When a new version changes the database structure, Cradex first saves a copy of the old database next to it (<code>library.db.pre-vN.bak</code>), then upgrades.</p>
 
           <h3>Uninstalling</h3>
-          <p>Remove the app like any other (drag to the Bin on macOS, Settings › Apps on Windows, <code>sudo apt remove deep-cuts</code> on Debian/Ubuntu). Your library folder is left in place so a reinstall finds it again; delete it by hand to remove everything (see <a href="#safety">where your library lives</a>). Your music is never inside it.</p>
+          <p>Remove the app like any other (drag to the Bin on macOS, Settings › Apps on Windows, <code>sudo apt remove cradex</code> on Debian/Ubuntu). Your library folder is left in place so a reinstall finds it again; delete it by hand to remove everything (see <a href="#safety">where your library lives</a>). Your music is never inside it.</p>
         </section>
 
 <!-- 3 ------------------------------------------------------------------ -->
@@ -155,7 +155,7 @@
           <p>Importing again later is incremental: unchanged files are skipped, changed ones updated, and files you moved on disk are recognised by their content and relinked to their existing track (with decisions, tags and cues intact).</p>
 
           <h3>Step 2 — Decide how genres are suggested</h3>
-          <p>Before the first analysis, Deep Cuts asks once how it should suggest genres:</p>
+          <p>Before the first analysis, Cradex asks once how it should suggest genres:</p>
           <ul>
             <li><strong>Discogs styles model + my own labels</strong> (recommended): downloads a small model (26 MB) that recognises 400 Discogs styles, and also learns from the genres and tags you set yourself.</li>
             <li><strong>Discogs styles model only</strong>.</li>
@@ -272,7 +272,7 @@
 <!-- 6 ------------------------------------------------------------------ -->
         <section id="triage" aria-labelledby="h-triage">
           <h2 id="h-triage">6. Triage &amp; keyboard shortcuts</h2>
-          <p>Triage is how you go through new music quickly. Deep Cuts measures where each track is most energetic (the <strong>hot region</strong>) so a preview starts where the track tells you most, not on a 32-bar intro.</p>
+          <p>Triage is how you go through new music quickly. Cradex measures where each track is most energetic (the <strong>hot region</strong>) so a preview starts where the track tells you most, not on a 32-bar intro.</p>
           <div class="note"><p>On macOS use <kbd>⌘</kbd> wherever the tables say Ctrl. Shortcuts are ignored while you are typing in a field; press <kbd>Esc</kbd> to leave a field and <kbd>↓</kbd> from the search box to go to the list.</p></div>
 
           <h3>Library</h3>
@@ -317,7 +317,7 @@
             <li><kbd>K</kbd>/<kbd>M</kbd>/<kbd>P</kbd>; <kbd>Shift</kbd>+digit for a Quick Tag such as “Warm-up” or “Peak”.</li>
             <li>At the end, <code>decision:maybe</code> gives you a short second round.</li>
           </ol>
-          <p>Some files cannot be played by the system's audio engine (for example certain ALAC or AIFF variants): Deep Cuts decodes them itself, and the player shows “decoded preview”.</p>
+          <p>Some files cannot be played by the system's audio engine (for example certain ALAC or AIFF variants): Cradex decodes them itself, and the player shows “decoded preview”.</p>
         </section>
 
 <!-- 7 ------------------------------------------------------------------ -->
@@ -427,7 +427,7 @@
 
           <h3>Smart Crates</h3>
           <p>A Smart Crate is a saved search that updates itself: add music that matches the rules and it appears in the crate automatically. Create one in Smart Crates › <strong>New Smart Crate</strong>, give it a name and write the rules in the search language; the number of matching tracks updates as you type. Crates appear in the Library's left column like playlists.</p>
-          <p>When exported to DJ software, a Smart Crate becomes a playlist of the tracks that match <em>at the moment of export</em>: Rekordbox XML has no smart playlists, and the Traktor and Serato smart-list formats are not documented. For VirtualDJ, Deep Cuts can translate the rule into a VirtualDJ filter: Smart Crates › VirtualDJ copies it, and you paste it into My Lists › Add Filter. Terms without a VirtualDJ equivalent are listed.</p>
+          <p>When exported to DJ software, a Smart Crate becomes a playlist of the tracks that match <em>at the moment of export</em>: Rekordbox XML has no smart playlists, and the Traktor and Serato smart-list formats are not documented. For VirtualDJ, Cradex can translate the rule into a VirtualDJ filter: Smart Crates › VirtualDJ copies it, and you paste it into My Lists › Add Filter. Terms without a VirtualDJ equivalent are listed.</p>
 
           <h3>Recipes</h3>
           <p>A Recipe is a search plus actions, run with one click or automatically on newly imported tracks (including those from watch folders). Find them in Library › Recipes. Each run is a single undoable step.</p>
@@ -460,11 +460,11 @@
           </ul>
 
           <h3>Rekordbox My Tags</h3>
-          <p>Rekordbox can write My Tags into a track's comment as <code>/* Tag / Tag */</code> (Rekordbox setting that adds My Tags to comments). Deep Cuts reads them, on import of files, M3U8 playlists or Rekordbox XML, and turns them into tags under a parent “My Tag”: searchable, usable in Smart Crates, and learned by tag suggestions.</p>
+          <p>Rekordbox can write My Tags into a track's comment as <code>/* Tag / Tag */</code> (Rekordbox setting that adds My Tags to comments). Cradex reads them, on import of files, M3U8 playlists or Rekordbox XML, and turns them into tags under a parent “My Tag”: searchable, usable in Smart Crates, and learned by tag suggestions.</p>
           <ul>
             <li>Sync &amp; Export › <strong>Scan all comments for My Tags</strong> reads them from tracks already in the library.</li>
             <li>Tick <em>Read My Tags from comments when importing files</em> to do it automatically.</li>
-            <li>Rekordbox cannot import My Tag values back from XML. So Deep Cuts exports one playlist per My Tag (<strong>Export one M3U8 per My Tag…</strong>, or a “My Tag” folder inside DJ-software exports). In Rekordbox, open each playlist, select all, and set the My Tag.</li>
+            <li>Rekordbox cannot import My Tag values back from XML. So Cradex exports one playlist per My Tag (<strong>Export one M3U8 per My Tag…</strong>, or a “My Tag” folder inside DJ-software exports). In Rekordbox, open each playlist, select all, and set the My Tag.</li>
             <li>Comments edited only inside Rekordbox live in its database, not in the files: import the Rekordbox XML to get them.</li>
           </ul>
         </section>
@@ -507,7 +507,7 @@
           <p>A drum &amp; bass track at 174 BPM can also be heard at 87; a dubstep track at 140 at 70. Software picks one convention. Settings › <strong>BPM range</strong> works like Rekordbox and Traktor: the detected tempo is moved into the chosen range by doubling or halving only. Choose 88–175 if you play drum &amp; bass, 70–140 for dubstep, or Automatic (60–200, DJ-style preference). Re-analyse to apply the range to existing tracks; values you typed are kept.</p>
 
           <h3>Key notation</h3>
-          <p>Deep Cuts shows keys in Camelot (8A) and accepts musical names (Am). Settings › <strong>Key notation written to files</strong> chooses what <em>Write tags to files</em> writes: as in the library, Camelot (8A), Open Key (1m) or musical (Am, Db). To convert files you already have, select them › <strong>Rewrite key notation in files…</strong> (preview, backup copies, verification).</p>
+          <p>Cradex shows keys in Camelot (8A) and accepts musical names (Am). Settings › <strong>Key notation written to files</strong> chooses what <em>Write tags to files</em> writes: as in the library, Camelot (8A), Open Key (1m) or musical (Am, Db). To convert files you already have, select them › <strong>Rewrite key notation in files…</strong> (preview, backup copies, verification).</p>
 
           <h3>How accurate is it?</h3>
           <p>On a held-out set of Beatport-labelled tracks, the tempo is within 4 % of the label for 92.5 % of tracks, within 0.05 BPM for 86.9 %, and 98.0 % are right or exactly half/double. Keys reach a MIREX score of 67.5 % on GiantSteps Key (59.3 % exactly right; most other answers are a fifth or the relative key, which still mix). Full protocol: <a href="https://github.com/Nicodesy06/Deep-Cuts/blob/HEAD/docs/AI_VALIDATION.md">AI_VALIDATION.md</a>. Your ears remain the final judge; correct a value and it stays corrected.</p>
@@ -549,7 +549,7 @@
 <!-- 12 ----------------------------------------------------------------- -->
         <section id="compare" aria-labelledby="h-compare">
           <h2 id="h-compare">12. Compare with other software</h2>
-          <p>Your own collection is the most relevant test of any analyser. After importing a Rekordbox XML (or Traktor, Serato, VirtualDJ), or if your files carry BPM and key tags written by other software (Rekordbox, Mixed In Key…), the <strong>Compare</strong> panel in Library Health shows how Deep Cuts' values agree:</p>
+          <p>Your own collection is the most relevant test of any analyser. After importing a Rekordbox XML (or Traktor, Serato, VirtualDJ), or if your files carry BPM and key tags written by other software (Rekordbox, Mixed In Key…), the <strong>Compare</strong> panel in Library Health shows how Cradex's values agree:</p>
           <ul>
             <li>BPM: same (±0.05), within ±4 %, half/double, different.</li>
             <li>Key: same, related (a fifth, relative or parallel key), unrelated.</li>
@@ -574,10 +574,10 @@
           <p>PANNs, a model trained on AudioSet's 527 sound classes, runs during analysis and labels broad genre, mood, vocals and instruments. Only its genre output was measured against reference labels; the other labels are suggestions you review in the Tag Editor. The page shows whether the model is loaded and on which device (GPU or CPU), how many tracks lack its results, and <em>Suggest tags from the model</em>.</p>
 
           <h3>Genre suggestions</h3>
-          <p>For analysed tracks without a genre, Deep Cuts proposes a genre from your own labels (the most common genre among the 10 most similar tracks you have labelled), from the Discogs styles model, or both — the source you chose. Before you apply anything it shows how accurate this has been <strong>on your own library</strong>: each labelled track is predicted from the others. <em>Minimum agreement</em> trades coverage for accuracy. Review the list and <em>Set genre</em> — one undoable step.</p>
+          <p>For analysed tracks without a genre, Cradex proposes a genre from your own labels (the most common genre among the 10 most similar tracks you have labelled), from the Discogs styles model, or both — the source you chose. Before you apply anything it shows how accurate this has been <strong>on your own library</strong>: each labelled track is predicted from the others. <em>Minimum agreement</em> trades coverage for accuracy. Review the list and <em>Set genre</em> — one undoable step.</p>
 
           <h3>Tag suggestions</h3>
-          <p>For every tag with at least 5 analysed tracks, Deep Cuts proposes other tracks that sound like the tagged ones, with the precision measured on your tags. Suggestions wait for review; rejected ones are never offered again.</p>
+          <p>For every tag with at least 5 analysed tracks, Cradex proposes other tracks that sound like the tagged ones, with the precision measured on your tags. Suggestions wait for review; rejected ones are never offered again.</p>
 
           <h3>Auto groups</h3>
           <p>Groups tracks that measure alike (tempo, loudness, brightness, bass, rhythm density, energy shape) and describes each group by what sets it apart — “faster, bass-heavy, busy”, “quieter, dark, deep breakdowns”. Choose the number of groups, then <em>Save as playlist</em>. Useful to discover structure in a large unsorted folder.</p>
@@ -596,7 +596,7 @@
               <tr><td><strong>LAION-CLAP</strong></td><td>Search by description</td><td>≈ 400 MB · Apache-2.0</td><td>Discover › Describe › Download</td></tr>
             </tbody>
           </table>
-          <div class="note"><p>The MTG models (Discogs-EffNet, classifiers, MAEST) are licensed for non-commercial use. Using them for paid work may count as commercial use; the Music Technology Group offers other licences on request. Deep Cuts itself and the PANNs and CLAP models have no such restriction.</p></div>
+          <div class="note"><p>The MTG models (Discogs-EffNet, classifiers, MAEST) are licensed for non-commercial use. Using them for paid work may count as commercial use; the Music Technology Group offers other licences on request. Cradex itself and the PANNs and CLAP models have no such restriction.</p></div>
 
           <h3>After downloading</h3>
           <p>Models are applied during analysis. Tracks analysed earlier lack their results: the relevant page shows how many and offers to re-analyse them (Music DNA for styles, Discover › Describe for CLAP: <em>Index N tracks</em>). Switching between EffNet and MAEST re-flags tracks so results from different models are never mixed.</p>
@@ -652,7 +652,7 @@
           <h3>Creating a set</h3>
           <ul>
             <li><strong>New set</strong>, or select tracks in the Library › <strong>New set from selection…</strong>.</li>
-            <li>Right-click a track › <strong>Build a set from this track…</strong>: choose a length; Deep Cuts follows the smoothest transitions through your library from that track.</li>
+            <li>Right-click a track › <strong>Build a set from this track…</strong>: choose a length; Cradex follows the smoothest transitions through your library from that track.</li>
           </ul>
           <h3>Reading the set</h3>
           <ul>
@@ -689,7 +689,7 @@
               <tr><td>Same recording (by sound)</td><td>Acoustic fingerprints match across formats and bitrates</td><td>Check by ear</td></tr>
             </tbody>
           </table>
-          <p><strong>Merge…</strong> lets you pick the copy to keep (Deep Cuts suggests the best quality). Playlists are re-pointed to it; its missing decision, tags, favourite, rating and notes are filled in from the other copies; the other copies are archived and their files moved to a dated trash folder. For anything but identical files you must confirm you listened — different edits, remixes, live versions or tracks sharing a loop can match. A merge succeeds for every file or changes nothing, and can be undone.</p>
+          <p><strong>Merge…</strong> lets you pick the copy to keep (Cradex suggests the best quality). Playlists are re-pointed to it; its missing decision, tags, favourite, rating and notes are filled in from the other copies; the other copies are archived and their files moved to a dated trash folder. For anything but identical files you must confirm you listened — different edits, remixes, live versions or tracks sharing a loop can match. A merge succeeds for every file or changes nothing, and can be undone.</p>
           <h3>Suspected transcodes</h3>
           <p>Files whose spectrum stops well below what their format can carry — typically a FLAC or 320 kbps MP3 made from a low-quality source, with a cut-off around 16 kHz. Two kinds: <em>lossless file, lossy bandwidth</em> and <em>high bitrate, low-bitrate bandwidth</em>. The cut-off frequency is shown. It is a measurement with a stated rule, not proof: some old masters, vinyl rips or tape sources are band-limited too. Listen; nothing is moved or deleted because of it.</p>
           <h3>Playlists with missing files</h3>
@@ -752,7 +752,7 @@
           <figure>
             <div class="shot"><img src="assets/screens/sync.webp" width="1440" height="900" loading="lazy" alt="Sync and Export page."></div>
           </figure>
-          <p>Sync &amp; Export moves your library in and out. <strong>What to export</strong> chooses the whole library (every playlist and folder) or a selection or search as one playlist. Imports from other software take a backup of the Deep Cuts library first. The other software's own database is never modified.</p>
+          <p>Sync &amp; Export moves your library in and out. <strong>What to export</strong> chooses the whole library (every playlist and folder) or a selection or search as one playlist. Imports from other software take a backup of the Cradex library first. The other software's own database is never modified.</p>
           <div class="note"><p>Each format is round-trip tested (export, re-import, compare field by field). Checks inside each DJ application and version are in progress: if a field does not arrive as expected, please <a href="https://github.com/Nicodesy06/Deep-Cuts/issues">report it</a>.</p></div>
 
           <h3>Rekordbox</h3>
@@ -762,7 +762,7 @@
             <li>In Rekordbox: Preferences › Advanced › Database › <em>rekordbox xml</em> › Imported Library › choose the file. (Once; Rekordbox re-reads it.)</li>
             <li>Show the <em>rekordbox xml</em> node in the sidebar (Preferences › View › Layout), open it, right-click playlists › <strong>Import Playlist</strong>.</li>
           </ol>
-          <p><strong>Import</strong>: Rekordbox › File › Export Collection in xml format, then <strong>Import Rekordbox XML…</strong>. My Tags in comments become tags. Your own Deep Cuts edits keep priority over imported values.</p>
+          <p><strong>Import</strong>: Rekordbox › File › Export Collection in xml format, then <strong>Import Rekordbox XML…</strong>. My Tags in comments become tags. Your own Cradex edits keep priority over imported values.</p>
 
           <h3>Traktor</h3>
           <p>Exports an NML collection: tracks, playlists and folders, BPM, key, rating, comments, grid, hot cues, cues and loops. In Traktor: File › <strong>Import Another Collection</strong>, choose the NML. Import reads a <code>collection.nml</code> (Traktor's own file is never modified).</p>
@@ -777,7 +777,7 @@
           <p>Engine DJ keeps its library in a proprietary database: export to Rekordbox XML and let Engine DJ import it. djay has no documented library format: use M3U8 playlists or Rekordbox XML where djay supports it.</p>
 
           <h3>Export field mapping</h3>
-          <p>DJ software has no place for Deep Cuts' tags, energy or notes. <strong>Export field mapping</strong> chooses what goes into the exported Comment, in order — original comment, tags (as <code>/* tag / tag */</code>, the My Tag convention), energy, Camelot key, notes, decision, rating — with a live preview such as <code>warm-up /* Dark / Peak */ Energy 7 8A</code>. Options: append the subgenre to the genre (“Techno / Hypnotic”), export set chapters as separate playlists, add a “My Tag” folder with one playlist per tag.</p>
+          <p>DJ software has no place for Cradex's tags, energy or notes. <strong>Export field mapping</strong> chooses what goes into the exported Comment, in order — original comment, tags (as <code>/* tag / tag */</code>, the My Tag convention), energy, Camelot key, notes, decision, rating — with a live preview such as <code>warm-up /* Dark / Peak */ Energy 7 8A</code>. Options: append the subgenre to the genre (“Techno / Hypnotic”), export set chapters as separate playlists, add a “My Tag” folder with one playlist per tag.</p>
 
           <h3>Rebuild an external playlist</h3>
           <p>A Spotify playlist exported to CSV (e.g. with Exportify), an Apple Music text export, an M3U from another computer, or a plain tracklist with one “Artist - Title” per line: each line is matched to your own files offline. Confident matches are pre-selected; lines marked “check” let you pick the right version; missing tracks can be copied to the clipboard as a shopping list. Then create the playlist.</p>
@@ -789,7 +789,7 @@
 <!-- 20 ----------------------------------------------------------------- -->
         <section id="watch" aria-labelledby="h-watch">
           <h2 id="h-watch">20. Watch folders</h2>
-          <p>Settings › Watch folders › <strong>Add folder…</strong>: new and changed audio files in these folders are imported automatically (read-only), and analysed if automatic analysis is on. Renamed or moved files are relinked to their existing tracks; when a whole folder disappears or is renamed, all its files are marked missing and relinked when they reappear. Folders are re-scanned at start-up to catch changes made while Deep Cuts was closed. A disconnected drive shows as “unavailable”. Problems (for example permission denied) appear as notifications and are kept in the library's log. Recipes with “on import” run on these tracks too — a good way to route downloads.</p>
+          <p>Settings › Watch folders › <strong>Add folder…</strong>: new and changed audio files in these folders are imported automatically (read-only), and analysed if automatic analysis is on. Renamed or moved files are relinked to their existing tracks; when a whole folder disappears or is renamed, all its files are marked missing and relinked when they reappear. Folders are re-scanned at start-up to catch changes made while Cradex was closed. A disconnected drive shows as “unavailable”. Problems (for example permission denied) appear as notifications and are kept in the library's log. Recipes with “on import” run on these tracks too — a good way to route downloads.</p>
         </section>
 
 <!-- 21 ----------------------------------------------------------------- -->
@@ -807,18 +807,19 @@
           <h3>Backups</h3>
           <p>Settings › Backups lists snapshots of the library database (not of your audio files): a daily automatic backup (the last 10 are kept), one before every import from other DJ software, one before every restore, one before Start over, plus any you make with <strong>Back up now</strong>. <strong>Restore</strong> returns the library to that state — the current state is backed up first, so even a restore can be undone. <strong>Check database integrity</strong> runs SQLite's integrity check.</p>
           <h3>Start over</h3>
-          <p>Settings › <strong>Start over</strong> empties the Deep Cuts library: tracks, playlists (including those imported from Rekordbox XML or M3U8), tags, decisions, cues, analysis and watch folders. Nothing is deleted from your computer: music, XML and M3U8 files stay where they are. Settings and downloaded models are kept. A backup is taken first, so Settings › Backups can bring everything back.</p>
+          <p>Settings › <strong>Start over</strong> empties the Cradex library: tracks, playlists (including those imported from Rekordbox XML or M3U8), tags, decisions, cues, analysis and watch folders. Nothing is deleted from your computer: music, XML and M3U8 files stay where they are. Settings and downloaded models are kept. A backup is taken first, so Settings › Backups can bring everything back.</p>
           <h3>Where your library lives</h3>
           <table>
             <tbody>
-              <tr><th scope="row">Windows</th><td><code>%APPDATA%\DeepCuts</code></td></tr>
-              <tr><th scope="row">macOS</th><td><code>~/Library/Application Support/DeepCuts</code></td></tr>
-              <tr><th scope="row">Linux</th><td><code>~/.local/share/DeepCuts</code></td></tr>
+              <tr><th scope="row">Windows</th><td><code>%APPDATA%\Cradex</code></td></tr>
+              <tr><th scope="row">macOS</th><td><code>~/Library/Application Support/Cradex</code></td></tr>
+              <tr><th scope="row">Linux</th><td><code>~/.local/share/Cradex</code></td></tr>
             </tbody>
           </table>
-          <p>Inside: <code>library.db</code> (the catalogue), <code>backups/</code>, <code>models/</code> (downloaded AI models). Settings › About shows the exact path. To keep the library elsewhere (an external drive, a synced folder), set the environment variable <code>DEEPCUTS_HOME</code> before starting the app. To move to a new computer: copy this folder, install Deep Cuts, then use Relocate library if the music paths differ.</p>
+          <p>If you used the app when it was called Deep Cuts, your library stays in the old <code>DeepCuts</code> folder next to these and Cradex keeps using it: nothing is moved or copied.</p>
+          <p>Inside: <code>library.db</code> (the catalogue), <code>backups/</code>, <code>models/</code> (downloaded AI models). Settings › About shows the exact path. To keep the library elsewhere (an external drive, a synced folder), set the environment variable <code>CRADEX_HOME</code> before starting the app. To move to a new computer: copy this folder, install Cradex, then use Relocate library if the music paths differ.</p>
           <h3>Privacy</h3>
-          <p>No account, no telemetry, no analytics, no cloud. The core works fully offline. The network is used only when you start it: downloading an optional AI model (from the MTG server or the Deep Cuts GitHub release), or Auto-tag online, which sends artist, title, version and duration of the selected tracks to the catalogues you choose. Search by description and every other AI feature run locally.</p>
+          <p>No account, no telemetry, no analytics, no cloud. The core works fully offline. The network is used only when you start it: downloading an optional AI model (from the MTG server or the Cradex GitHub release), or Auto-tag online, which sends artist, title, version and duration of the selected tracks to the catalogues you choose. Search by description and every other AI feature run locally.</p>
         </section>
 
 <!-- 22 ----------------------------------------------------------------- -->
@@ -850,7 +851,7 @@
           <h2 id="h-trouble">23. Troubleshooting &amp; FAQ</h2>
           <details>
             <summary>macOS says the app is damaged or cannot be opened</summary>
-            <div><p>It is the missing Apple signature, not a damaged file. Right-click › Open › Open, or run <code>xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"</code>. Compare the file with <code>SHA256SUMS.txt</code> if in doubt.</p></div>
+            <div><p>It is the missing Apple signature, not a damaged file. Right-click › Open › Open, or run <code>xattr -dr com.apple.quarantine "/Applications/Cradex.app"</code>. Compare the file with <code>SHA256SUMS.txt</code> if in doubt.</p></div>
           </details>
           <details>
             <summary>Windows blocks the installer</summary>
@@ -858,7 +859,7 @@
           </details>
           <details>
             <summary>No sound in the preview</summary>
-            <div><p>Check the volume slider in the player and the system output device. On Linux, install the GStreamer plugins: <code>sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav</code> (the <code>.deb</code> does this). Formats the system cannot play are decoded by Deep Cuts (“decoded preview”), which takes a moment for long files.</p></div>
+            <div><p>Check the volume slider in the player and the system output device. On Linux, install the GStreamer plugins: <code>sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav</code> (the <code>.deb</code> does this). Formats the system cannot play are decoded by Cradex (“decoded preview”), which takes a moment for long files.</p></div>
           </details>
           <details>
             <summary>Tracks show as missing</summary>
@@ -878,7 +879,7 @@
           </details>
           <details>
             <summary>A model download fails</summary>
-            <div><p>The server may be busy (Deep Cuts retries a few times) or a firewall blocks it. Try later. A broken or altered download is never used: each file is checked against a fixed fingerprint.</p></div>
+            <div><p>The server may be busy (Cradex retries a few times) or a firewall blocks it. Try later. A broken or altered download is never used: each file is checked against a fixed fingerprint.</p></div>
           </details>
           <details>
             <summary>Analysis is slow or the computer gets loud</summary>
@@ -889,32 +890,32 @@
             <div><p>Exports carry your library values. Serato reads BPM and key from file tags: use Write tags to files. Rekordbox applies XML values to tracks you import from the <em>rekordbox xml</em> node; tracks already in its collection may keep Rekordbox's own values depending on its import settings.</p></div>
           </details>
           <details>
-            <summary>Can I use Deep Cuts with a library on an external drive?</summary>
-            <div><p>Yes. Import from the drive; if it is disconnected, its tracks show as missing until it comes back. To keep the Deep Cuts library itself on the drive, set <code>DEEPCUTS_HOME</code>.</p></div>
+            <summary>Can I use Cradex with a library on an external drive?</summary>
+            <div><p>Yes. Import from the drive; if it is disconnected, its tracks show as missing until it comes back. To keep the Cradex library itself on the drive, set <code>CRADEX_HOME</code>.</p></div>
           </details>
           <details>
             <summary>Is it really free? Can I use it for paid gigs?</summary>
-            <div><p>Deep Cuts is free software (GPL-3.0) with no paid tier. Use it for anything. Only the optional MTG models (Discogs styles, classifiers, MAEST) carry a non-commercial licence; if that matters to you, use “Only my own labels”.</p></div>
+            <div><p>Cradex is free software (GPL-3.0) with no paid tier. Use it for anything. Only the optional MTG models (Discogs styles, classifiers, MAEST) carry a non-commercial licence; if that matters to you, use “Only my own labels”.</p></div>
           </details>
           <details>
             <summary>Something else</summary>
-            <div><p>Open an issue on <a href="https://github.com/Nicodesy06/Deep-Cuts/issues">GitHub</a> with your system, the Deep Cuts version (Settings › About) and the steps that lead to the problem.</p></div>
+            <div><p>Open an issue on <a href="https://github.com/Nicodesy06/Deep-Cuts/issues">GitHub</a> with your system, the Cradex version (Settings › About) and the steps that lead to the problem.</p></div>
           </details>
         </section>
 
 <!-- 24 ----------------------------------------------------------------- -->
         <section id="source" aria-labelledby="h-source">
           <h2 id="h-source">24. Command line &amp; building from source</h2>
-          <h3>The deepcuts command-line tool</h3>
+          <h3>The cradex command-line tool</h3>
           <p>Works on the same library as the app (close the app first for writes). Useful for scripts, servers and very large batches.</p>
-<pre><code>deepcuts --help
-deepcuts import ~/Music/Promos
-deepcuts search 'bpm:122-126 key:8A+ -decision:pass'
-deepcuts analyze 'analyzed:no' --profile maximum
-deepcuts decide keep 'label:kompakt'
-deepcuts export-dj rekordbox ~/Exports/library.xml
-deepcuts undo</code></pre>
-          <p>Commands include import, search, decide, analyze, tag, fix, write-tags, rename, import-dj, export-dj, match-playlist, import-m3u, mytags, undo, export, stats, and evaluation tools (eval, key-study, tempo-study, genre-eval, beat-eval, clap-eval) used to produce the published measurements. <code>deepcuts &lt;command&gt; --help</code> describes each.</p>
+<pre><code>cradex --help
+cradex import ~/Music/Promos
+cradex search 'bpm:122-126 key:8A+ -decision:pass'
+cradex analyze 'analyzed:no' --profile maximum
+cradex decide keep 'label:kompakt'
+cradex export-dj rekordbox ~/Exports/library.xml
+cradex undo</code></pre>
+          <p>Commands include import, search, decide, analyze, tag, fix, write-tags, rename, import-dj, export-dj, match-playlist, import-m3u, mytags, undo, export, stats, and evaluation tools (eval, key-study, tempo-study, genre-eval, beat-eval, clap-eval) used to produce the published measurements. <code>cradex &lt;command&gt; --help</code> describes each.</p>
           <h3>Building from source</h3>
           <p>Requirements: Rust (stable) and Node.js 22; on Linux also <code>libwebkit2gtk-4.1-dev librsvg2-dev</code>.</p>
 <pre><code>git clone https://github.com/Nicodesy06/Deep-Cuts.git
@@ -959,8 +960,8 @@ cargo run -p dc-cli --release -- --help</code></pre>
 <footer class="site-footer">
   <div class="wrap grid">
     <div class="col-a">
-      <a class="brand" href="./"><img src="assets/icon.png" alt="" width="28" height="28">Deep Cuts</a>
-      <p>Free, private, local DJ library manager. GPL-3.0-or-later, © <span data-year>2026</span> Deep Cuts contributors.</p>
+      <a class="brand" href="./"><img src="assets/icon.png" alt="" width="28" height="28">Cradex</a>
+      <p>Free, private, local DJ library manager. GPL-3.0-or-later, © <span data-year>2026</span> Cradex contributors.</p>
     </div>
     <div class="col-b">
       <h4>Project</h4>
@@ -972,7 +973,7 @@ cargo run -p dc-cli --release -- --help</code></pre>
     </div>
     <div class="col-c">
       <h4>Credits</h4>
-      <p>Rekordbox, Traktor, Serato, VirtualDJ, Engine DJ and djay are trademarks of their owners; Deep Cuts is not affiliated with them.</p>
+      <p>Rekordbox, Traktor, Serato, VirtualDJ, Engine DJ and djay are trademarks of their owners; Cradex is not affiliated with them.</p>
     </div>
   </div>
 </footer>

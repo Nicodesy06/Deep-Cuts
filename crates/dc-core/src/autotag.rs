@@ -2,7 +2,7 @@
 //! propose missing metadata (album, label, genre, style, year, ISRC, BPM,
 //! cover art).
 //!
-//! This is the only part of Deep Cuts that talks to the network, and only
+//! This is the only part of Cradex that talks to the network, and only
 //! when the user starts it. Providers use their official public APIs:
 //! MusicBrainz (CC0 data), iTunes Search, Deezer and Discogs (with the
 //! user's own token). Requests are rate-limited per service. Matches are
@@ -150,7 +150,7 @@ impl Http {
         let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(20))
             .user_agent(&format!(
-                "DeepCuts/{} ( https://github.com/Nicodesy06/Deep-Cuts )",
+                "Cradex/{} ( https://github.com/Nicodesy06/Deep-Cuts )",
                 env!("CARGO_PKG_VERSION")
             ))
             .try_proxy_from_env(true)

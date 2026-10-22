@@ -51,7 +51,7 @@ Run everything: `npm install && npm test` (UI unit tests + `cargo test --workspa
 |---|---|
 | Cross-platform build + tests | GitHub Actions matrix (`.github/workflows/ci.yml`): Ubuntu, Windows, macOS. **Passing** since run #2. |
 | Watch folders (OS events) | Manual: add a folder, copy/rename/delete files while the app runs, check import/relink. Automated test pending. |
-| Packaging (NSIS, DMG, deb) | Built on each OS in CI, then **installed and run** in smoke mode (`scripts/installer_smoke.py`, `DEEPCUTS_SMOKE`): import of MP3/M4A/FLAC/WAV/AIFF, analysis with the bundled model (BPM must be 120, model device reported), playback of every file in the platform webview through `dcaudio` (direct or transcoded) plus an in-memory WAV control. Results in the CI job summary. Signing/notarisation in Phase 9. |
+| Packaging (NSIS, DMG, deb) | Built on each OS in CI, then **installed and run** in smoke mode (`scripts/installer_smoke.py`, `CRADEX_SMOKE`): import of MP3/M4A/FLAC/WAV/AIFF, analysis with the bundled model (BPM must be 120, model device reported), playback of every file in the platform webview through `dcaudio` (direct or transcoded) plus an in-memory WAV control. Results in the CI job summary. Signing/notarisation in Phase 9. |
 | Audible playback per platform | CI proves decoding and the media clock advancing on WebView2, WKWebView and WebKitGTK (null audio sink). Hearing it through real speakers/headphones stays manual — see the checklist below. |
 | DJ software fidelity | Load exported Rekordbox XML, Traktor NML, Serato crates and VirtualDJ playlists into the real applications; compare fields, cues, grids. Then round-trip a real collection. |
 | Large libraries (real files) | Import 100k real files from a network or USB drive; measure time and memory. |
@@ -75,7 +75,7 @@ artifacts. Record OS version, app version and result for each line.
 6. **Serato DJ**: open with the exported `_Serato_` crates on the music drive; check crates and
    track order (cues are written as Serato markers only where documented).
 7. **VirtualDJ**: copy the `.vdjfolder` playlists into the VirtualDJ folder; paste the smart-crate
-   filter text into a new filter folder and compare the track count with Deep Cuts.
+   filter text into a new filter folder and compare the track count with Cradex.
 8. **Round trip**: import a real Rekordbox XML / Traktor NML / Serato library read-only; compare
    counts and a sample of 20 tracks field by field; the source files must be unchanged (hash).
 

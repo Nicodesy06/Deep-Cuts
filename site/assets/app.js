@@ -1,4 +1,4 @@
-// Deep Cuts site: navigation, guide table of contents, and download buttons
+// Cradex site: navigation, guide table of contents, and download buttons
 // filled from the latest GitHub release (falls back to the releases page).
 (() => {
   const REPO = "Nicodesy06/Deep-Cuts";

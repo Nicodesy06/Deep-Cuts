@@ -68,7 +68,7 @@ export function SyncExport() {
   };
 
   const scope = () => {
-    if (source === "__all") return { whole: true, name: "Deep Cuts" };
+    if (source === "__all") return { whole: true, name: "Cradex" };
     if (source === "__query") return { whole: false, query: { query }, name: query };
     const p = playlists.find((x) => x.id === source);
     return { whole: false, query: { query: "", playlistId: source }, name: p?.name ?? "Playlist" };

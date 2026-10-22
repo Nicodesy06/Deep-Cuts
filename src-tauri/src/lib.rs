@@ -1,4 +1,4 @@
-//! Deep Cuts desktop shell: exposes dc-core to the React UI over Tauri IPC
+//! Cradex desktop shell: exposes dc-core to the React UI over Tauri IPC
 //! and serves library audio to the webview through the `dcaudio` protocol.
 
 mod audio_protocol;
@@ -273,5 +273,5 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running Deep Cuts");
+        .expect("error while running Cradex");
 }

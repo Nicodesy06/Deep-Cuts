@@ -1,5 +1,5 @@
 // Installer smoke test (see src-tauri/src/smoke.rs): only runs when the app
-// was started with DEEPCUTS_SMOKE. Plays each imported file through the same
+// was started with CRADEX_SMOKE. Plays each imported file through the same
 // dcaudio URLs the player uses and reports what the platform webview did.
 import { invoke } from "@tauri-apps/api/core";
 import { audioSrc } from "./api";

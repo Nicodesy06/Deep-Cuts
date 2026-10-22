@@ -1,4 +1,4 @@
-//! Installer smoke test. When `DEEPCUTS_SMOKE` names a folder of audio
+//! Installer smoke test. When `CRADEX_SMOKE` names a folder of audio
 //! files, the installed app imports and analyses them (with the bundled
 //! model), the webview plays each one through the `dcaudio` protocol, and the
 //! combined report is written to `<folder>/smoke-report.json` before the app
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
 fn smoke_dir() -> Option<PathBuf> {
-    std::env::var_os("DEEPCUTS_SMOKE").map(PathBuf::from)
+    dc_core::paths::env_var("SMOKE").map(PathBuf::from)
 }
 
 #[derive(Serialize)]

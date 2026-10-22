@@ -45,7 +45,7 @@ jobs:
           python -c "import blake3,os;[print(f, blake3.blake3(open('assets/'+f,'rb').read()).hexdigest()) for f in sorted(os.listdir('assets'))]" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish
         run: |
-          notes="LAION-CLAP (laion/larger_clap_general, revision $HF_REV, Apache-2.0 — LAION) exported to ONNX for Deep Cuts' optional text search: audio encoder (fp32) and text encoder (int8 dynamic quantisation), plus the model's tokenizer and model card. Built by .github/workflows/models.yml from commit ${GITHUB_SHA}."
+          notes="LAION-CLAP (laion/larger_clap_general, revision $HF_REV, Apache-2.0 — LAION) exported to ONNX for Cradex's optional text search: audio encoder (fp32) and text encoder (int8 dynamic quantisation), plus the model's tokenizer and model card. Built by .github/workflows/models.yml from commit ${GITHUB_SHA}."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" assets/* --clobber
           else

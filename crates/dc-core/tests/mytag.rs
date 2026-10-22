@@ -1,4 +1,4 @@
-//! Rekordbox My Tags carried in comments become Deep Cuts tags on import.
+//! Rekordbox My Tags carried in comments become Cradex tags on import.
 
 mod common;
 

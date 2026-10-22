@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Deep Cuts",
-  "version": "0.2.2",
-  "identifier": "app.deepcuts.desktop",
+  "productName": "Cradex",
+  "version": "0.3.0",
+  "identifier": "app.cradex.desktop",
   "build": {
     "beforeDevCommand": {
       "script": "npm run dev",
@@ -18,7 +18,7 @@
   "app": {
     "windows": [
       {
-        "title": "Deep Cuts",
+        "title": "Cradex",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,

@@ -22,7 +22,7 @@ Display names of the 527 AudioSet classes, in model output order (from the
 same repository's `metadata/class_labels_indices.csv`; AudioSet ontology by
 Google, CC BY-SA 4.0).
 
-Deep Cuts measures these outputs against its own reference data before
+Cradex measures these outputs against its own reference data before
 calling any of them validated (see docs/AI_VALIDATION.md).
 
 ## sound_projection_32.bin
@@ -51,5 +51,5 @@ essentia.upf.edu only after the user accepts that licence (BLAKE3-checked).
   `models-clap-2` with the model card. The CI export is byte-identical to a
   local export with the same pinned versions.
 - **Beat This!** `final0` (JKU, MIT) can be exported with
-  `scripts/export_beat_this_onnx.py` for `deepcuts beat-eval`; it is not shipped
+  `scripts/export_beat_this_onnx.py` for `cradex beat-eval`; it is not shipped
   (see docs/AI_VALIDATION.md).

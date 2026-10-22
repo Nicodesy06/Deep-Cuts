@@ -18,7 +18,7 @@
 │ rekordbox (XML import/export) · export (M3U8, CSV) · backup · stats · keys      │
 └───────────────────────────────────────┬────────────────────────────────────────┘
                                         │
-                      crates/dc-cli: `deepcuts` (same database; scripting, benchmarks)
+                      crates/dc-cli: `cradex` (same database; scripting, benchmarks)
 ```
 
 ## Principles
@@ -180,4 +180,4 @@ HTTP Range requests (≤ 8 MiB per chunk) for seeking. If the platform webview c
 * Tauri capabilities: `core:default` + `dialog:default` only. There is no generic filesystem access
   from the webview.
 * CSP restricts media to `self` and the `dcaudio` scheme.
-* Backups can only be restored from the Deep Cuts backup directory.
+* Backups can only be restored from the Cradex backup directory.

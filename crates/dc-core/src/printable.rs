@@ -159,7 +159,7 @@ td.n{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
         }
         h += "</tbody></table>\n";
     }
-    h += "<p class=\"sub\">Deep Cuts</p></body></html>\n";
+    h += "<p class=\"sub\">Cradex</p></body></html>\n";
     h
 }
 

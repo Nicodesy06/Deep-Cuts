@@ -2,7 +2,7 @@
 
 ## Text search: LAION-CLAP (added 2026-10-21, optional)
 
-`laion/larger_clap_general` (LAION, Apache-2.0) embeds audio and text in one space. Deep Cuts'
+`laion/larger_clap_general` (LAION, Apache-2.0) embeds audio and text in one space. Cradex'
 front-end (`clap.rs`) reproduces `ClapFeatureExtractor` to 2e-3 dB; Rust embeddings of real
 tracks match PyTorch with cosine ≥ 0.9999996; the int8 text encoder stays within cosine 0.98 of
 fp32 with no loss on the test below. A track is described by three 10 s windows (30/50/70 %).
@@ -16,7 +16,7 @@ check; on the genre test below the general model scored higher (mean Precision@1
 13.0 %) and is the one offered.
 
 Zero-shot genre retrieval on GiantSteps Key (604 tracks, 23 Beatport genres, query
-"`<genre>` music", `deepcuts clap-eval`): mean **Precision@10 19.6 %** against a mean chance
+"`<genre>` music", `cradex clap-eval`): mean **Precision@10 19.6 %** against a mean chance
 level of 4.3 %. Strong on Drum & Bass (100 %), Trance (60 %), Tech House (50 %), Dubstep and Pop
 Rock (40 %); 0 % on Progressive House, Electro House, Minimal and Breaks. Using the best query as
 a genre classifier gives 16.6 % (majority class 14.6 %): it is a search aid for descriptions,
@@ -36,7 +36,7 @@ genre), same mapping and Electronic-only ranking as for EffNet:
 |---|---|---|
 | Discogs-EffNet, Essentia reference | 37.8 % | 80.4 % |
 | MAEST, Essentia reference (all patches) | 62.9 % | 90.2 % |
-| **MAEST as run by Deep Cuts (≤ 3 central patches)** | **60.8 %** | **88.1 %** |
+| **MAEST as run by Cradex (≤ 3 central patches)** | **60.8 %** | **88.1 %** |
 
 Cost: about 3 s per 30 s patch on a loaded 4-core CPU (13 s per track for the whole style pack
 during this measurement, versus well under 1 s with EffNet), hence opt-in. The subset is small:
@@ -47,7 +47,7 @@ figures are not.
 
 Beat This! `final0` (JKU, MIT) runs through ONNX Runtime with its reference front-end
 (`beatnet.rs`, unit-tested against torchaudio values; ONNX vs PyTorch 2e-6) and its "minimal"
-post-processing. Tempo from its beats (`deepcuts beat-eval`):
+post-processing. Tempo from its beats (`cradex beat-eval`):
 
 | Corpus | Estimator | Acc1 | Acc2 | Exact (±0.05) |
 |---|---|---|---|---|
@@ -75,7 +75,7 @@ not bundled. No beat or downbeat annotations were available to measure its grids
 ## Optional Discogs style model: Discogs-EffNet (added 2026-10-21)
 
 Discogs-EffNet (MTG, UPF; CC BY-NC-SA 4.0, downloaded by the user, not shipped) predicts 400
-Discogs styles. Deep Cuts' front-end (`discogs.rs`) reproduces Essentia's input: checked against
+Discogs styles. Cradex's front-end (`discogs.rs`) reproduces Essentia's input: checked against
 Essentia 2.1 `TensorflowPredictEffnetDiscogs`, the mel values differ by at most 5e-7 and the model
 outputs by 8e-6 (the ONNX and TensorFlow graphs agree to 6e-6 on the same input). The app analyses
 at most 32 patches per track (≈ 65 s of audio) to stay near 0.5 s per track on a CPU.
@@ -86,7 +86,7 @@ fixed beforehand, e.g. tech-house → Tech House, trance → Trance / Progressiv
 | Method (same tracks) | Top-1 | Top-3 |
 |---|---|---|
 | Discogs-EffNet, Essentia reference (all patches) | 43.7 % | 75.4 % |
-| **Discogs-EffNet as run by Deep Cuts (32 patches)** | **42.1 %** | **75.2 %** |
+| **Discogs-EffNet as run by Cradex (32 patches)** | **42.1 %** | **75.2 %** |
 | Beatport head on PANNs embedding (not shipped) | 36.1 % | 56.8 % |
 | PANNs AudioSet genre (broad classes) | 34.2 % | — |
 
@@ -105,7 +105,7 @@ class probabilities. Device: CUDA (build with `--features gpu-cuda`), DirectML o
 on macOS, otherwise CPU; the device in use is shown on the Music DNA page.
 
 * **Genre (AudioSet classes)**: agreement of the top AudioSet genre with Beatport genres mapped to
-  AudioSet's broad classes (`deepcuts genre-eval`): **40.8 %** on GiantSteps-MTG-Keys (1,298
+  AudioSet's broad classes (`cradex genre-eval`): **40.8 %** on GiantSteps-MTG-Keys (1,298
   comparable of 1,486 tracks, CI run `39578582446`), **34.2 %** on GiantSteps Key (532 of 604).
   Good on Drum & Bass (77 %), Dubstep (76 %), Techno (69 %), Hip-Hop (61 %); poor on Progressive
   House (16 %), House (22 %), Trance (28 %), Electronica (16 %). Shown as broad genres only.
@@ -168,12 +168,12 @@ measured in CI run `39540659685`:
 | Beatport BPM, half B (hold-out) | 92.5 % → 92.5 % | 98.0 % → 98.0 % | **84.0 % → 86.9 %** | 0.030 → 0.027 BPM |
 | GiantSteps Tempo v2 | 65.8 % → 65.8 % | 88.2 % → 88.2 % | (labels not precise) | |
 
-Full analyser on GiantSteps (`deepcuts eval`, same run): key MIREX 67.5 %, exact 59.3 %; tempo
+Full analyser on GiantSteps (`cradex eval`, same run): key MIREX 67.5 %, exact 59.3 %; tempo
 Accuracy1 65.8 %, Accuracy2 88.2 % (v2 labels).
 
 ## Key estimation, dc-dsp 1.1.0 (measured 2026-10-20; unchanged in 1.2.0)
 
-**Method.** `deepcuts key-study` compared 32 chroma front-ends (frequency range, log compression,
+**Method.** `cradex key-study` compared 32 chroma front-ends (frequency range, log compression,
 spectral whitening, peak picking, frame normalisation) × 3 key-profile sets (Krumhansl–Kessler,
 Temperley, profiles learned from the corpus) = 96 variants on the **development corpus**
 GiantSteps-MTG-Keys (1,159 tracks with confidence-2 labels; learned profiles scored with 5-fold
@@ -181,7 +181,7 @@ cross-validation). The best variant was picked automatically and then measured *
 on the **test corpus** GiantSteps Key (604 tracks). The two corpora share no tracks. CI run
 `39500524471`, job `key-study`.
 
-Confirmed through the full analyser by `deepcuts eval` (CI run `39504399594`): 64.8 % MIREX,
+Confirmed through the full analyser by `cradex eval` (CI run `39504399594`): 64.8 % MIREX,
 55.5 % exact, identical to the study.
 
 Chosen: 100–5000 Hz, log(1+100·|X|), local whitening (±2 semitones), spectral peaks only,
@@ -275,7 +275,7 @@ is known yet: band-limited old masters will be listed and must be judged by ear.
 Corpora: **GiantSteps Key** (604 two-minute Beatport previews, human-corrected keys) and
 **GiantSteps Tempo** (664 previews; original annotations and the crowdsourced v2 annotations of
 Schreiber & Müller 2018). Run by `.github/workflows/eval.yml` on GitHub runners with
-`deepcuts eval`. Audio is downloaded only for measurement and is never redistributed.
+`cradex eval`. Audio is downloaded only for measurement and is never redistributed.
 Analyser: `dc-dsp 1.0.0` (pure DSP, no trained model).
 
 | Task | Metric | dc-dsp 1.0.0 |

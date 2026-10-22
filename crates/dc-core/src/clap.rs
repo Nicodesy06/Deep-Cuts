@@ -4,7 +4,7 @@
 //! give nearly identical embeddings for every input, see AI_VALIDATION.md). An optional download:
 //! the audio encoder (fp32) and the text encoder (int8, dynamic
 //! quantisation) exported to ONNX by `scripts/export_clap_onnx.py`, plus the
-//! model's RoBERTa tokenizer, hosted as assets of a Deep Cuts GitHub release.
+//! model's RoBERTa tokenizer, hosted as assets of a Cradex GitHub release.
 //!
 //! The front-end reproduces `ClapFeatureExtractor` ("rand_trunc", no
 //! fusion): 48 kHz mono, 10 s windows (shorter audio is repeated, then zero
@@ -20,7 +20,7 @@ use std::path::PathBuf;
 pub const MODEL: &str = "laion-clap-general";
 pub const MODEL_VERSION: &str = "2";
 pub const LICENSE: &str =
-    "Apache-2.0 — LAION, laion/larger_clap_general (exported to ONNX for Deep Cuts)";
+    "Apache-2.0 — LAION, laion/larger_clap_general (exported to ONNX for Cradex)";
 pub const SIZE_MB: u32 = 400;
 const BASE: &str = "https://github.com/Nicodesy06/Deep-Cuts/releases/download/models-clap-2";
 pub const AUDIO_FILE: &str = "clap_audio.onnx";

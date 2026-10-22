@@ -7,7 +7,7 @@ on:
 jobs:
   # Known vulnerabilities in Rust and npm dependencies (audit DC-44).
   # RUSTSEC-2026-0187 (lopdf stack overflow when *parsing* nested PDFs) is
-  # ignored: lopdf comes with printpdf, which Deep Cuts only uses to write
+  # ignored: lopdf comes with printpdf, which Cradex only uses to write
   # PDF track lists; no PDF is ever read.
   dependency-audit:
     runs-on: ubuntu-24.04
@@ -84,7 +84,7 @@ jobs:
           sudo apt-get install -y xvfb pulseaudio gstreamer1.0-plugins-good gstreamer1.0-libav
           sudo apt-get install -y ./target/release/bundle/deb/*.deb
           pulseaudio --start --exit-idle-time=-1 -n --load=module-null-sink --load=module-native-protocol-unix
-          xvfb-run -a python3 scripts/installer_smoke.py /usr/bin/deep-cuts "$RUNNER_TEMP/smoke"
+          xvfb-run -a python3 scripts/installer_smoke.py /usr/bin/cradex "$RUNNER_TEMP/smoke"
 
       - name: Installer smoke test (Windows NSIS)
         if: runner.os == 'Windows'
@@ -93,7 +93,7 @@ jobs:
           choco install ffmpeg -y --no-progress
           $setup = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
           Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/S'
-          $exe = Get-ChildItem "$env:LOCALAPPDATA\Deep Cuts" -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch 'uninstall' } | Select-Object -First 1
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Cradex" -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch 'uninstall' } | Select-Object -First 1
           Write-Host "installed: $($exe.FullName)"
           python scripts/installer_smoke.py $exe.FullName "$env:RUNNER_TEMP\smoke"
 
@@ -102,14 +102,14 @@ jobs:
         run: |
           dmg=$(ls target/release/bundle/dmg/*.dmg | head -1)
           hdiutil attach "$dmg" -mountpoint /Volumes/deepcuts -nobrowse
-          cp -R "/Volumes/deepcuts/Deep Cuts.app" "$RUNNER_TEMP/"
+          cp -R "/Volumes/deepcuts/Cradex.app" "$RUNNER_TEMP/"
           hdiutil detach /Volumes/deepcuts
-          exe=$(ls "$RUNNER_TEMP/Deep Cuts.app/Contents/MacOS/"* | head -1)
+          exe=$(ls "$RUNNER_TEMP/Cradex.app/Contents/MacOS/"* | head -1)
           python3 scripts/installer_smoke.py "$exe" "$RUNNER_TEMP/smoke"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deep-cuts-${{ matrix.os }}
+          name: cradex-${{ matrix.os }}
           path: |
             target/release/bundle/**/*.msi
             target/release/bundle/**/*.exe

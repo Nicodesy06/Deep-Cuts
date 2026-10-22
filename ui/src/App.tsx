@@ -41,7 +41,7 @@ function Sidebar() {
         <span className="brand-mark" aria-hidden>
           ◉
         </span>
-        <span className="brand-name">Deep Cuts</span>
+        <span className="brand-name">Cradex</span>
       </div>
       <ul>
         {NAV.map((n) => (
@@ -193,7 +193,7 @@ function Main() {
     return (
       <div className="page">
         <div className="hero">
-          <h1>Deep Cuts</h1>
+          <h1>Cradex</h1>
           <p className="muted">{t("app.browserOnly")}</p>
         </div>
       </div>

@@ -49,7 +49,7 @@ export async function exportTracks(
   source: { ids?: string[]; query?: TrackQuery },
   name: string,
 ): Promise<void> {
-  const safe = name.replace(/[\\/:*?"<>|]+/g, "_") || "Deep Cuts";
+  const safe = name.replace(/[\\/:*?"<>|]+/g, "_") || "Cradex";
   const path = await save({
     title: t("export.saveTitle"),
     defaultPath: `${safe}.${EXT[format]}`,

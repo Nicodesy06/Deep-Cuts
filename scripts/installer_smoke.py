@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Smoke test of an installed Deep Cuts app (used by CI on each OS).
+"""Smoke test of an installed Cradex app (used by CI on each OS).
 
 Generates short test files with ffmpeg (MP3, AAC/M4A, FLAC, WAV, AIFF; a
 55 Hz bass plus clicks every 0.5 s = 120 BPM), starts the installed app with
-DEEPCUTS_SMOKE pointing at them and a throwaway DEEPCUTS_HOME, waits for the
+CRADEX_SMOKE pointing at them and a throwaway CRADEX_HOME, waits for the
 app's report (import, analysis with the bundled model, playback in the
 platform webview through the dcaudio protocol) and checks it.
 
@@ -45,7 +45,7 @@ def main() -> int:
     audio, home = work / "audio", work / "home"
     shutil.rmtree(work, ignore_errors=True)
     fixtures(audio)
-    env = dict(os.environ, DEEPCUTS_SMOKE=str(audio), DEEPCUTS_HOME=str(home))
+    env = dict(os.environ, CRADEX_SMOKE=str(audio), CRADEX_HOME=str(home))
     report_path = audio / "smoke-report.json"
     try:
         subprocess.run([str(app)], env=env, timeout=600, check=False)

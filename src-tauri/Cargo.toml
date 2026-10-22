@@ -1,12 +1,12 @@
 [package]
-name = "deep-cuts"
-description = "Deep Cuts — local, private DJ library intelligence"
+name = "cradex"
+description = "Cradex — local, private DJ library intelligence"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "deep_cuts_lib"
+name = "cradex_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

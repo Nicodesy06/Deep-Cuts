@@ -6,7 +6,7 @@ differ; re-run with the commands given.
 
 ## Large library (synthetic rows, real code paths)
 
-`deepcuts bench 100000 --dir <dir>` inserts 100 000 tracks through the same provenance + FTS code as
+`cradex bench 100000 --dir <dir>` inserts 100 000 tracks through the same provenance + FTS code as
 an import, then times queries returning the first page of 200 rows.
 
 | Operation (100 000 tracks) | Time |

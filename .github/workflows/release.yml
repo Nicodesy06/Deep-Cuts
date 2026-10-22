@@ -64,18 +64,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: Deep Cuts v__VERSION__
+          releaseName: Cradex v__VERSION__
           releaseCommitish: ${{ github.sha }}
           prerelease: true
           args: ${{ matrix.args }}
           releaseBody: |
-            Unsigned test build of Deep Cuts (free, local, offline DJ library manager).
+            Unsigned test build of Cradex (free, local, offline DJ library manager).
 
-            **Windows 10/11 (x64)** — download `Deep.Cuts_*_x64-setup.exe` (or the `.msi`). The installer is not code-signed, so SmartScreen shows "Windows protected your PC": click *More info* › *Run anyway*.
+            **Windows 10/11 (x64)** — download `Cradex_*_x64-setup.exe` (or the `.msi`). The installer is not code-signed, so SmartScreen shows "Windows protected your PC": click *More info* › *Run anyway*.
 
-            **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`; the Intel build has no local audio model — genre/mood suggestions from the model are missing there)** — open the DMG and drag Deep Cuts to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Deep Cuts.app"`).
+            **macOS (Apple silicon: `aarch64.dmg`, Intel: `x64.dmg`; the Intel build has no local audio model — genre/mood suggestions from the model are missing there)** — open the DMG and drag Cradex to Applications. The app is not notarised: the first time, right-click the app › *Open* › *Open* (or run `xattr -dr com.apple.quarantine "/Applications/Cradex.app"`).
 
-            **Linux (x86-64, Ubuntu 24.04 / Debian 13 / Fedora 40 or newer)** — `.deb` (`sudo apt install ./Deep.Cuts_*_amd64.deb`) or the `.AppImage` (`chmod +x`, then run).
+            **Linux (x86-64, Ubuntu 24.04 / Debian 13 / Fedora 40 or newer)** — `.deb` (`sudo apt install ./Cradex_*_amd64.deb`) or the `.AppImage` (`chmod +x`, then run).
 
             Checksums: `SHA256SUMS.txt` (verify with `sha256sum -c SHA256SUMS.txt --ignore-missing`, or `Get-FileHash` on Windows).
 
@@ -85,13 +85,13 @@ jobs:
 
             ---
 
-            **Windows** — scarica `Deep.Cuts_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
+            **Windows** — scarica `Cradex_*_x64-setup.exe` (o il `.msi`). Non è firmato: su "Windows ha protetto il PC" clicca *Ulteriori informazioni* › *Esegui comunque*.
 
-            **Linux** — `.deb` (`sudo apt install ./Deep.Cuts_*_amd64.deb`) oppure `.AppImage` (`chmod +x` e avvia); serve una distribuzione recente (Ubuntu 24.04 o successive).
+            **Linux** — `.deb` (`sudo apt install ./Cradex_*_amd64.deb`) oppure `.AppImage` (`chmod +x` e avvia); serve una distribuzione recente (Ubuntu 24.04 o successive).
 
             Modelli facoltativi scaricabili dall'app: stili Discogs + mood/emozione (MTG, licenza non commerciale), "stili accurati" MAEST (MTG, non commerciale, 332 MB), ricerca per descrizione LAION-CLAP (Apache-2.0, circa 400 MB).
 
-            **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel (senza il modello audio locale). Trascina Deep Cuts in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
+            **macOS** — `aarch64.dmg` per Apple silicon (M1–M4), `x64.dmg` per Mac Intel (senza il modello audio locale). Trascina Cradex in Applicazioni; la prima volta tasto destro sull'app › *Apri* › *Apri*.
 
   # SHA-256 checksums of every installer, attached to the release
   # (audit DC-40: assets can be checked after download).

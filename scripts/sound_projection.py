@@ -1,7 +1,7 @@
 """Compute the 32-dim "sound" projection shipped as models/sound_projection_32.bin.
 
 Input: the tab-separated model outputs written by
-`deepcuts genre-eval <dev audio> --genres ... --features dev.tsv` on the
+`cradex genre-eval <dev audio> --genres ... --features dev.tsv` on the
 GiantSteps-MTG-Keys development corpus (stem, genre, 1024 embedding values,
 527 probabilities). Output: little-endian f32 mean[1024], scale[1024],
 components[32][1024] (PCA of the standardised embedding).

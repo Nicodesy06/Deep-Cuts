@@ -23,7 +23,7 @@ pub const AUDIO_EXTENSIONS: &[&str] = &[
 ];
 
 pub fn is_audio_file(path: &std::path::Path) -> bool {
-    // Deep Cuts' own temporary files (staged tag writes, partial copies)
+    // Cradex's own temporary files (staged tag writes, partial copies)
     // are never imported.
     let ours = path
         .file_name()

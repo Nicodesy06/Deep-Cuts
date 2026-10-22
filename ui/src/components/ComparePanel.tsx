@@ -1,4 +1,4 @@
-// Compare Deep Cuts' BPM/key with another source on the user's own library
+// Compare Cradex' BPM/key with another source on the user's own library
 // (imported Rekordbox/Traktor/Serato/VirtualDJ values or the files' tags).
 import { useEffect, useState } from "react";
 import { api, type CompareReport, type CompareSource } from "../api";
@@ -77,7 +77,7 @@ export function ComparePanel() {
                       <tr>
                         <th>{t("col.artist")}</th>
                         <th>{t("col.title")}</th>
-                        <th>Deep Cuts</th>
+                        <th>Cradex</th>
                         <th>{label(rep.source)}</th>
                         <th />
                       </tr>

@@ -26,6 +26,12 @@ MSD tags and arousal/valence; optional **accurate styles** with MAEST (61 % / 88
 from comments on import, M3U8 import/export. Evaluated and not adopted: Beat This! for tempo
 (worse than the current estimator on Beatport BPM labels). Not integrated: Demucs, All-In-One.
 
+v0.3.0 (released): the app is renamed Cradex (formerly Deep Cuts). An existing library in the old
+`DeepCuts` data folder is used where it is (nothing moved or copied); new installs use `Cradex`.
+`CRADEX_HOME`, `CRADEX_MODELS_DIR` and `CRADEX_SMOKE` replace the `DEEPCUTS_*` variables, which still
+work. The command-line tool is `cradex`. Backups are named `cradex-…` (older `deepcuts-…` backups
+are still listed and restorable).
+
 v0.2.2 (released): bulk edits, decisions, "add to playlist", new playlist/set and exports from
 the side panel and context menu now act on the whole selection (they used only the 200 rows loaded
 on screen); search without syntax: a "Filters" menu that adds editable bubbles (BPM, key with
@@ -75,13 +81,13 @@ Goal of this increment: every planned local feature in a usable state before imp
 | **Merge duplicates** safely (keep one copy, re-point playlists, carry decision/tags/rating/notes, other files to a dated trash folder, archive copies, undoable); **archive** (hidden, `archived:yes`); broken playlists; unused files in a folder | `dedupe`, Library Health, Library menu | `tests/dedupe.rs`, GUI check |
 | **Find & replace** (plain / whole word / regex), **playlist tools** (merge, common, subtract, duplicate, shuffle, prefix, occurrences) | `bulk`, `playlist_tools` | `tests/bulk_tools.rs`, GUI check |
 | **CSV metadata import** with column mapping and validation; **relocate library** (path prefix mapping between drives/OS) | `csvimport`, `relocate`, Sync & Export, Settings | `tests/csv_relocate.rs`, GUI check |
-| **Traktor, Serato, VirtualDJ** import/export; whole-library Rekordbox export with folders and smart-crate snapshots | `djlib`, `traktor`, `serato`, `vdj`, `deepcuts import-dj/export-dj` | `tests/dj_apps.rs` (round trip through every format) |
+| **Traktor, Serato, VirtualDJ** import/export; whole-library Rekordbox export with folders and smart-crate snapshots | `djlib`, `traktor`, `serato`, `vdj`, `cradex import-dj/export-dj` | `tests/dj_apps.rs` (round trip through every format) |
 | **Music DNA**: energy 1–10 (library rank of the measured energy proxy), genre and tag suggestions learned from the user's own labels (accuracy measured leave-one-out and shown), automatic groups | `dna`, Music DNA page | `tests/dna.rs`, GUI check |
 | **Beatgrid editor and loops** (downbeat at playhead, nudge, BPM ×2/÷2, tap tempo, zoomed view, beat-snapped 4/8/16-beat loops; user grid wins on export; undoable) | `grid`, `GridEditor` | `phase2::user_beatgrid_edit_loop_and_undo`, GUI check |
 | **Build a set from a track** (beam search over the transition graph) | `sets::build_path`, Library menu | `phase3::graph_path_from_seed…`, GUI check |
 | **Recipes**: saved search + actions, run on demand or on import (watch folders too), one undoable step | `recipes`, Smart Crates | `tests/recipes.rs`, GUI check (run + undo) |
 | **Cover art** add/replace/remove in files, with backups and read-back verification | `artwork`, Library menu | `phase2::album_art_add_and_remove_safely` |
-| **Rebuild external playlists offline** (Exportify/Spotify CSV, Apple Music text, M3U, "Artist - Title" lists): fuzzy match with version awareness, review, playlist creation, missing list | `playlist_match`, Sync & Export, `deepcuts match-playlist` | `tests/playlist_match.rs`, `playlist_match::tests`, GUI check |
+| **Rebuild external playlists offline** (Exportify/Spotify CSV, Apple Music text, M3U, "Artist - Title" lists): fuzzy match with version awareness, review, playlist creation, missing list | `playlist_match`, Sync & Export, `cradex match-playlist` | `tests/playlist_match.rs`, `playlist_match::tests`, GUI check |
 
 ### Out of scope for the local version (justified)
 
@@ -122,11 +128,11 @@ Existing analyses are recomputed when the user runs *Analyze* (analyser 1.3.0); 
 
 | Feature | Where | Verification |
 |---|---|---|
-| **Key estimation 1.1.0**: new chroma front-end + EDM key profiles, chosen on a development corpus and measured on a separate test corpus. GiantSteps Key MIREX **47.5 % → 64.8 %**, exact key **34.6 % → 55.5 %** | `analysis::key`, `keystudy`, `deepcuts key-study`, `eval.yml` job `key-study` | `AI_VALIDATION.md`; synthetic key tests still exact |
+| **Key estimation 1.1.0**: new chroma front-end + EDM key profiles, chosen on a development corpus and measured on a separate test corpus. GiantSteps Key MIREX **47.5 % → 64.8 %**, exact key **34.6 % → 55.5 %** | `analysis::key`, `keystudy`, `cradex key-study`, `eval.yml` job `key-study` | `AI_VALIDATION.md`; synthetic key tests still exact |
 | **Transcode detection** (fake lossless / fake high bitrate): measured bandwidth cliff at the source sample rate, stated rule, Library Health list, `transcode:yes` search, bandwidth metric in details; codec recorded per file (schema v4, analyser 1.2.0) | `analysis::bandwidth`, `library::transcode_suspects`, migration `0004` | `tests/transcode.rs` (real LAME encodes), `bandwidth::tests`, GUI check |
 | **Duplicates by sound** across formats/bitrates: acoustic fingerprint computed during analysis (schema v5), same-recording groups in Library Health next to identical-file and same-artist+title groups | `analysis::fingerprint`, `library::acoustic_pairs` | `tests/fingerprint.rs` (FLAC / MP3 320 / MP3 128 / AAC / −6 dB / trimmed grouped; other recordings not; threshold from measured error rates), GUI check |
-| **Tempo study** (576 variants, dev/test): best development variant not adopted (test Accuracy2 −4 points); production tempo unchanged | `tempostudy`, `deepcuts tempo-study` | `AI_VALIDATION.md` |
-| **Rename / move files from metadata**: pattern with tokens, dry-run preview with conflicts (missing, name clash, existing file, no metadata), never overwrites, verified cross-drive moves, one undoable batch (undo moves files back) | `dc-core::fileops`, `history::Kind::FilePath`, Library context menu, `deepcuts rename` | `tests/fileops.rs`, `fileops::tests`, GUI check (rename + undo on real files) |
+| **Tempo study** (576 variants, dev/test): best development variant not adopted (test Accuracy2 −4 points); production tempo unchanged | `tempostudy`, `cradex tempo-study` | `AI_VALIDATION.md` |
+| **Rename / move files from metadata**: pattern with tokens, dry-run preview with conflicts (missing, name clash, existing file, no metadata), never overwrites, verified cross-drive moves, one undoable batch (undo moves files back) | `dc-core::fileops`, `history::Kind::FilePath`, Library context menu, `cradex rename` | `tests/fileops.rs`, `fileops::tests`, GUI check (rename + undo on real files) |
 
 Existing analyses (1.0.0/1.1.0) are recomputed when the user runs *Analyze*; keys the user set by
 hand are never overwritten (user values win over analysis).
@@ -142,11 +148,11 @@ hand are never overwritten (user values win over analysis).
 | Feature | Where | Verification |
 |---|---|---|
 | **Measured feature vectors** (17 dims: tempo, Camelot circle, mode, loudness, crest, spread, brightness, low/high band share, onset rate, flux, periodicity, energy mean/std/slope, breakdown depth) stored per analysed track, backfilled for older analyses | `dc-core::features`, schema v3 `track_features` | `features::tests`, `phase3::discovery_map_projects_all_analysed_tracks` |
-| **Similar tracks** with per-group explanation (tempo, harmonic relation, loudness, timbre, rhythm, energy), adjustable weights, query scope, user key corrections respected | `dc-core::similarity`, Discover → Similar, `deepcuts similar` | `phase3::similar_tracks_are_ranked_and_explained`, GUI check |
+| **Similar tracks** with per-group explanation (tempo, harmonic relation, loudness, timbre, rhythm, energy), adjustable weights, query scope, user key corrections respected | `dc-core::similarity`, Discover → Similar, `cradex similar` | `phase3::similar_tracks_are_ranked_and_explained`, GUI check |
 | **Discovery map** (PCA of the z-scored vectors; axes show explained variance and top loadings; colour by key/decision) | `dc-core::map`, Discover → Map | `phase3::discovery_map…`, GUI check |
-| **Set Builder**: set playlists with chapters (opening/warm-up/build/peak/cool-down/closing), pinned tracks, per-transition report (BPM step, harmonic relation, energy step), **Magic Sort** (smooth / build / wave) with pins kept, undoable apply, next-track suggestions that exclude set members and passes, set notes | `dc-core::sets`, `ui/views/SetBuilder.tsx`, `deepcuts set` | `phase3::set_builder_chapters_locks_sort_suggest_and_undo`, `sets::tests`, GUI check |
+| **Set Builder**: set playlists with chapters (opening/warm-up/build/peak/cool-down/closing), pinned tracks, per-transition report (BPM step, harmonic relation, energy step), **Magic Sort** (smooth / build / wave) with pins kept, undoable apply, next-track suggestions that exclude set members and passes, set notes | `dc-core::sets`, `ui/views/SetBuilder.tsx`, `cradex set` | `phase3::set_builder_chapters_locks_sort_suggest_and_undo`, `sets::tests`, GUI check |
 | **Playlist order changes** (add, remove, reorder, sort) recorded in the undo history | `library::reorder_playlist`, `history::Kind::PlaylistOrder` | same test |
-| **Real-music evaluation** of tempo and key on GiantSteps (CI workflow `eval.yml`, `deepcuts eval`) | `dc-core::eval`, `scripts/fetch_giantsteps.sh` | results in `AI_VALIDATION.md` |
+| **Real-music evaluation** of tempo and key on GiantSteps (CI workflow `eval.yml`, `cradex eval`) | `dc-core::eval`, `scripts/fetch_giantsteps.sh` | results in `AI_VALIDATION.md` |
 
 ### Measured accuracy (dc-dsp 1.0.0, GiantSteps)
 
@@ -172,7 +178,7 @@ Tempo Accuracy1 **65.8 %**, Accuracy2 **88.2 %** (v2 annotations). Key MIREX sco
 
 | Feature | Where | Verification |
 |---|---|---|
-| **Undo / redo** of edits, bulk edits, decisions, notes, favourites, tags, smart fixes (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, sidebar buttons, `deepcuts undo/redo/history`) | `dc-core::history` (schema v2 `change_batches`/`changes`) | `phase2::undo_redo_edits_decisions_notes_favorites` |
+| **Undo / redo** of edits, bulk edits, decisions, notes, favourites, tags, smart fixes (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, sidebar buttons, `cradex undo/redo/history`) | `dc-core::history` (schema v2 `change_batches`/`changes`) | `phase2::undo_redo_edits_decisions_notes_favorites` |
 | **Per-track change history** in the details panel | `history::track_history` | same test + GUI |
 | **Hierarchical tags** with categories, synonyms, Quick Tag slots (Shift+1…9), AI-suggestion review path; Tag Editor section; tag chips + add-tag in details; tags in the context menu; `tag:` search covers children and synonyms | `dc-core::tags`, `ui/views/TagEditor.tsx` | `phase2::hierarchical_tags_synonyms_and_quick_slots`, `TagEditor.test.ts`, GUI check |
 | **Smart Fixes** (10 rules: invisible chars, URLs/promo, track-number prefixes, feat., separators, SHOUTED CAPS, genre spelling, whitespace, version/remixer extraction) with preview, per-row accept, one undoable batch | `dc-core::fixes`, Library Health | `fixes::tests` (rules), `phase2::smart_fixes_preview_apply_undo`, GUI check |

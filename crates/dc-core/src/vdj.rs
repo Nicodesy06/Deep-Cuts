@@ -310,7 +310,7 @@ pub fn export(lib: &ExportLibrary, dir: &Path) -> Result<usize> {
         // VirtualDJ filter folders are created in its own editor: write the
         // translated rule for each smart crate, ready to paste.
         let mut txt = String::from(
-            "Deep Cuts smart crates as VirtualDJ filters\n\
+            "Cradex smart crates as VirtualDJ filters\n\
              In VirtualDJ: right-click My Lists > Add Filter, then paste the filter.\n\
              The .vdjfolder playlists next to this file are snapshots of the same crates.\n\n",
         );

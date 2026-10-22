@@ -1,4 +1,4 @@
-//! Writing metadata back into audio files — the only place Deep Cuts
+//! Writing metadata back into audio files — the only place Cradex
 //! modifies the user's audio files, and only on explicit request.
 //!
 //! Safety: plan first (dry run), refuse files that changed on disk since

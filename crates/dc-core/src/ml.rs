@@ -4,7 +4,7 @@
 //! GPU on Windows), CoreML (Apple silicon / macOS) or the CPU.
 //!
 //! The model returns 527 AudioSet class probabilities and the 1024-dim clip
-//! embedding they are computed from. Deep Cuts keeps the
+//! embedding they are computed from. Cradex keeps the
 //! music-related ones (genres, moods, vocals, instruments), stores them per
 //! track and only calls a group validated after measuring it against
 //! reference labels (docs/AI_VALIDATION.md).
@@ -39,7 +39,7 @@ pub static LABELS: std::sync::LazyLock<Vec<&'static str>> = std::sync::LazyLock:
         .collect()
 });
 
-/// Music-related AudioSet classes kept by Deep Cuts, by group.
+/// Music-related AudioSet classes kept by Cradex, by group.
 pub const GROUPS: &[(&str, &[&str])] = &[
     (
         "genre",
@@ -129,7 +129,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ),
 ];
 
-/// Group of a kept label (None for labels Deep Cuts does not keep).
+/// Group of a kept label (None for labels Cradex does not keep).
 pub fn group_of(label: &str) -> Option<&'static str> {
     GROUPS
         .iter()
@@ -137,7 +137,7 @@ pub fn group_of(label: &str) -> Option<&'static str> {
         .map(|(g, _)| *g)
 }
 
-/// Where the model file is looked for: $DEEPCUTS_MODELS_DIR, a `models`
+/// Where the model file is looked for: $CRADEX_MODELS_DIR, a `models`
 /// folder next to the executable (or in the macOS app's Resources), the
 /// repository's `models/` (development), then the user data folder.
 static BUNDLED_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
@@ -149,7 +149,7 @@ pub fn set_bundled_dir(dir: PathBuf) {
 
 pub fn find_model() -> Option<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Ok(d) = std::env::var("DEEPCUTS_MODELS_DIR") {
+    if let Some(d) = crate::paths::env_var("MODELS_DIR") {
         dirs.push(d.into());
     }
     if let Some(d) = BUNDLED_DIR.get() {
@@ -200,7 +200,7 @@ impl Tagger {
 }
 
 /// ONNX Runtime session on the best available device ("CUDA", "DirectML",
-/// "CoreML" or "CPU"). Shared by every model Deep Cuts runs.
+/// "CoreML" or "CPU"). Shared by every model Cradex runs.
 // On a CPU-only build `builder`/`device` are never changed.
 #[cfg(feature = "ml")]
 #[allow(unused_mut)]

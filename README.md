@@ -1,12 +1,13 @@
 <div align="center">
 
-<img src="site/assets/icon.png" width="96" height="96" alt="Deep Cuts icon">
+<img src="site/assets/icon.png" width="96" height="96" alt="Cradex icon">
 
-# Deep Cuts
+# Cradex
 
 **Your DJ library, finally in order.**<br>
 Analyse, triage, organise and export your music on your own computer.<br>
-Free · Open source · Offline · No account
+Free · Open source · Offline · No account<br>
+<sub>Formerly Deep Cuts</sub>
 
 [![Release](https://img.shields.io/github/v/release/Nicodesy06/Deep-Cuts?include_prereleases&label=release&color=000000&style=flat-square)](https://github.com/Nicodesy06/Deep-Cuts/releases)
 [![Licence](https://img.shields.io/badge/licence-GPL--3.0-000000?style=flat-square)](LICENSE)
@@ -17,13 +18,13 @@ Free · Open source · Offline · No account
 
 <br>
 
-<img src="site/assets/screens/library.webp" alt="Deep Cuts library view with track details and the preview player" width="100%">
+<img src="site/assets/screens/library.webp" alt="Cradex library view with track details and the preview player" width="100%">
 
 </div>
 
 <br>
 
-## Why Deep Cuts
+## Why Cradex
 
 | | |
 |---|---|
@@ -110,7 +111,7 @@ Installers are not code-signed yet; the [guide](https://nicodesy06.github.io/Dee
 * **Backups**: daily automatic snapshot, manual backups, automatic snapshot before risky operations,
   restore with safety copy, integrity check.
 * **Dashboard** computed from your real library. **English and Italian** UI.
-* `deepcuts` **CLI** on the same database (import, search, decide, analyze, tag, fix, write-tags, rename, import-dj, export-dj, match-playlist, undo, export, stats, eval, bench).
+* `cradex` **CLI** on the same database (import, search, decide, analyze, tag, fix, write-tags, rename, import-dj, export-dj, match-playlist, undo, export, stats, eval, bench).
 
 </details>
 
@@ -127,14 +128,15 @@ npm test             # UI unit tests + all Rust tests
 cargo run -p dc-cli --release -- --help    # CLI
 ```
 
-The library lives in the OS data directory (`%APPDATA%\DeepCuts`, `~/Library/Application Support/DeepCuts`,
-`~/.local/share/DeepCuts`). Set `DEEPCUTS_HOME` to use another location.
+The library lives in the OS data directory (`%APPDATA%\Cradex`, `~/Library/Application Support/Cradex`,
+`~/.local/share/Cradex`). A library created when the app was called Deep Cuts stays in its `DeepCuts`
+folder and is used as it is. Set `CRADEX_HOME` to use another location.
 
 ## Repository layout
 
 ```
 crates/dc-core   Rust core: database, import/export, provenance, analysis, models, jobs, backups
-crates/dc-cli    `deepcuts` command-line tool
+crates/dc-cli    `cradex` command-line tool
 src-tauri        desktop shell (IPC commands, audio protocol)
 ui               React + TypeScript interface
 site             website (landing page and guide, published with GitHub Pages)
@@ -152,4 +154,4 @@ docs             architecture, feature matrix, test plan, benchmarks, licensing,
 ## Licence
 
 GPL-3.0-or-later. See [`LICENSE`](LICENSE) and [`docs/LICENSING.md`](docs/LICENSING.md) for the bundled and optional models.
-Rekordbox, Traktor, Serato and VirtualDJ are trademarks of their owners; Deep Cuts is not affiliated with them.
+Rekordbox, Traktor, Serato and VirtualDJ are trademarks of their owners; Cradex is not affiliated with them.
