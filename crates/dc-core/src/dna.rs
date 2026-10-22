@@ -463,28 +463,9 @@ pub struct Group {
     pub top_genres: Vec<(String, usize)>,
 }
 
-/// k-means (k-means++ seeding, deterministic) on the analysed tracks in
-/// `scope` (a library query; "" = everything).
-pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group>> {
-    let ids: HashSet<String> = crate::query::query_track_ids(
-        conn,
-        &crate::query::TrackQuery {
-            query: scope.to_string(),
-            ..Default::default()
-        },
-    )?
-    .into_iter()
-    .collect();
-    let all = vectors(conn)?;
-    let vecs: Vec<(String, Vector)> = all.into_iter().filter(|(id, _)| ids.contains(id)).collect();
-    let (zs, zscale) = learning_vectors(conn, &vecs)?;
+/// One k-means run with k-means++ seeding from a fixed pseudo-random `state`.
+fn kmeans(zs: &[(String, Vec<f32>)], k: usize, mut state: u64) -> (Vec<usize>, Vec<Vec<f32>>) {
     let n = zs.len();
-    let k = k.clamp(2, 24).min(n.max(1));
-    if n < 2 {
-        return Ok(vec![]);
-    }
-    // k-means++ with a fixed pseudo-random sequence.
-    let mut state = 0x9E3779B97F4A7C15u64;
     let mut rnd = || {
         state ^= state << 13;
         state ^= state >> 7;
@@ -542,6 +523,51 @@ pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group
             break;
         }
     }
+    (assign, centers)
+}
+
+/// k-means (k-means++ seeding, deterministic) on the analysed tracks in
+/// `scope` (a library query; "" = everything).
+pub fn auto_groups(conn: &Connection, k: usize, scope: &str) -> Result<Vec<Group>> {
+    let ids: HashSet<String> = crate::query::query_track_ids(
+        conn,
+        &crate::query::TrackQuery {
+            query: scope.to_string(),
+            ..Default::default()
+        },
+    )?
+    .into_iter()
+    .collect();
+    let all = vectors(conn)?;
+    let mut vecs: Vec<(String, Vector)> =
+        all.into_iter().filter(|(id, _)| ids.contains(id)).collect();
+    // Same input order every time, whatever order the database returns.
+    vecs.sort_by(|a, b| a.0.cmp(&b.0));
+    let (zs, zscale) = learning_vectors(conn, &vecs)?;
+    let n = zs.len();
+    let k = k.clamp(2, 24).min(n.max(1));
+    if n < 2 {
+        return Ok(vec![]);
+    }
+    // k-means++ restarted from several fixed seeds; the split with the lowest
+    // within-group distance wins (a single start can settle in a poor split).
+    let mut best: Option<(f32, Vec<usize>, Vec<Vec<f32>>)> = None;
+    for seed in 0..8u64 {
+        let (assign, centers) = kmeans(
+            &zs,
+            k,
+            0x9E3779B97F4A7C15u64 ^ seed.wrapping_mul(0xA24BAED4963EE407),
+        );
+        let inertia: f32 = zs
+            .iter()
+            .zip(&assign)
+            .map(|((_, z), a)| dist2(z, &centers[*a]))
+            .sum();
+        if best.as_ref().is_none_or(|b| inertia < b.0) {
+            best = Some((inertia, assign, centers));
+        }
+    }
+    let (_, assign, centers) = best.expect("at least one k-means run");
     let genre_of: HashMap<String, String> = {
         let mut stmt = conn
             .prepare("SELECT id, genre FROM live_tracks WHERE genre IS NOT NULL AND genre != ''")?;
