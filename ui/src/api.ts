@@ -293,6 +293,21 @@ export interface StylesStatus {
   maestSizeMb: number;
 }
 
+export interface ModelInfo {
+  id: string;
+  bundled: boolean;
+  installed: boolean;
+  sizeMb: number;
+  license: string;
+  installedBytes: number;
+}
+
+export interface ModelVerifyReport {
+  ok: number;
+  missing: string[];
+  damaged: string[];
+}
+
 export interface ClapStatus {
   downloaded: boolean;
   license: string;
@@ -825,6 +840,9 @@ export const api = {
   stylesDownload: () => invoke<void>("styles_download"),
   stylesDownloadAccurate: () => invoke<void>("styles_download_accurate"),
   stylesReanalyze: () => invoke<number>("styles_reanalyze"),
+  modelsCatalog: () => invoke<ModelInfo[]>("models_catalog"),
+  modelsVerify: (id: string) => invoke<ModelVerifyReport>("models_verify", { id }),
+  modelsRemove: (id: string) => invoke<void>("models_remove", { id }),
   clapStatus: () => invoke<ClapStatus>("clap_status"),
   clapDownload: () => invoke<void>("clap_download"),
   clapReanalyze: () => invoke<number>("clap_reanalyze"),

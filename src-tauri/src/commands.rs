@@ -1311,6 +1311,24 @@ const SETTINGS: &[(&str, &str)] = &[
 ];
 
 #[tauri::command]
+pub fn models_catalog() -> Vec<dc_core::models::ModelInfo> {
+    dc_core::models::catalog()
+}
+
+#[tauri::command]
+pub async fn models_verify(id: String) -> Res<dc_core::models::VerifyReport> {
+    tauri::async_runtime::spawn_blocking(move || dc_core::models::verify(&id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn models_remove(id: String) -> Res<()> {
+    dc_core::models::remove(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Res<HashMap<String, String>> {
     with_conn!(state, |c| {
         let mut m = HashMap::new();

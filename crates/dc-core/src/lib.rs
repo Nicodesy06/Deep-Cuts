@@ -34,6 +34,7 @@ pub mod m3uimport;
 pub mod map;
 pub mod metadata;
 pub mod ml;
+pub mod models;
 pub mod mytag;
 pub mod paths;
 pub mod playlist_match;

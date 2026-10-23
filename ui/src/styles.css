@@ -2543,3 +2543,99 @@ input.narrow { width: 64px; }
   border: 1px solid var(--line-2);
   color: var(--muted);
 }
+
+/* ---------- AI models page ---------- */
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.model-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.model-card.installed {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-2));
+}
+.model-card.evaluating {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.model-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.model-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.model-card .badge {
+  flex: none;
+  white-space: nowrap;
+}
+.model-card .badge.ok {
+  color: var(--keep);
+  border-color: var(--keep);
+}
+.model-what {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.pros-cons ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12.5px;
+}
+.pros-cons li {
+  padding-left: 18px;
+  position: relative;
+}
+.pros li::before {
+  content: "+";
+  position: absolute;
+  left: 2px;
+  color: var(--keep);
+  font-weight: 800;
+}
+.cons {
+  margin-top: 4px !important;
+}
+.cons li::before {
+  content: "−";
+  position: absolute;
+  left: 2px;
+  color: var(--pass);
+  font-weight: 800;
+}
+.model-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+.model-facts dt {
+  color: var(--muted);
+}
+.model-facts dd {
+  margin: 0;
+}
+.model-progress {
+  width: 100%;
+}
+.btn.danger {
+  color: var(--pass);
+}

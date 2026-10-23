@@ -14,6 +14,7 @@ export type View =
   | "tags"
   | "sync"
   | "queue"
+  | "models"
   | "settings";
 
 export interface Toast {

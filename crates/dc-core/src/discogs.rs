@@ -87,14 +87,14 @@ const HEAD_BASE: &str = "https://essentia.upf.edu/models/classification-heads";
 /// read by the emoMusic arousal/valence regressor. Same front-end, patches
 /// of 187 frames every 93.
 pub const MUSICNN_MODEL: &str = "msd-musicnn";
-const MUSICNN_FILE: &str = "msd-musicnn-1.onnx";
+pub const MUSICNN_FILE: &str = "msd-musicnn-1.onnx";
 const MUSICNN_URL: &str =
     "https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.onnx";
-const MUSICNN_BLAKE3: &str = "437269e5e5675033d6c5366804abe7513eba614cdd96946c88d4ca215b6decdf";
-const EMOTION_FILE: &str = "emomusic-msd-musicnn-2.onnx";
+pub const MUSICNN_BLAKE3: &str = "437269e5e5675033d6c5366804abe7513eba614cdd96946c88d4ca215b6decdf";
+pub const EMOTION_FILE: &str = "emomusic-msd-musicnn-2.onnx";
 const EMOTION_URL: &str =
     "https://essentia.upf.edu/models/classification-heads/emomusic/emomusic-msd-musicnn-2.onnx";
-const EMOTION_BLAKE3: &str = "39fe7e3206ee646e4971bc3321c54bbffefe0e3a7ad48eb78798a4103e0f5be1";
+pub const EMOTION_BLAKE3: &str = "39fe7e3206ee646e4971bc3321c54bbffefe0e3a7ad48eb78798a4103e0f5be1";
 #[cfg_attr(not(feature = "ml"), allow(dead_code))]
 const MUSICNN_PATCH: usize = 187;
 #[cfg_attr(not(feature = "ml"), allow(dead_code))]

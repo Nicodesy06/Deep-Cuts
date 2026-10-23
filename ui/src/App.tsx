@@ -18,6 +18,7 @@ import { SyncExport } from "./views/SyncExport";
 import { TagEditor } from "./views/TagEditor";
 import { Discover } from "./views/Discover";
 import { SetBuilder } from "./views/SetBuilder";
+import { AiModels } from "./views/AiModels";
 
 const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "dashboard", label: "nav.dashboard", icon: "◧" },
@@ -30,6 +31,7 @@ const NAV: { id: View; label: MsgKey; icon: string; planned?: boolean }[] = [
   { id: "tags", label: "nav.tags", icon: "#" },
   { id: "sync", label: "nav.sync", icon: "⇄" },
   { id: "queue", label: "nav.queue", icon: "◔" },
+  { id: "models", label: "nav.models", icon: "◈" },
   { id: "settings", label: "nav.settings", icon: "⚙" },
 ];
 
@@ -219,6 +221,9 @@ function Main() {
       break;
     case "queue":
       content = <AnalysisQueue />;
+      break;
+    case "models":
+      content = <AiModels />;
       break;
     case "settings":
       content = <Settings />;
