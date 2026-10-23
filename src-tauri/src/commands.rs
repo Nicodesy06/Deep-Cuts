@@ -1306,6 +1306,8 @@ const SETTINGS: &[(&str, &str)] = &[
     ("discogsToken", ""),
     ("genreSource", ""),
     ("stylesAccurate", "off"),
+    ("genreMinAgreement", "0.6"),
+    ("djProfile", ""),
 ];
 
 #[tauri::command]

@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api, type AppInfo, type BackupInfo, type RelocatePreview, type WatchFolder } from "../api";
 import { formatBytes } from "../format";
 import type { Lang, MsgKey } from "../i18n";
+import { DjProfiles } from "../components/DjProfiles";
 import { GenreSourceDialog } from "../components/GenreSourceDialog";
 import { useAction, useApp } from "../store";
 
@@ -39,6 +40,7 @@ export function Settings() {
       <header className="page-head">
         <h1>{t("nav.settings")}</h1>
       </header>
+      <DjProfiles settings={settings} onChanged={() => api.getSettings().then(setSettings, () => {})} />
       <div className="cols-2">
         <section className="panel">
           <h2>{t("settings.general")}</h2>

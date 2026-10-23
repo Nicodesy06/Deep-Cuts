@@ -256,7 +256,17 @@ function StylesLine() {
 function GenrePanel() {
   const { t, bump, play, nowPlaying } = useApp();
   const act = useAction();
-  const [minShare, setMinShare] = useState(0.6);
+  const [minShare, setMinShareState] = useState(0.6);
+  useEffect(() => {
+    api.getSettings().then((s) => {
+      const v = Number(s.genreMinAgreement);
+      if (v >= 0.5 && v <= 0.8) setMinShareState(v);
+    }, () => {});
+  }, []);
+  const setMinShare = (v: number) => {
+    setMinShareState(v);
+    api.setSetting("genreMinAgreement", String(v)).catch(() => {});
+  };
   const [source, setSource] = useState<"labels" | "styles">("labels");
   const [rep, setRep] = useState<LabelReport | null>(null);
   const [busy, setBusy] = useState(false);
