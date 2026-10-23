@@ -48,11 +48,13 @@ pub fn entries(text: &str, base: &Path) -> Vec<PathBuf> {
                 None => l.to_string(),
             };
             let p = PathBuf::from(&l);
-            if p.is_absolute() || l.starts_with('\\') || l.get(1..2) == Some(":") {
+            let p = if p.is_absolute() || l.starts_with('\\') || l.get(1..2) == Some(":") {
                 p
             } else {
                 base.join(p)
-            }
+            };
+            // Accented names may be written in the other Unicode form.
+            library::existing_path(&p).unwrap_or(p)
         })
         .collect()
 }

@@ -361,9 +361,39 @@ pub fn path_key(p: &Path) -> String {
     // Canonicalise when possible so the same file is never imported twice
     // through different relative paths.
     dunce::canonicalize(p)
+        .or_else(|e| match unicode_variant(p) {
+            Some(q) => dunce::canonicalize(q),
+            None => Err(e),
+        })
         .unwrap_or_else(|_| p.to_path_buf())
         .to_string_lossy()
         .into_owned()
+}
+
+/// `p` if it exists, else its other Unicode normal form if that exists.
+pub fn existing_path(p: &Path) -> Option<PathBuf> {
+    if p.exists() {
+        Some(p.to_path_buf())
+    } else {
+        unicode_variant(p)
+    }
+}
+
+/// The same path in the other Unicode normal form, when that one exists.
+/// Accented names can be stored decomposed (NFD, macOS) while a playlist or
+/// another application's library writes them composed (NFC), or the reverse;
+/// without this such files would be reported missing.
+pub fn unicode_variant(p: &Path) -> Option<PathBuf> {
+    use unicode_normalization::UnicodeNormalization;
+    let s = p.to_str()?;
+    if s.is_ascii() {
+        return None;
+    }
+    [s.nfc().collect::<String>(), s.nfd().collect::<String>()]
+        .into_iter()
+        .filter(|v| v != s)
+        .map(PathBuf::from)
+        .find(|v| v.exists())
 }
 
 /// `path_key` for a path that no longer exists: the nearest existing

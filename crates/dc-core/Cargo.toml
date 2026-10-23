@@ -10,6 +10,7 @@ chrono = "0.4.45"
 csv = "1.4.0"
 dirs = "7.0.0"
 dunce = "1.0.5"
+unicode-normalization = "0.1"
 lofty = "0.25.4"
 ort = { version = "=2.0.0-rc.13", default-features = false, optional = true, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native"] }
 percent-encoding = "2.3.2"

@@ -320,8 +320,7 @@ pub fn import_library(
     }
     let existing: Vec<PathBuf> = paths
         .iter()
-        .map(|p| p.1.clone())
-        .filter(|p| p.exists())
+        .filter_map(|p| library::existing_path(&p.1))
         .collect();
     library::import_paths(conn, &existing, None, &mut |_| {})?;
 

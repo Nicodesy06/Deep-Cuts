@@ -107,3 +107,26 @@ fn rename_preview_apply_undo_redo() {
     assert!(fileops::plan(&conn, &ids, "{nope}", None).is_err());
     assert!(fileops::plan(&conn, &ids, "{artist", None).is_err());
 }
+
+/// A playlist or another application may spell an accented name composed
+/// (NFC) while the file system stores it decomposed (NFD), or the reverse:
+/// both spellings must lead to the same library file.
+#[test]
+fn accented_paths_match_in_either_unicode_form() {
+    use unicode_normalization::UnicodeNormalization;
+    let tmp = tempfile::tempdir().unwrap();
+    let nfd: String = "Café Déjà Vu.mp3".nfd().collect();
+    let nfc: String = "Café Déjà Vu.mp3".nfc().collect();
+    assert_ne!(nfd, nfc);
+    std::fs::write(tmp.path().join(&nfd), b"x").unwrap();
+    let on_disk = std::fs::read_dir(tmp.path())
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let key = dc_core::library::path_key(&on_disk);
+    assert_eq!(dc_core::library::path_key(&tmp.path().join(&nfc)), key);
+    assert_eq!(dc_core::library::path_key(&tmp.path().join(&nfd)), key);
+    assert!(dc_core::library::existing_path(&tmp.path().join(&nfc)).is_some());
+}
