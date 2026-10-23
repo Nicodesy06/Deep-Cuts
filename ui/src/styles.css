@@ -2518,9 +2518,14 @@ input.narrow { width: 64px; }
 }
 .profile-name {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
   font-weight: 700;
+}
+.profile-name .badge {
+  flex: none;
+  white-space: nowrap;
 }
 .profile-desc {
   font-size: 12.5px;

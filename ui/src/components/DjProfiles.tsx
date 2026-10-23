@@ -67,8 +67,13 @@ export function DjProfiles({ settings, onChanged }: { settings: Record<string, s
       t("profiles.agreement", { n: Math.round(p.genreMinAgreement * 100) }),
       t("profiles.setMode", { mode: t(`sets.mode.${p.setMode}` as MsgKey) }),
     ];
-    const w = Object.keys(p.weights);
-    parts.push(w.length ? t("profiles.weights", { list: w.map((k) => t(`disc.group.${k}` as MsgKey).toLowerCase()).join(", ") }) : t("profiles.weightsDefault"));
+    const name = (k: string) => t(`disc.group.${k}` as MsgKey).toLowerCase();
+    const changed = Object.entries(p.weights) as [keyof SimilarityWeights, number][];
+    const more = changed.filter(([k, v]) => v > DEFAULT_WEIGHTS[k]).map(([k]) => name(k));
+    const less = changed.filter(([k, v]) => v < DEFAULT_WEIGHTS[k]).map(([k]) => name(k));
+    if (more.length) parts.push(t("profiles.weights", { list: more.join(", ") }));
+    if (less.length) parts.push(t("profiles.weightsLess", { list: less.join(", ") }));
+    if (!more.length && !less.length) parts.push(t("profiles.weightsDefault"));
     return parts;
   };
 
